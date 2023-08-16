@@ -2,6 +2,9 @@
 
 from __future__ import print_function, division, absolute_import, unicode_literals
 
+# Debug statements
+import sys
+sys.path.append('x:/Projects/Contrails/RMS-Contrail')
 
 import numpy as np
 
@@ -25,20 +28,21 @@ def GeoHt2xy (platepar, lat, lon, h):
     """
     # Compute the ECEF location of the point and the station
     p_vector = latLonAlt2ECEF(lat, lon, h)
-    s_vector = latLonAlt2ECEF(platepar.lat, platepar.lon, platepar.elev)
+    print(p_vector)
+    s_vector = latLonAlt2ECEF(np.radians(platepar.lat), np.radians(platepar.lon), platepar.elev)
+    print(s_vector)
 
     azim, elev = ECEF2AltAz(s_vector, p_vector)
 
     ra, dec = altAz2RADec(azim, elev, J2000_JD.days, platepar.lat, platepar.lon)
 
-    x, y = raDecToXYPP(ra, dec, J2000_JD.days, platepar)
+    x, y = raDecToXYPP(np.array([ra]), np.array([dec]), J2000_JD.days, platepar)
 
     return x, y
 
 if __name__ == "__main__":
 
     import argparse
-    print("HELLO")
 
     ### COMMAND LINE ARGUMENTS
 
@@ -75,5 +79,4 @@ if __name__ == "__main__":
     # Compute the FOV geo points
     XY = GeoHt2xy(pp, lat_rad, lon_rad, cml_args.height)
 
-    for side_points in area_list:
-        print(side_points)
+    print(XY)
