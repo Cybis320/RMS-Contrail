@@ -5,7 +5,7 @@ from __future__ import print_function, division, absolute_import, unicode_litera
 
 import numpy as np
 
-from RMS.Astrometry.ApplyAstrometry import xyToRaDecPP, raDec2AltAz
+from RMS.Astrometry.ApplyAstrometry import xyToAltAzPP
 from RMS.Astrometry.Conversions import jd2Date, J2000_JD, AEH2LatLonAlt
 from RMS.Formats.Platepar import Platepar
 from RMS.Routines.MaskImage import loadMask, MaskStructure
@@ -34,13 +34,8 @@ def xyHt2Geo(platepar, x, y, area_ht, indicate_limit=False, elev_limit=5):
 
     """
 
-    
-    # Compute RA/Dec in J2000 of the image point, at J2000 epoch time so we don't have to precess
-    _, ra, dec, _ = xyToRaDecPP([jd2Date(J2000_JD.days)], [x], [y], [1], platepar, \
-        extinction_correction=False)
-
     # Compute alt/az of the point
-    azim, elev = raDec2AltAz(ra[0], dec[0], J2000_JD.days, platepar.lat, platepar.lon)
+    (azim,), (elev,) = xyToAltAzPP([x], [y], platepar)
 
     # Limit the elevation to elev_limit degrees above the horizon
     limit_hit = False
