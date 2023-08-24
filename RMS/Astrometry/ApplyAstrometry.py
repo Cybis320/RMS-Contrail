@@ -49,6 +49,8 @@ from RMS.Math import angularSeparation, cartesianToPolar, polarToCartesian
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
 from RMS.Astrometry.CyFunctions import (cyraDecToXY, cyTrueRaDec2ApparentAltAz,
                                         cyXYToRADec,
+                                        cyXYToAltAz,
+                                        refractionApparentToTrue,
                                         eqRefractionApparentToTrue,
                                         equatorialCoordPrecession)
 
@@ -657,6 +659,52 @@ def xyToRaDecPP(time_data, X_data, Y_data, level_data, platepar, extinction_corr
 
 
     return JD_data, RA_data, dec_data, magnitude_data
+
+
+
+
+def xyToAltAzPP(X_data, Y_data, platepar, measurement=False):
+    """ Converts image XY to Alt, Az, but it takes a platepar instead of individual parameters. 
+
+    Arguments:
+        X_data: [ndarray] 1D numpy array containing the image X component.
+        Y_data: [ndarray] 1D numpy array containing the image Y component.
+        platepar: [Platepar structure] Astrometry parameters.
+
+    Keyword arguments:
+        extinction_correction: [bool] Apply extinction correction. True by default. False is set to prevent 
+            infinite recursion in extinctionCorrectionApparentToTrue when set to True.
+        measurement: [bool] Indicates if the given images values are image measurements. Used for correcting
+            celestial coordinates for refraction if the refraction was not taken into account during
+            plate fitting.
+
+    Return:
+        (Az_data, Alt_data): [tuple of ndarrays]
+            RA_data: [ndarray] Right ascension of each point (deg).
+            dec_data: [ndarray] Declination of each point (deg).
+    """
+
+
+    # Convert x,y to Alt/Az using a fast cython function
+    Az_data, Alt_data = cyXYToAltAz(np.array(X_data, dtype=np.float64), \
+        np.array(Y_data, dtype=np.float64), float(platepar.X_res), \
+        float(platepar.Y_res), float(platepar.az_centre), float(platepar.alt_centre), \
+        float(platepar.rotation_from_horiz), float(platepar.F_scale), platepar.x_poly_fwd, platepar.y_poly_fwd, \
+        unicode(platepar.distortion_type), refraction=platepar.refraction, \
+        equal_aspect=platepar.equal_aspect, force_distortion_centre=platepar.force_distortion_centre, \
+        asymmetry_corr=platepar.asymmetry_corr)
+
+    # Correct the coordinates for refraction if it wasn't taken into account during the astrometry calibration
+    #   procedure
+    if (not platepar.refraction) and measurement and platepar.measurement_apparent_to_true_refraction:
+        for i, entry in enumerate(zip(Az_data, Alt_data)):
+            az, alt = entry
+            alt = refractionApparentToTrue(np.radians(alt))
+
+            Az_data[i] = az
+            Alt_data[i] = np.degrees(alt)
+            
+    return (Az_data, Alt_data)
 
 
 
