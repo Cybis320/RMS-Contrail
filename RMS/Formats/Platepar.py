@@ -1334,6 +1334,9 @@ class Platepar(object):
 
         # Compute the rotation of the camera wrt horizon
         return RMS.Astrometry.ApplyAstrometry.rotationWrtHorizon(self)
+    
+    def copy(self):
+        return copy.copy(self)
 
     def __repr__(self):
 
