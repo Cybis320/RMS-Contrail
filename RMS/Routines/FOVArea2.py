@@ -29,7 +29,7 @@ def xy2AltAz(platepar, x, y, elev_limit=5):
     """
 
     # Compute alt/az of the point
-    azim, alt = xyToAltAzPP([x], [y], platepar)
+    (azim,), (alt,) = xyToAltAzPP([x], [y], platepar)
 
     # Limit the elevation to elev_limit degrees above the horizon
     if alt < elev_limit:
