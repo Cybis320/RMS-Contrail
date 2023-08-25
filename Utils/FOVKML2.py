@@ -204,7 +204,7 @@ if __name__ == "__main__":
         help="Height of area polygon (km). 100 km by default.", default=100)
 
     arg_parser.add_argument('-p', '--pts', metavar='SIDE_POINT', type=int, \
-        help="Number of points to evaluate on the longest side. 10 by default.", default=10)
+        help="Number of points to evaluate on the longest side. 10 by default.", default=50)
 
     arg_parser.add_argument('-s', '--station', action="store_true", \
         help="""Plot the location of the station.""")
