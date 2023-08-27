@@ -17,7 +17,7 @@ def get_device(config):
 if __name__ == "__main__":
 
     # Init the command line arguments parser
-    arg_parser = argparse.ArgumentParser(description=""" Show live stream from the camera.
+    arg_parser = argparse.ArgumentParser(description=""" Show live stream from the camera with focus value.
         """)
 
     arg_parser.add_argument('-c', '--config', nargs=1, metavar='CONFIG_PATH', type=str,
@@ -81,7 +81,6 @@ if __name__ == "__main__":
             cv2.putText(cropped_frame, f"Focus: {focus_measure:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
             cv2.putText(cropped_frame, "Press 'q' to quit. Use +, -, and arrows to adjust.", (10, cropped_frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
             cv2.rectangle(cropped_frame, (focus_x, focus_y), (focus_x+focus_w, focus_y+focus_h), (0, 255, 0), 2)
-
 
             # Zoom 2x for display
             zoomed_frame = cv2.resize(cropped_frame, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
