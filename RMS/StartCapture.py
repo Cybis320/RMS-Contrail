@@ -30,16 +30,19 @@ import logging
 import multiprocessing
 import traceback
 import git
+import subprocess
 
 import numpy as np
 
 # This needs to be first to set the proper matplotlib backend it needs
 from Utils.LiveViewer import LiveViewer
+import Utils.CameraControl as cc
 
 import RMS.ConfigReader as cr
 from RMS.Logger import initLogging
 from RMS.BufferedCapture import BufferedCapture
 from RMS.CaptureDuration import captureDuration
+from RMS.CaptureDurationDay import captureDurationDay
 from RMS.Compression import Compressor
 from RMS.DeleteOldObservations import deleteOldObservations
 from RMS.DetectStarsAndMeteors import detectStarsAndMeteors
@@ -78,8 +81,49 @@ def resetSIGINT():
 
     signal.signal(signal.SIGINT, ORIGINAL_BREAK_HANDLE)
 
+# TODO: consider moving and combining function to CaptureDuration.py
 
+def setDayorNight(config.latitude, config.longitude, config.elevation):
+    """ Calcualtes the start time and the duration of capturing, for the given geographical coordinates. 
+        AND set camera parameters for day or night capture.
 
+    Arguments:
+        lat: [float] latitude +N in degrees
+        lon: [float] longitude +E in degrees
+        elevation: [float] elevation above sea level in meters
+    
+    Keyword arguments:
+        current_time: [datetime object] The given date and time of reference for the capture duration
+            calculation. If not given, the current time is used. None by default
+        max_hours: [float] Maximum number of hours of capturing time. If the calculated duration is longer
+            than this, the duration is set to this value. 23 by default, to give enough time for the
+            rest of the processing.
+    
+    Return:
+        (start_time, duration):
+            - start_time: [datetime object] time when the capturing should start, True if capturing should
+                start right away
+            - duration: [float] seconds of capturing time
+    """
+
+    # Calculate when and how should the capture run
+    start_time, duration = captureDuration(config.latitude, config.longitude, config.elevation)
+    start_time_day, duration_day = captureDurationDay(config.latitude, config.longitude, config.elevation)
+    isday = False
+
+    if start_time_day:
+        isday = True
+        duration = duration_day
+        start_time = start_time_day
+        
+        # Set Camera Parameters for daylight operation
+        subprocess.run(["./Scripts/RMS_SetCameraParams_Day.sh"])
+    elif:
+        # Set Camera Parameters for nighttime operation
+        subprocess.run(["./Scripts/RMS_SetCameraParams.sh"])
+    
+    return start_time, duration, isday
+        
 
 
 def wait(duration, compressor, buffered_capture, video_file):
@@ -825,7 +869,7 @@ if __name__ == "__main__":
     while True:
 
         # Calculate when and how should the capture run
-        start_time, duration = captureDuration(config.latitude, config.longitude, config.elevation)
+        start_time, duration, _ = setDayorNight(config.latitude, config.longitude, config.elevation)        
 
         log.info('Next start time: ' + str(start_time) + ' UTC')
 
@@ -860,6 +904,14 @@ if __name__ == "__main__":
 
                     log.info('Rebooting now!')
 
+                    # Reboot the camera
+                    try:
+                        cc.cameraControlV2(config, 'reboot')
+
+                    except Exception as e:
+                        log.debug('Rebooting camera failed with message:\n' + repr(e))
+                        log.debug(repr(traceback.format_exception(*sys.exc_info())))
+
                     # Reboot the computer (script needs sudo priviledges, works only on Linux)
                     try:
                         os.system('sudo shutdown -r now')
@@ -874,8 +926,9 @@ if __name__ == "__main__":
                     time.sleep(60)
 
 
-                ### Stop reboot tries if it's time to capture ###
-                if isinstance(start_time, bool):
+                ### Stop reboot tries if it's time to night capture ###
+                start_time_night, _ = captureDuration(config.latitude, config.longitude, config.elevation)
+                if isinstance(start_time_night, bool):
                     if start_time:
                         break
 
@@ -972,7 +1025,7 @@ if __name__ == "__main__":
 
 
             # Update start time and duration
-            start_time, duration = captureDuration(config.latitude, config.longitude, config.elevation)
+            start_time, duration = setDayorNight(config.latitude, config.longitude, config.elevation)
 
             # Check if waiting is needed to start capture
             if not isinstance(start_time, bool):
