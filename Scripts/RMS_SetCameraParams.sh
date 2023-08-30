@@ -10,8 +10,8 @@ echo "right IP address and that this address has been added to the RMS .config f
 echo ""
 echo "If you have not yet configured the camera IP address, press Ctrl-C. "
 echo ""
-echo "otherwise press any key to continue."
-read goonthen
+# echo "otherwise press any key to continue."
+# read goonthen
 
 currip=$(python -m Utils.CameraControl GetIP)
 
