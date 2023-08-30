@@ -50,6 +50,8 @@ echo "1" > $UPDATEINPROGRESSFILE
 # Stash the changes
 git stash
 
+########## TODO: get branch/fork from .config file #########
+
 # Check if 'fork' remote exists and add if it doesn't
 if ! git remote | grep -q 'fork'; then
   git remote add fork 'https://github.com/Cybis320/RMS-Contrail'
