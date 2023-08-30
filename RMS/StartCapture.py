@@ -83,7 +83,7 @@ def resetSIGINT():
 
 # TODO: consider moving and combining function to CaptureDuration.py
 
-def setDayorNight(config.latitude, config.longitude, config.elevation):
+def setDayorNight(latitude, longitude, elevation):
     """ Calcualtes the start time and the duration of capturing, for the given geographical coordinates. 
         AND set camera parameters for day or night capture.
 
@@ -107,8 +107,8 @@ def setDayorNight(config.latitude, config.longitude, config.elevation):
     """
 
     # Calculate when and how should the capture run
-    start_time, duration = captureDuration(config.latitude, config.longitude, config.elevation)
-    start_time_day, duration_day = captureDurationDay(config.latitude, config.longitude, config.elevation)
+    start_time, duration = captureDuration(latitude, longitude, elevation)
+    start_time_day, duration_day = captureDurationDay(latitude, longitude, elevation)
     isday = False
 
     if start_time_day:
@@ -118,7 +118,7 @@ def setDayorNight(config.latitude, config.longitude, config.elevation):
         
         # Set Camera Parameters for daylight operation
         subprocess.run(["./Scripts/RMS_SetCameraParams_Day.sh"])
-    elif:
+    else:
         # Set Camera Parameters for nighttime operation
         subprocess.run(["./Scripts/RMS_SetCameraParams.sh"])
     
