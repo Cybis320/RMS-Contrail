@@ -26,6 +26,8 @@ from threading import Thread
 
 
 from math import floor
+
+# pylint: disable=E1101
 import cv2
 
 from RMS.Misc import ping
@@ -385,7 +387,7 @@ class BufferedCapture(Process):
 
                         # Save the labelled image to disk with a separate thread
                         try:
-                            worker_thread = Thread(target=lambda: cv2.imwrite((os.path.join(dirname, filename), frame)))
+                            worker_thread = Thread(target=lambda: cv2.imwrite(os.path.join(dirname, filename), frame))
                             worker_thread.start()
                             log.debug(f"Saving i={i}: {filename} time: {time.time() - frame_timestamp:.3f} s")
                         except:
