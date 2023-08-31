@@ -1025,7 +1025,7 @@ if __name__ == "__main__":
 
 
             # Update start time and duration
-            start_time, duration = setDayorNight(config.latitude, config.longitude, config.elevation)
+            start_time, duration, _ = setDayorNight(config.latitude, config.longitude, config.elevation)
 
             # Check if waiting is needed to start capture
             if not isinstance(start_time, bool):
