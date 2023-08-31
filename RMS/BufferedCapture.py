@@ -23,7 +23,9 @@ import datetime
 import os.path
 from multiprocessing import Process, Event
 
+from math import floor
 import cv2
+from RMS.Routines.Image import saveImage
 
 from RMS.Misc import ping
 
@@ -232,6 +234,17 @@ class BufferedCapture(Process):
 
             total_frames = first_skipped_frames
 
+            # Create dir to save uncompressed images
+            stationID = str(self.config.stationID)
+            date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
+            dirname = f"UC_{stationID}_"+ date_string
+            dirname = os.path.join(self.config.data_dir, dirname)
+
+            # Create the directory
+            os.makedirs(dirname, exist_ok=True)
+            
+
+
 
         # If a video file was used, set the time of the first frame to the time read from the file name
         if self.video_file is not None:
@@ -352,6 +365,31 @@ class BufferedCapture(Process):
 
                     # Grab the current UNIX timestamp
                     frame_timestamp = time.time()
+
+                    # If a video device is used, save a uncompressed frame every 32 frames
+
+                    if i % 32 == 0:
+                        # Generate the name for the file
+                        date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
+
+                        # Calculate miliseconds
+                        millis = int((frame_timestamp - floor(frame_timestamp))*1000)
+                        
+                        # Create the filename
+                        filename = f"UC_{stationID}_"+ date_string + "_" + str(millis).zfill(3) + ".png"
+
+                        # Draw text to image
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        text = self.config.stationID + " " + date_string + " " + millis + " UTC"
+                        cv2.putText(frame, text, (10, maxpixel.shape[0] - 6), font, 0.4, (255, 255, 255), 1, \
+                            cv2.LINE_AA)
+
+                        # Save the labelled image to disk
+                        try:
+                            # Save the file to disk
+                            saveImage(os.path.join(dirname, filename), frame)
+                        except:
+                            log.error("Could not save {:s} to disk!".format(filename))
 
 
                 # If a video file is used, compute the time using the time from the file timestamp
