@@ -44,7 +44,7 @@ python -m Utils.CameraControl SetParam Camera BLCMode 0
 python -m Utils.CameraControl SetParam Camera DayNightColor 2
 python -m Utils.CameraControl SetParam Camera Day_nfLevel 0
 python -m Utils.CameraControl SetParam Camera DncThr 50
-python -m Utils.CameraControl SetParam Camera ElecLevel 100
+python -m Utils.CameraControl SetParam Camera ElecLevel 60
 python -m Utils.CameraControl SetParam Camera EsShutter 0
 python -m Utils.CameraControl SetParam Camera ExposureParam LeastTime 40000
 python -m Utils.CameraControl SetParam Camera ExposureParam Level 0
