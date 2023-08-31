@@ -108,10 +108,12 @@ def setDayorNight(latitude, longitude, elevation):
 
     # Calculate when and how should the capture run
     start_time, duration = captureDuration(latitude, longitude, elevation)
+    print(f"Is it night? {start_time}")
     start_time_day, duration_day = captureDurationDay(latitude, longitude, elevation)
+    print(f"Is it day? {start_time_day}")
     isday = False
 
-    if start_time_day:
+    if start_time_day is True:
         isday = True
         duration = duration_day
         start_time = start_time_day
@@ -929,7 +931,7 @@ if __name__ == "__main__":
                 ### Stop reboot tries if it's time to night capture ###
                 start_time_night, _ = captureDuration(config.latitude, config.longitude, config.elevation)
                 if isinstance(start_time_night, bool):
-                    if start_time:
+                    if start_time is True:
                         break
 
                 time_now = datetime.datetime.utcnow()
