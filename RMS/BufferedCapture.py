@@ -381,7 +381,7 @@ class BufferedCapture(Process):
                         # Draw text to image
                         font = cv2.FONT_HERSHEY_SIMPLEX
                         text = f"{self.config.stationID} {date_string} {millis} UTC"
-                        cv2.putText(frame, text, (10, maxpixel.shape[0] - 6), font, 0.4, (255, 255, 255), 1, \
+                        cv2.putText(frame, text, (10, frame.shape[0] - 6), font, 0.4, (255, 255, 255), 1, \
                             cv2.LINE_AA)
 
                         # Save the labelled image to disk
