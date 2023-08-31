@@ -74,6 +74,11 @@ class BufferedCapture(Process):
 
         self.dropped_frames = 0
 
+    def save_image_and_log_time(self, filename, img_path, img, start_time, i):
+        cv2.imwrite(img_path, img)
+        elapsed_time = time.time() - start_time
+        print(f"Saving completed: i={i}: {filename} time: {elapsed_time:.3f} s")
+
 
     def startCapture(self, cameraID=0):
         """ Start capture using specified camera.
@@ -240,7 +245,7 @@ class BufferedCapture(Process):
             stationID = str(self.config.stationID)
             date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
             dirname = f"UC_{stationID}_"+ date_string
-            dirname = os.path.join(self.config.data_dir, dirname)
+            dirname = os.path.join(self.config.data_dir, dirname, "Unprocessed")
 
             # Create the directory
             os.makedirs(dirname, exist_ok=True)
@@ -369,6 +374,10 @@ class BufferedCapture(Process):
                     frame_timestamp = time.time()
 
                     # If a video device is used, save a uncompressed frame every nth frames
+                    # if i % 64 == 0:   > img every 2.56s, 3.7GB per day
+                    # if i % 128 == 0:   > img every 5.12s, 1.9GB per day
+                    # if i == 0:   > img every 10.24s, 0.9GB per day
+
                     if i % 128 == 0:
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
@@ -379,6 +388,8 @@ class BufferedCapture(Process):
                         # Create the filename
                         filename = f"UC_{stationID}_"+ date_string + "_" + str(millis).zfill(3) + ".jpg"
 
+                        img_path = os.path.join(dirname, filename)
+
                         # # Draw text to image
                         # font = cv2.FONT_HERSHEY_SIMPLEX
                         # text = f"{self.config.stationID} {date_string} {millis} UTC"
@@ -387,9 +398,8 @@ class BufferedCapture(Process):
 
                         # Save the labelled image to disk with a separate thread
                         try:
-                            worker_thread = Thread(target=lambda: cv2.imwrite(os.path.join(dirname, filename), frame))
+                            worker_thread = Thread(target=self.save_image_and_log_time, args=(filename, img_path, frame, frame_timestamp,i), daemon=True)
                             worker_thread.start()
-                            log.debug(f"Saving i={i}: {filename} time: {time.time() - frame_timestamp:.3f} s")
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
 
