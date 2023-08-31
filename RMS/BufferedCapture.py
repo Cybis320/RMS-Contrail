@@ -22,10 +22,11 @@ import logging
 import datetime
 import os.path
 from multiprocessing import Process, Event
+from threading import Thread
+
 
 from math import floor
 import cv2
-from RMS.Routines.Image import saveImage
 
 from RMS.Misc import ping
 
@@ -70,7 +71,6 @@ class BufferedCapture(Process):
         self.time_for_drop = 1.5*(1.0/config.fps)
 
         self.dropped_frames = 0
-    
 
 
     def startCapture(self, cameraID=0):
@@ -366,9 +366,8 @@ class BufferedCapture(Process):
                     # Grab the current UNIX timestamp
                     frame_timestamp = time.time()
 
-                    # If a video device is used, save a uncompressed frame every 32 frames
-
-                    if i % 32 == 0:
+                    # If a video device is used, save a uncompressed frame every nth frames
+                    if i % 128 == 0:
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
 
@@ -376,21 +375,21 @@ class BufferedCapture(Process):
                         millis = int((frame_timestamp - floor(frame_timestamp))*1000)
                         
                         # Create the filename
-                        filename = f"UC_{stationID}_"+ date_string + "_" + str(millis).zfill(3) + ".png"
+                        filename = f"UC_{stationID}_"+ date_string + "_" + str(millis).zfill(3) + ".jpg"
 
-                        # Draw text to image
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        text = f"{self.config.stationID} {date_string} {millis} UTC"
-                        cv2.putText(frame, text, (10, frame.shape[0] - 6), font, 0.4, (255, 255, 255), 1, \
-                            cv2.LINE_AA)
+                        # # Draw text to image
+                        # font = cv2.FONT_HERSHEY_SIMPLEX
+                        # text = f"{self.config.stationID} {date_string} {millis} UTC"
+                        # cv2.putText(frame, text, (10, frame.shape[0] - 6), font, 0.4, (255, 255, 255), 1, \
+                        #     cv2.LINE_AA)
 
-                        # Save the labelled image to disk
+                        # Save the labelled image to disk with a separate thread
                         try:
-                            # Save the file to disk
-                            saveImage(os.path.join(dirname, filename), frame)
+                            worker_thread = Thread(target=lambda: cv2.imwrite((os.path.join(dirname, filename), frame)))
+                            worker_thread.start()
+                            log.debug(f"Saving i={i}: {filename} time: {time.time() - frame_timestamp:.3f} s")
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
-
 
                 # If a video file is used, compute the time using the time from the file timestamp
                 else:
