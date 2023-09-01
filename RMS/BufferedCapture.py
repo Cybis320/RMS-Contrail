@@ -245,7 +245,7 @@ class BufferedCapture(Process):
             stationID = str(self.config.stationID)
             date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
             dirname = f"UC_{stationID}_"+ date_string
-            dirname = os.path.join(self.config.data_dir, dirname, "Unprocessed")
+            dirname = os.path.join(self.config.data_dir, "Unprocessed", dirname)
 
             # Create the directory
             os.makedirs(dirname, exist_ok=True)
