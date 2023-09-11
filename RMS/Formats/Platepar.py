@@ -943,6 +943,11 @@ class Platepar(object):
     def loadFromDict(self, platepar_dict, use_flat=None):
         """Load the platepar from a dictionary."""
 
+        # Check if the root of the dictionary is a filename
+        if list(platepar_dict.keys())[0].endswith('.fits'):
+            # If it's a filename, use the nested dictionary
+            platepar_dict = platepar_dict[list(platepar_dict.keys())[0]]
+
         # Parse JSON into an object with attributes corresponding to dict keys
         self.__dict__ = platepar_dict
 
