@@ -40,7 +40,11 @@ import RMS.Formats.Platepar
 import scipy.optimize
 from RMS.Astrometry.AtmosphericExtinction import \
     atmosphericExtinctionCorrection
-from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz
+from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz, latLonAlt2ECEF, ECEF2AltAz, altAz2RADec
+
+pyximport.install(setup_args={'include_dirs':[np.get_include()]})
+from RMS.Astrometry.CyFunctions import refractionTrueToApparent
+
 from RMS.Formats.FFfile import filenameToDatetime
 from RMS.Formats.FTPdetectinfo import (findFTPdetectinfoFile,
                                        readFTPdetectinfo, writeFTPdetectinfo)
@@ -730,6 +734,35 @@ def raDecToXYPP(RA_data, dec_data, jd, platepar):
         asymmetry_corr=platepar.asymmetry_corr)
 
     return X_data, Y_data
+
+
+
+def GeoHt2xy (platepar, lat, lon, h):
+    """ Given geo coordinates of the point and a height above sea level, compute pixel coordinates on the image.
+
+    Arguments:
+        platepar: [Platepar object]
+        lat: [float] latitude in degrees (+north)
+        lon: [float] longitude in degrees (+east)
+        h: [float] elevation in meters (WGS84)
+
+    Return:
+        (x, y): [tuple of floats] Image X coordinate, Image Y coordinate
+
+    """
+    # Compute the ECEF location of the point and the station
+    p_vector = latLonAlt2ECEF(np.radians(lat), np.radians(lon), h)
+    s_vector = latLonAlt2ECEF(np.radians(platepar.lat), np.radians(platepar.lon), platepar.elev)
+
+    azim, alt = ECEF2AltAz(s_vector, p_vector)
+
+    alt = refractionTrueToApparent(np.radians(alt))
+
+    ra, dec = altAz2RADec(azim, np.degrees(alt), J2000_JD.days, platepar.lat, platepar.lon)
+
+    x, y = raDecToXYPP(np.array([ra]), np.array([dec]), J2000_JD.days, platepar)
+
+    return x, y
 
 
 
