@@ -431,7 +431,7 @@ cpdef (double, double) eqRefractionApparentToTrue(double ra, double dec, double 
 
 
 @cython.cdivision(True)
-cdef double refractionTrueToApparent(double elev):
+cpdef double refractionTrueToApparent(double elev):
     """ Correct the true elevation of a star for refraction to apparent elevation. The temperature and air
         pressure are assumed to be unknown. 
 
