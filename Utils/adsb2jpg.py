@@ -89,7 +89,7 @@ def extract_timestamp_from_image(image_name):
 
 
 
-def query_aircraft_positions(client, begin_time, end_time, bounding_box=None):
+def query_aircraft_positions(client, begin_time, end_time, bounding_box=None, limit=None, offset=None, retries=3, sleep_time=10):
     """Queries InfluxDB for aircraft positions within a given time range.
     
     Args:
@@ -97,37 +97,53 @@ def query_aircraft_positions(client, begin_time, end_time, bounding_box=None):
         begin_time (datetime): The beginning time of the query.
         end_time (datetime): The ending time of the query.
         bounding_box (tuple, optional): Bounding box coordinates ((min_lat, min_lon), (max_lat, max_lon)). Defaults to None.
+        limit (int, optional): The number of entries to fetch in each query. Defaults to None.
+        offset (int, optional): The starting point to fetch entries for each query. Defaults to None.
         
     Returns:
         list: A list of aircraft positions within the time range.
     """
     
     # Create time bounds for the query
-    start_time = (begin_time).isoformat() + 'Z'  # Convert to ISO format and add 'Z' to indicate UTC
-    final_end_time = (end_time).isoformat() + 'Z'
-    
+    start_time = begin_time.isoformat()
+    end_time = end_time.isoformat()
+
     # Formulate the query
-    query = f"SELECT * FROM adsb WHERE time >= '{start_time}' AND time <= '{final_end_time}'"
+    query = f"SELECT * FROM adsb WHERE time >= '{start_time}' AND time <= '{end_time}'"
     
     # Add bounding box conditions if provided
     if bounding_box:
         (min_lat, min_lon), (max_lat, max_lon) = bounding_box
         bounding_box_conditions = f" AND lat >= {min_lat} AND lat <= {max_lat} AND lon >= {min_lon} AND lon <= {max_lon}"
         query += bounding_box_conditions
-    
+
+    # Add limit and offset conditions if provided
+    if limit:
+        query += f" LIMIT {limit}"
+    if offset:
+        query += f" OFFSET {offset}"
+
     query += ";"  # Close the query
     print(query)
 
     # Execute the query and fetch the results
-    results = client.query(query)
-    points = list(results.get_points())
-    
-    return points
+    for _ in range(retries):
+        try:
+            results = client.query(query)
+            points = list(results.get_points())
+            return points
+        except Exception as e:
+            print(f"Query failed with error: {e}. Retrying in {sleep_time} seconds...")
+            time.sleep(sleep_time)
+    print(f"Failed to execute query after {retries} attempts.")
+    return []
 
 
 
-def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=timedelta(seconds=5), bounding_box=None, input_dir=None, batch_duration=timedelta(hours=1)):
-    """Queries InfluxDB for aircraft positions within a given time range, using batched time intervals.
+
+
+def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=timedelta(seconds=5), bounding_box=None, input_dir=None, batch_time=timedelta(hours=1)):
+    """Queries InfluxDB for aircraft positions within a given time range, using hourly batch intervals.
     
     Args:
         client (InfluxDBClient): The InfluxDB client.
@@ -136,12 +152,11 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
         time_buffer (timedelta, optional): The time buffer to extend the query time range. Defaults to 5 seconds.
         bounding_box (tuple, optional): Bounding box coordinates ((min_lat, min_lon), (max_lat, max_lon)). Defaults to None.
         input_dir (str, optional): The directory where the cache file will be stored and checked. If not provided, caching is skipped. Defaults to None.
-        batch_duration (timedelta, optional): The duration of each batch interval. Defaults to 1 hour.
         
     Returns:
         list: A list of aircraft positions within the time range.
     """
-    # Pad begin and end time with buffer
+    
     begin_time -= time_buffer
     end_time += time_buffer
 
@@ -155,23 +170,31 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
                 year_start, month_start, day_start, hour_start, minute_start, second_start, year_end, month_end, day_end, hour_end, minute_end, second_end = map(int, match.groups())
                 cache_begin_time = datetime(year_start, month_start, day_start, hour_start, minute_start, second_start, tzinfo=timezone.utc)
                 cache_end_time = datetime(year_end, month_end, day_end, hour_end, minute_end, second_end, tzinfo=timezone.utc)
-                
-                if cache_begin_time <= begin_time and cache_end_time >= end_time:
+                print(f"Found json with start: {cache_begin_time}, end: {cache_end_time}")
+                print(f"Need start: {begin_time.replace(microsecond=0)}, end: {end_time.replace(microsecond=0)}")
+                if cache_begin_time <= begin_time.replace(microsecond=0) and cache_end_time >= end_time.replace(microsecond=0):
+                    print("Using cache file!")
                     with open(cache_file, 'r') as f:
                         return json.load(f)
-    
+
     # If cache is not found or is not suitable, proceed with batched queries
     all_points = []
-    current_start_time = begin_time
-    while current_start_time < end_time:
-        current_end_time = min(current_start_time + batch_duration, end_time)
+
+    current_begin_time = begin_time
+    while current_begin_time < end_time:
+        current_end_time = current_begin_time + batch_time
+        if current_end_time > end_time:
+            current_end_time = end_time
+
         try:
-            points = query_aircraft_positions(client, current_start_time, current_end_time, bounding_box)
-            all_points.extend(points)
+            points = query_aircraft_positions(client, current_begin_time, current_end_time, bounding_box)
+            if points:
+                all_points.extend(points)
         except Exception as e:
-            print(f"Error querying for time range {current_start_time} to {current_end_time}: {e}")
-        current_start_time = current_end_time
-    
+            print(f"Error querying between {current_begin_time} and {current_end_time}: {e}")
+
+        current_begin_time = current_end_time
+
     # If an input directory is provided, save results to a cache file
     if input_dir:
         cache_filename = f"query_cache_{begin_time.strftime('%Y%m%d%H%M%S')}_{end_time.strftime('%Y%m%d%H%M%S')}.json"
@@ -183,6 +206,7 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
             print(f"Error saving to cache file {cache_filepath}: {e}")
 
     return all_points
+
 
 
 
@@ -380,20 +404,85 @@ def add_pixel_coordinates(interpolated_positions, platepar):
 
 
 
-def overlay_data_on_image(image, point, img_file):
+def center_distance_two_rectangles(w1, h1, w2, h2, theta):
+    """Helper function to compute distance between the centers of two adjacent rectangles"""
+    # Ensure theta is between 0 and 2*pi and convert angle from north up to standard trigo angle + 90
+    theta = (-theta) % 360
+    theta = np.radians(theta)
+
+    max_hor_dist = (w1 + w2) / 2
+    max_vert_dist = (h1 + h2) / 2
+
+    # Right or left side case
+    if abs(np.tan(theta) * max_hor_dist) < max_vert_dist:
+        return abs(max_hor_dist / np.cos(theta))
+    
+    # Top or bottom side case
+    else:
+        return abs(max_vert_dist / np.sin(theta))
+
+
+
+
+def overlay_data_on_image(image, point, img_file, az_center):
     """Helper function to overlay aircraft data on an image."""
     x, y = point['x'], point['y']
     alt_baro = int(round(point.get('alt_baro', None))) if point.get('alt_baro', None) is not None else 'N/A'
     aircraft_type = point['t']
-    rectangle_size = 15
-    cv2.rectangle(image, (x - rectangle_size, y - rectangle_size), (x + rectangle_size, y + rectangle_size), (0, 255, 0), 1)
-    text = f"{alt_baro} ft ({aircraft_type})"
-    cv2.putText(image, text, (x - rectangle_size - 5, y - rectangle_size - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+    aircraft_track = point['track'] if point['track'] is not None else az_center
+    diff_angle = (aircraft_track - az_center) % 360
+
+    rectangle_size = 20
+    
+    color = (50, 255, 50)
+
+    cv2.rectangle(image, (int(x - rectangle_size / 2), int(y - rectangle_size / 2)), (int(x + rectangle_size / 2), int(y + rectangle_size / 2)), color, 1)
+
+    # Adjust color as a function of an altitude threshold and set alt to N/A if None
+    if isinstance(alt_baro, int):
+        text = f"{alt_baro:,} ft\n{aircraft_type}"
+        if alt_baro >= 27000:
+            color = (0, 50, 255)
+    else:
+        text = f"{alt_baro} ft\n{aircraft_type}"  # This will be 'N/A ft'
+
+    # Splits lines of text
+    lines = text.split('\n')
+    number_of_lines = len(lines)
+    line_spacing = 2
+
+    # Compute the size of the text for spacing
+    total_text_height = 0
+    max_width = 0
+
+    for i, line in enumerate(lines):
+        text_width, text_height = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        total_text_height += text_height + line_spacing
+        if text_width > max_width:
+            max_width = text_width
+
+    # Position text as a function of aircraft track away from potential contrail
+    offset = center_distance_two_rectangles(rectangle_size + 5, rectangle_size + 5, max_width, total_text_height, diff_angle)
+    x_offset = offset * np.cos(np.radians(diff_angle))
+    y_offset = offset * np.sin(np.radians(diff_angle))
+
+    x_new = x + x_offset
+    y_new = y + y_offset
+
+    # Write multiline text
+    for i, line in enumerate(lines):
+        text_width, text_height = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        text_height += line_spacing
+        x_line = x_new - text_width / 2
+        y_line = y_new + text_height * (i+1 - number_of_lines / 2)
+        cv2.putText(image, line, (int(x_line), int(y_line)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, lineType=cv2.LINE_AA)
+
 
     station_name = img_file.split("_")[1]
-    timestamp = "_".join(img_file.split("_")[2:6])
+    timestamp = extract_timestamp_from_image(img_file)
     cv2.putText(image, f"Station: {station_name}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     cv2.putText(image, f"Time: {timestamp}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
 
 
 
@@ -463,7 +552,7 @@ def run_overlay_on_images(client, input_path, platepar):
         platepar (object): Platepar object for coordinate conversion.
     """
     start_total_time = time.time()
-    time_buffer = timedelta(seconds=5)
+    time_buffer = timedelta(seconds=30)
 
     # Determine input type and set appropriate directories
     if os.path.isdir(input_path):
@@ -505,19 +594,20 @@ def run_overlay_on_images(client, input_path, platepar):
     for batch in batches:
         batch_start_time = batch[0][1]
         batch_end_time = batch[-1][1]
-        print(f"\nstart time: {batch_start_time}")
-        print(f"end time: {batch_end_time}")
+        # print(f"\nstart time: {batch_start_time}")
+        # print(f"end time: {batch_end_time}")
 
         relevant_points = get_points_for_batch(grouped_points, batch_start_time, batch_end_time, time_buffer)
 
         # Overlay aircraft positions on images
         for img_file, timestamp in batch:
             interpolated_points = interpolate_aircraft_positions(relevant_points, timestamp, time_buffer)
+            # TODO: load the closest recalibrated platepar
             points_XY = add_pixel_coordinates(interpolated_points, platepar)
             
             image = cv2.imread(img_file)
             for point in points_XY:
-                overlay_data_on_image(image, point, img_file)
+                overlay_data_on_image(image, point, img_file, platepar.az_centre)
 
             img_name = os.path.basename(img_file)
             output_name = f"{img_name.rsplit('.', 1)[0]}_overlay.{img_name.rsplit('.', 1)[1]}"
@@ -593,7 +683,7 @@ if __name__ == "__main__":
     pp.read(filename, fmt=fmt)
 
     # Initialize the InfluxDB client
-    client = InfluxDBClient(host='adsbexchange.local', port=8086)
+    client = InfluxDBClient(host='contrailcast.local', port=8086)
     client.switch_database('adsb_data')  # Switch to your specific database
 
     run_overlay_on_images(client, cml_args.input_path, pp)
