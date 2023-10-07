@@ -162,7 +162,7 @@ def date2UnixTime(year, month, day, hour, minute, second, millisecond=0, UT_corr
     return datetime2UnixTime(dt)
 
 
-def date2JD(year, month, day, hour, minute, second, millisecond=0, UT_corr=0.0):
+def date2JD(year, month, day, hour, minute, second, millisecond=0, UT_corr=0.0, delta_t=0.009):
     """ Convert date and time to Julian Date with epoch J2000.0.
     @param year: [int] year
     @param month: [int] month
@@ -172,6 +172,7 @@ def date2JD(year, month, day, hour, minute, second, millisecond=0, UT_corr=0.0):
     @param second: [int] seconds
     @param millisecond: [int] milliseconds (optional)
     @param UT_corr: [float] UT correction in hours (difference from local time to UT)
+    @param delta_t: [float] ΔT correction in seconds (UTC to UT1)
     @return :[float] julian date, epoch 2000.0
     """
 
@@ -179,14 +180,17 @@ def date2JD(year, month, day, hour, minute, second, millisecond=0, UT_corr=0.0):
     year, month, day, hour, minute, second = map(int, (year, month, day, hour, minute, second))
 
     # Create datetime object of current time
-    dt = datetime(year, month, day, hour, minute, second, int(millisecond*1000))
+    ut = datetime(year, month, day, hour, minute, second, int(millisecond*1000))
+
+    # Adjust for UT_corr and delta_t
+    tt = ut - timedelta(hours=UT_corr) + timedelta(seconds=delta_t)
 
     # Calculate Julian date
-    julian = dt - JULIAN_EPOCH + J2000_JD - timedelta(hours=UT_corr)
-
+    julian = tt - JULIAN_EPOCH + J2000_JD
+    
     # Convert seconds to day fractions
-    return julian.days + (julian.seconds + julian.microseconds/1000000.0)/86400.0
-
+    jd = julian.days + (julian.seconds + julian.microseconds/1000000.0)/86400.0
+    return jd
 
 def datetime2JD(dt, UT_corr=0.0):
     """ Converts a datetime object to Julian date.
@@ -202,13 +206,15 @@ def datetime2JD(dt, UT_corr=0.0):
                    UT_corr=UT_corr)
 
 
-def jd2Date(jd, UT_corr=0, dt_obj=False):
+def jd2Date(jd, UT_corr=0, dt_obj=False, delta_t=0.009):
     """ Converts the given Julian date to (year, month, day, hour, minute, second, millisecond) tuple.
     Arguments:
         jd: [float] Julian date
     Keyword arguments:
         UT_corr: [float] UT correction in hours (difference from local time to UT)
         dt_obj: [bool] returns a datetime object if True. False by default.
+        delta_t: [float] ΔT correction in seconds (UTC to UT1)
+
     Return:
         (year, month, day, hour, minute, second, millisecond)
     """
@@ -216,7 +222,7 @@ def jd2Date(jd, UT_corr=0, dt_obj=False):
     dt = timedelta(days=jd)
 
     try:
-        date = dt + JULIAN_EPOCH - J2000_JD + timedelta(hours=UT_corr)
+        date = dt + JULIAN_EPOCH - J2000_JD + timedelta(hours=UT_corr) - timedelta(seconds=delta_t)
 
     # If the date is out of range (i.e. before year 1) use year 1. This is the limitation in the datetime
     # library. Time handling should be switched to astropy.time
@@ -346,14 +352,48 @@ def latLonAlt2ECEF(lat, lon, h):
     return ecef_x, ecef_y, ecef_z
 
 
+# @floatArguments
+# def geo2Cartesian(lat, lon, h, julian_date):
+#     """ Convert geographical Earth coordinates to Cartesian ECI coordinate system (Earth center as origin).
+#         The Earth is considered as an elipsoid.
+    
+#     Arguments:
+#         lat: [float] Latitude of the observer in degrees (+N), WGS84.
+#         lon: [float] Longitde of the observer in degrees (+E), WGS84.
+#         h: [int or float] Elevation of the observer in meters (WGS84 convention).
+#         julian_date: [float] Julian date, epoch J2000.0.
+    
+#     Return:
+#         (x, y, z): [tuple of floats] A tuple of X, Y, Z Cartesian ECI coordinates in meters.
+        
+#     """
+#     lat_rad = np.radians(lat)
+#     lon_rad = np.radians(lon)
+
+#     # Calculate ECEF coordinates
+#     ecef_x, ecef_y, ecef_z = latLonAlt2ECEF(lat_rad, lon_rad, h)
+
+
+#     # Get Local Sidreal Time
+#     LST, _ = JD2LST(julian_date, np.degrees(lon_rad))
+#     LST_rad = math.radians(LST)
+
+
+#     # Rotate ECEF coordinates to get ECI using LST
+#     x = ecef_x*np.cos(LST_rad) + ecef_y*np.sin(LST_rad)
+#     y = -ecef_x*np.sin(LST_rad) + ecef_y*np.cos(LST_rad)
+#     z = ecef_z
+
+#     return x, y, z
+
 @floatArguments
 def geo2Cartesian(lat, lon, h, julian_date):
     """ Convert geographical Earth coordinates to Cartesian ECI coordinate system (Earth center as origin).
         The Earth is considered as an elipsoid.
     
     Arguments:
-        lat_rad: [float] Latitude of the observer in degrees (+N), WGS84.
-        lon_rad: [float] Longitde of the observer in degrees (+E), WGS84.
+        lat: [float] Latitude of the observer in degrees (+N), WGS84.
+        lon: [float] Longitde of the observer in degrees (+E), WGS84.
         h: [int or float] Elevation of the observer in meters (WGS84 convention).
         julian_date: [float] Julian date, epoch J2000.0.
     
