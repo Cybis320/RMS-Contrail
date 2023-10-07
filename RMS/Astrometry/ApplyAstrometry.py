@@ -34,13 +34,14 @@ import shutil
 import sys
 
 import numpy as np
+
 # Import Cython functions
 import pyximport
 import RMS.Formats.Platepar
 import scipy.optimize
 from RMS.Astrometry.AtmosphericExtinction import \
     atmosphericExtinctionCorrection
-from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz, latLonAlt2ECEF, ECEF2AltAz, altAz2RADec
+from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz, latLonAlt2ECEF, ECEF2AltAz, altAz2RADec, geo2Cartesian, vector2RaDec
 
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
 from RMS.Astrometry.CyFunctions import refractionTrueToApparent
@@ -51,7 +52,7 @@ from RMS.Formats.FTPdetectinfo import (findFTPdetectinfoFile,
 from RMS.Math import angularSeparation, cartesianToPolar, polarToCartesian
 
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
-from RMS.Astrometry.CyFunctions import (cyraDecToXY, cyTrueRaDec2ApparentAltAz,
+from RMS.Astrometry.CyFunctions import (cyraDecToXY, cyAzAltToXY, cyTrueRaDec2ApparentAltAz,
                                         cyXYToRADec,
                                         cyXYToAltAz,
                                         refractionApparentToTrue,
@@ -355,7 +356,6 @@ def computeFOVSize(platepar):
     # Compute RA/Dec of the points
     _, ra_data, dec_data, _ = xyToRaDecPP(time_data, x_data, y_data, level_data, platepar, \
         extinction_correction=False)
-
     ra1, ra2, ra3, ra4, ra_mid = ra_data
     dec1, dec2, dec3, dec4, dec_mid = dec_data
 
@@ -395,7 +395,6 @@ def getFOVSelectionRadius(platepar):
     # Compute RA/Dec of the points
     _, ra_data, dec_data, _ = xyToRaDecPP(time_data, x_data, y_data, level_data, platepar, \
         extinction_correction=False)
-
     ra1, ra2, ra3, ra4, ra_mid = ra_data
     dec1, dec2, dec3, dec4, dec_mid = dec_data
 
@@ -407,44 +406,102 @@ def getFOVSelectionRadius(platepar):
 
     # Take the average radius
     fov_radius = np.mean([ul_sep, lr_sep, ur_sep, ll_sep])
-
     return fov_radius
 
 
 
-def rotationWrtHorizon(platepar):
-    """ Given the platepar, compute the rotation of the FOV with respect to the horizon.
+# def rotationWrtHorizon(platepar):
+#     """ Given the platepar, compute the rotation of the FOV with respect to the horizon.
 
+#     Arguments:
+#         pletepar: [Platepar object] Input platepar.
+#     Return:
+#         rot_angle: [float] Rotation w.r.t. horizon (degrees).
+#     """
+#     dx = 5
+
+#     # Image coordiantes of the center
+#     img_down_w = (platepar.X_res/2) + platepar.x_poly_fwd[0]- dx
+#     img_down_h = platepar.Y_res/2 + platepar.x_poly_fwd[1]
+#     # Image coordinate slighty right of the center (horizontal)
+#     img_up_w = img_down_w + 2*dx
+#     img_up_h = img_down_h
+
+#     # Compute apparent alt/az in the epoch of date from X,Y
+#     _, ra_arr, dec_arr, _ = xyToRaDecPP(2*[platepar.JD], [img_down_w, img_up_w], \
+#         [img_down_h, img_up_h], [1, 1], platepar, extinction_correction=False, jd_time=True)
+    
+#     azim_down, alt_down = cyTrueRaDec2ApparentAltAz(np.radians(ra_arr[0]), np.radians(dec_arr[0]), platepar.JD, \
+#         np.radians(platepar.lat), np.radians(platepar.lon), platepar.refraction)
+
+#     azim_up, alt_up = cyTrueRaDec2ApparentAltAz(np.radians(ra_arr[1]), np.radians(dec_arr[1]), platepar.JD, \
+#         np.radians(platepar.lat), np.radians(platepar.lon), platepar.refraction)
+    
+#     # Compute the rotation wrt horizon (deg)
+#     delta_az = azim_up - azim_down
+
+#     while delta_az < -np.pi:
+#         delta_az += 2 * np.pi
+#     while delta_az > np.pi:
+#         delta_az -= 2 * np.pi
+
+#     rot_angle = np.degrees(np.arctan2(alt_up - alt_down, delta_az))
+
+#     # Wrap output to <-180, 180] range
+#     if rot_angle > 180:
+#         rot_angle -= 360
+
+#     return rot_angle
+
+
+
+
+
+def rotationWrtHorizon(platepar):
+    """ Compute the optimized rotation of the FOV with respect to the horizon.
+    
     Arguments:
-        pletepar: [Platepar object] Input platepar.
+        platepar: [Platepar object] Input platepar.
+        
     Return:
-        rot_angle: [float] Rotation w.r.t. horizon (degrees).
+        opt_rot_angle: [float] Optimized rotation w.r.t. horizon (degrees).
     """
 
-    # Image coordiantes of the center
-    img_mid_w = platepar.X_res/2
-    img_mid_h = platepar.Y_res/2
+    # Deep copy of platepar
+    platepar_temp = copy.deepcopy(platepar)
+    
+    # Create a 10x10 grid on the image, avoiding the edges
+    margin = 30
+    x_grid, y_grid = np.linspace(margin, platepar_temp.X_res - margin, 10), np.linspace(margin, platepar_temp.Y_res - margin, 10)
+    xx, yy = np.meshgrid(x_grid, y_grid)
+    xx, yy = xx.flatten(), yy.flatten()
+    
+    # Compute celestial coordinates for each grid point
+    _, ra_arr, dec_arr, _ = xyToRaDecPP(len(xx)*[platepar_temp.JD], xx, yy, len(xx)*[1], platepar_temp, extinction_correction=False, jd_time=True)
+    
+    # Objective function for optimization
+    def objective(rot_angle):
+        platepar_temp.rotation_from_horiz = rot_angle
+        total_error = 0
+        for ra, dec in zip(ra_arr, dec_arr):
+            az, alt = cyTrueRaDec2ApparentAltAz(np.radians(ra), np.radians(dec), platepar_temp.JD, \
+                                               np.radians(platepar_temp.lat), np.radians(platepar_temp.lon), platepar_temp.refraction)
+            x_out, y_out = azAltToXYPP(np.array([np.degrees(az)]), np.array([np.degrees(alt)]), platepar_temp)
+            error = np.sqrt((x_out - xx)**2 + (y_out - yy)**2)
+            total_error += np.sum(error)
+        
+        return total_error
+    
+    # Initial guess for rotation_from_horiz
+    initial_guess = [0]
+    
+    # Optimize
+    result = scipy.optimize.minimize(objective, initial_guess, method='Nelder-Mead')
+    
+    opt_rot_angle = result.x[0]
+    
+    return opt_rot_angle
 
-    # Image coordinate slighty right of the center (horizontal)
-    img_up_w = img_mid_w + 10
-    img_up_h = img_mid_h
-
-    # Compute apparent alt/az in the epoch of date from X,Y
-    jd_arr, ra_arr, dec_arr, _ = xyToRaDecPP(2*[jd2Date(platepar.JD)], [img_mid_w, img_up_w], \
-        [img_mid_h, img_up_h], [1, 1], platepar, extinction_correction=False)
-    azim_mid, alt_mid = cyTrueRaDec2ApparentAltAz(np.radians(ra_arr[0]), np.radians(dec_arr[0]), jd_arr[0], \
-        np.radians(platepar.lat), np.radians(platepar.lon), platepar.refraction)
-    azim_up, alt_up = cyTrueRaDec2ApparentAltAz(np.radians(ra_arr[1]), np.radians(dec_arr[1]), jd_arr[1], \
-        np.radians(platepar.lat), np.radians(platepar.lon), platepar.refraction)
-
-    # Compute the rotation wrt horizon (deg)
-    rot_angle = np.degrees(np.arctan2(alt_up - alt_mid, azim_up - azim_mid))
-
-    # Wrap output to <-180, 180] range
-    if rot_angle > 180:
-        rot_angle -= 360
-
-    return rot_angle
 
 
 
@@ -495,25 +552,33 @@ def rotationWrtStandard(platepar):
         rot_angle: [float] Rotation from the meridian (degrees).
     """
 
-    # Image coordiantes of the center
-    img_mid_w = platepar.X_res/2
-    img_mid_h = platepar.Y_res/2
+    dx = 5
 
-    # Image coordinate slighty right of the centre
-    img_up_w = img_mid_w + 10
-    img_up_h = img_mid_h
+    # Image coordiantes of the center
+    img_down_w = (platepar.X_res/2) + platepar.x_poly_fwd[0]- dx
+    img_down_h = platepar.Y_res/2 + platepar.x_poly_fwd[1]
+    # Image coordinate slighty right of the center (horizontal)
+    img_up_w = img_down_w + 2*dx
+    img_up_h = img_down_h
 
     # Compute ra/dec
-    _, ra, dec, _ = xyToRaDecPP(2*[jd2Date(platepar.JD)], [img_mid_w, img_up_w], [img_mid_h, img_up_h], \
+    _, ra, dec, _ = xyToRaDecPP(2*[jd2Date(platepar.JD)], [img_down_w, img_up_w], [img_down_h, img_up_h], \
         2*[1], platepar)
-    ra_mid = ra[0]
-    dec_mid = dec[0]
-    ra_up = ra[1]
-    dec_up = dec[1]
+
+    ra_down = np.radians(ra[0])
+    dec_down = np.radians(dec[0])
+    ra_up = np.radians(ra[1])
+    dec_up = np.radians(dec[1])
+
+    delta_ra = ra_down - ra_up
+
+    while delta_ra < -np.pi:
+        delta_ra += 2 * np.pi
+    while delta_ra > np.pi:
+        delta_ra -= 2 * np.pi
 
     # Compute the equatorial orientation
-    rot_angle = np.degrees(np.arctan2(np.radians(dec_mid) - np.radians(dec_up), \
-        np.radians(ra_mid) - np.radians(ra_up)))
+    rot_angle = np.degrees(np.arctan2(dec_down - dec_up, delta_ra))
 
     # Wrap output to 0-360 range
     rot_angle = rot_angle%360
@@ -737,6 +802,29 @@ def raDecToXYPP(RA_data, dec_data, jd, platepar):
 
 
 
+
+def azAltToXYPP(az_data, alt_data, platepar):
+    """ Converts Azim, Alt to image coordinates, but the platepar is given instead of individual parameters.
+    Arguments:
+        az: [ndarray] Array of azimuth (degrees).
+        alt: [ndarray] Array of altitude (degrees).
+        platepar: [Platepar structure] Astrometry parameters.
+    Return:
+        (x, y): [tuple of ndarrays] Image X and Y coordinates.
+    """
+
+    # Use the cythonized funtion insted of the Python function
+    X_data, Y_data = cyAzAltToXY(az_data, alt_data,
+        float(platepar.X_res), float(platepar.Y_res), float(platepar.az_centre), \
+        float(platepar.alt_centre), float(platepar.rotation_from_horiz), platepar.F_scale, platepar.x_poly_rev, \
+        platepar.y_poly_rev, unicode(platepar.distortion_type), refraction=platepar.refraction, \
+        equal_aspect=platepar.equal_aspect, force_distortion_centre=platepar.force_distortion_centre, \
+        asymmetry_corr=platepar.asymmetry_corr)
+
+    return X_data, Y_data
+
+
+
 def GeoHt2xy (platepar, lat, lon, h):
     """ Given geo coordinates of the point and a height above sea level, compute pixel coordinates on the image.
 
@@ -756,14 +844,9 @@ def GeoHt2xy (platepar, lat, lon, h):
 
     azim, alt = ECEF2AltAz(s_vector, p_vector)
 
-    alt = refractionTrueToApparent(np.radians(alt))
-
-    ra, dec = altAz2RADec(azim, np.degrees(alt), J2000_JD.days, platepar.lat, platepar.lon)
-
-    x, y = raDecToXYPP(np.array([ra]), np.array([dec]), J2000_JD.days, platepar)
+    x, y = azAltToXYPP(np.array([azim]), np.array([alt]), platepar)
 
     return x, y
-
 
 
 
@@ -810,18 +893,15 @@ def applyPlateparToCentroids(ff_name, fps, meteor_meas, platepar, add_calstatus=
         t = time_beg + datetime.timedelta(seconds=frame_n/fps)
         time_data.append([t.year, t.month, t.day, t.hour, t.minute, t.second, int(t.microsecond/1000)])
 
-
-
     # Convert image cooredinates to RA and Dec, and do the photometry
     JD_data, RA_data, dec_data, magnitudes = xyToRaDecPP(np.array(time_data), X_data, Y_data, \
         level_data, platepar, measurement=True)
-
 
     # Compute azimuth and altitude of centroids
     az_data = np.zeros_like(RA_data)
     alt_data = np.zeros_like(RA_data)
 
-    for i in range(len(az_data)):
+    for i, _ in enumerate(az_data):
 
         jd = JD_data[i]
         ra_tmp = RA_data[i]
