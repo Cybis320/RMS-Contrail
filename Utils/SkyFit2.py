@@ -4657,6 +4657,9 @@ class PlateTool(QtWidgets.QMainWindow):
 
             img_x, img_y, sum_intens = img_c
             ra, dec, mag = cat_coords
+            ra, dec = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
+            ra, dec = np.degrees(ra), np.degrees(dec)
+
 
             delta_x = cat_x - img_x
             delta_y = cat_y - img_y
@@ -4762,9 +4765,12 @@ class PlateTool(QtWidgets.QMainWindow):
             # Compute image coordinates
             img_x, img_y, _ = img_c
             img_radius = np.hypot(img_x - self.platepar.X_res/2, img_y - self.platepar.Y_res/2)
+            
+            cat_ra, cat_dec, _ = cat_coords
+            cat_ra, cat_dec = equatorialCoordPrecession(2451545.0, jd, np.radians(cat_ra), np.radians(cat_dec))
+            cat_ra, cat_dec = np.degrees(cat_ra), np.degrees(cat_dec)
 
             # Compute sky coordinates
-            cat_ra, cat_dec, _ = cat_coords
             cat_ang_separation = np.degrees(angularSeparation(np.radians(cat_ra), np.radians(cat_dec), \
                 np.radians(ra_centre), np.radians(dec_centre)))
 
