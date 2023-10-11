@@ -415,7 +415,7 @@ def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar
     ### Add FOV info (centre, size) ###
 
     # Mark FOV centre
-    plt.scatter(platepar.X_res/2, platepar.Y_res/2, marker='+', s=20, c='r', zorder=4)
+    plt.scatter((platepar.X_res/2)*(1+platepar.x_poly[0]), (platepar.Y_res/2)*(1+platepar.x_poly[1]), marker='+', s=20, c='r', zorder=4)
 
     # Compute FOV centre alt/az
     azim_centre, alt_centre = raDec2AltAz(RA_c, dec_c, max_jd, platepar.lat, platepar.lon)
