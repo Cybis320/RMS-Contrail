@@ -25,7 +25,7 @@ from RMS.Routines.AddCelestialGrid import addEquatorialGrid
 # Import Cython functions
 import pyximport
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
-from RMS.Astrometry.CyFunctions import subsetCatalog
+from RMS.Astrometry.CyFunctions import subsetCatalog, equatorialCoordPrecession
 
 
 def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar=None, show_graphs=False):
@@ -352,7 +352,7 @@ def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar
 
 
     # Estimate RA,dec of the centre of the FOV
-    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(max_jd)], [platepar.X_res/2], [platepar.Y_res/2], [1], 
+    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(max_jd)], [(platepar.X_res/2)*(1+platepar.x_poly[0])], [(platepar.Y_res/2)*(1+platepar.x_poly[1])], [1], 
         platepar, extinction_correction=False)
 
     RA_c = RA_c[0]
@@ -365,8 +365,17 @@ def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar
         fov_radius, faintest_mag)
     ra_catalog, dec_catalog, mag_catalog = extracted_catalog.T
 
+    ra_corrected = np.empty_like(ra_catalog)
+    dec_corrected = np.empty_like(dec_catalog)
+
+    # Loop through each star in the catalog
+    for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
+        ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
+        ra_corrected[i] = np.degrees(ra_corr)
+        dec_corrected[i] = np.degrees(dec_corr)
+
     # Compute image positions of all catalog stars that should be on the image
-    x_catalog, y_catalog = raDecToXYPP(ra_catalog, dec_catalog, max_jd, platepar)
+    x_catalog, y_catalog = raDecToXYPP(ra_corrected, dec_corrected, max_jd, platepar)
 
     # Filter all catalog stars outside the image
     temp_arr = np.c_[x_catalog, y_catalog, mag_catalog]
