@@ -27,7 +27,7 @@ from RMS.Math import angularSeparation
 from RMS.Logger import initLogging
 
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
-from RMS.Astrometry.CyFunctions import matchStars, subsetCatalog
+from RMS.Astrometry.CyFunctions import matchStars, subsetCatalog, equatorialCoordPrecession
 
 
 # Get the logger from the main module
@@ -91,7 +91,7 @@ def matchStarsResiduals(config, platepar, catalog_stars, star_dict, match_radius
     for jd in star_dict:
 
         # Estimate RA,dec of the centre of the FOV
-        _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(jd)], [platepar.X_res/2], [platepar.Y_res/2], [1], \
+        _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(jd)], [(platepar.X_res/2)*(1+platepar.x_poly[0])], [(platepar.Y_res/2)*(1+platepar.x_poly[1])], [1], \
             platepar, extinction_correction=False)
 
         RA_c = RA_c[0]
@@ -101,6 +101,15 @@ def matchStarsResiduals(config, platepar, catalog_stars, star_dict, match_radius
         _, extracted_catalog = subsetCatalog(catalog_stars, RA_c, dec_c, jd, platepar.lat, platepar.lon, \
             fov_radius, lim_mag)
         ra_catalog, dec_catalog, mag_catalog = extracted_catalog.T
+
+        ra_corrected = np.empty_like(ra_catalog)
+        dec_corrected = np.empty_like(dec_catalog)
+
+        # Loop through each star in the catalog
+        for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
+            ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
+            ra_corrected[i] = np.degrees(ra_corr)
+            dec_corrected[i] = np.degrees(dec_corr)
 
 
         # Extract stars for the given Julian date
@@ -112,7 +121,7 @@ def matchStarsResiduals(config, platepar, catalog_stars, star_dict, match_radius
             continue
 
         # Convert all catalog stars to image coordinates
-        cat_x_array, cat_y_array = raDecToXYPP(ra_catalog, dec_catalog, jd, platepar)
+        cat_x_array, cat_y_array = raDecToXYPP(ra_corrected, dec_corrected, jd, platepar)
 
         # Take only those stars which are within the FOV
         x_indices = np.argwhere((cat_x_array >= 0) & (cat_x_array < platepar.X_res))
