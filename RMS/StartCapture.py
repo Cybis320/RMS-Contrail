@@ -85,7 +85,7 @@ def resetSIGINT():
 
 def setDayorNight(latitude, longitude, elevation):
     """ Calcualtes the start time and the duration of capturing, for the given geographical coordinates. 
-        AND set camera parameters for day or night capture.
+        AND set camera parameters for day or night capture (for Contrails)
 
     Arguments:
         lat: [float] latitude +N in degrees
