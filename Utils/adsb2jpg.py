@@ -478,11 +478,6 @@ def overlay_data_on_image(image, point, img_file, az_center):
         cv2.putText(image, line, (int(x_line), int(y_line)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, lineType=cv2.LINE_AA)
 
 
-    station_name = img_file.split("_")[1]
-    timestamp = extract_timestamp_from_image(img_file)
-    cv2.putText(image, f"Station: {station_name}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-    cv2.putText(image, f"Time: {timestamp}", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
 
 
 
@@ -608,11 +603,18 @@ def run_overlay_on_images(client, input_path, platepar):
             image = cv2.imread(img_file)
             for point in points_XY:
                 overlay_data_on_image(image, point, img_file, platepar.az_centre)
+            
+            # overlay timestamp
+            station_name = img_file.split("_")[1]
+            height, _, _ = image.shape
+            timestamp = extract_timestamp_from_image(img_file).strftime('%Y-%m-%d %H:%M:%S UTC')
+            cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+
 
             img_name = os.path.basename(img_file)
             output_name = f"{img_name.rsplit('.', 1)[0]}_overlay.{img_name.rsplit('.', 1)[1]}"
             output_path = os.path.join(output_dir, output_name)
-            cv2.imwrite(output_path, image)
+            cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 100])
 
             image_count += 1
             print(f"\rSaved {image_count}/{total_images}. {time.time() - start_total_time:.2f}s. batches of: {batch_size}", end="", flush=True)
