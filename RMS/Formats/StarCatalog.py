@@ -7,6 +7,11 @@ import numpy as np
 
 from RMS.Decorators import memoizeSingle
 
+import pyximport
+pyximport.install(setup_args={'include_dirs': [np.get_include()]})
+from RMS.Astrometry.CyFunctions import equatorialCoordPrecession
+
+
 @memoizeSingle
 def readBSC(file_path, file_name, years_from_J2000=0):
     """ Import the Bright Star Catalog in a numpy array. 
@@ -149,7 +154,7 @@ def readStarCatalog(dir_path, file_name, lim_mag=None, mag_band_ratios=None):
                 [B, V, R, I].
     
     Return:
-        (star_data, mag_band_string): 
+        (star_data, mag_band_string, mag_band_ratios): 
             star_data: [ndarray] Array of (RA, dec, mag) parameters for each star, coordinates are in degrees.
             mag_band_string: [str] Text describing the magnitude band of the catalog.
             mag_band_ratios: [list] A list of BVRI magnitude band ratios for the given catalog.
@@ -259,6 +264,48 @@ def readStarCatalog(dir_path, file_name, lim_mag=None, mag_band_ratios=None):
     return star_data, mag_band_string, mag_band_ratios
 
 
+
+def readStarCatalog_Precessed(jd, dir_path, file_name, lim_mag=None, mag_band_ratios=None):
+    """ Import the star catalog into a numpy array and correct Ra, Dec for precession from J2000.0 to jd
+    
+    Arguments:
+        jd : [float] The target Julian Date.
+        dir_path: [str] Path to the directory where the catalog file is located.
+        file_name: [str] Name of the catalog file.
+
+    Keyword arguments:
+        lim_mag: [float] Limiting magnitude. Stars fainter than this magnitude will be filtered out. None by
+            default.
+        mag_band_ratios: [list] A list of relative contributions of every photometric band (BVRI) to the 
+            final camera-bandpass magnitude. The list should contain 4 numbers, one for every band: 
+                [B, V, R, I].
+    
+    Return:
+        (star_data, mag_band_string, mag_band_ratios): 
+            star_data: [ndarray] Array of (RA, dec, mag) parameters for each star, coordinates are in degrees.
+            mag_band_string: [str] Text describing the magnitude band of the catalog.
+            mag_band_ratios: [list] A list of BVRI magnitude band ratios for the given catalog.
+    """
+
+    catalog = readStarCatalog(dir_path, file_name, lim_mag, mag_band_ratios)
+    print(f"HERERERERERERERER {jd}")
+    
+    star_data, mag_band_string, mag_band_ratios = catalog
+    ra_catalog, dec_catalog, mag = star_data.T
+
+    ra_corrected = np.empty_like(ra_catalog)
+    dec_corrected = np.empty_like(dec_catalog)
+
+    # Loop through each star in the catalog
+    for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
+        ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
+        ra_corrected[i] = np.degrees(ra_corr)
+        dec_corrected[i] = np.degrees(dec_corr)
+    
+    star_data_corrected = np.column_stack([ra_corrected, dec_corrected, mag])
+    
+    return star_data_corrected, mag_band_string, mag_band_ratios
+    
 
 
 if __name__ == "__main__":
