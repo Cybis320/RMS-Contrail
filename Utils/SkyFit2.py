@@ -18,7 +18,7 @@ import pyqtgraph as pg
 from RMS.Astrometry.ApplyAstrometry import xyToRaDecPP, raDecToXYPP, \
     rotationWrtHorizon, rotationWrtHorizonToPosAngle, computeFOVSize, photomLine, photometryFit, \
     rotationWrtStandard, rotationWrtStandardToPosAngle, correctVignetting, \
-    extinctionCorrectionTrueToApparent, applyAstrometryFTPdetectinfo, getFOVSelectionRadius
+    extinctionCorrectionTrueToApparent, applyAstrometryFTPdetectinfo, getFOVSelectionRadius, imageCenter
 from RMS.Astrometry.Conversions import date2JD, JD2HourAngle, trueRaDec2ApparentAltAz, raDec2AltAz, \
     apparentAltAz2TrueRADec, J2000_JD, jd2Date, datetime2JD, JD2LST, geo2Cartesian, vector2RaDec, raDec2Vector
 from RMS.Astrometry.AstrometryNetNova import novaAstrometryNetSolve
@@ -192,11 +192,8 @@ class GeoPoints(object):
             # print("{:>25s}, {:8.3f}, {:7.3f}".format(name, np.degrees(azim), np.degrees(alt)))
 
 
-            # Precess RA/Dec to J2000
-            ra, dec = equatorialCoordPrecession(jd, J2000_JD.days, np.radians(ra), np.radians(dec))
-
-            self.ra_data.append(np.degrees(ra))
-            self.dec_data.append(np.degrees(dec))
+            self.ra_data.append(ra)
+            self.dec_data.append(dec)
 
 
         self.ra_data = np.array(self.ra_data)
@@ -484,6 +481,23 @@ class PlateTool(QtWidgets.QMainWindow):
 
         ###################################################################################################
 
+        # PLATEPAR
+
+        # Load the platepar file
+        self.loadPlatepar()
+
+
+        # Set the given gamma value to platepar
+        if gamma is not None:
+            self.platepar.gamma = gamma
+
+
+        # Load distorion type index
+        self.dist_type_index = self.platepar.distortion_type_list.index(self.platepar.distortion_type)
+
+
+        ###################################################################################################
+
         # LOADING STARS
 
         # Load catalog stars
@@ -510,22 +524,7 @@ class PlateTool(QtWidgets.QMainWindow):
 
 
         ###################################################################################################
-        # PLATEPAR
-
-        # Load the platepar file
-        self.loadPlatepar()
-
-
-        # Set the given gamma value to platepar
-        if gamma is not None:
-            self.platepar.gamma = gamma
-
-
-        # Load distorion type index
-        self.dist_type_index = self.platepar.distortion_type_list.index(self.platepar.distortion_type)
-
-
-        ###################################################################################################
+        
 
         print()
 
@@ -1792,6 +1791,9 @@ class PlateTool(QtWidgets.QMainWindow):
         catalog_dec = []
         catalog_mags = []
 
+        x_center, y_center = imageCenter(self.platepar, center_of_distortion=True)
+
+
         for paired_star in self.paired_stars.allCoords():
 
             img_star, catalog_star = paired_star
@@ -1805,7 +1807,7 @@ class PlateTool(QtWidgets.QMainWindow):
                 continue
 
             star_coords.append([star_x, star_y])
-            radius_list.append(np.hypot(star_x - self.platepar.X_res/2, star_y - self.platepar.Y_res/2))
+            radius_list.append(np.hypot(star_x - x_center, star_y - y_center))
             px_intens_list.append(px_intens)
             catalog_ra.append(star_ra)
             catalog_dec.append(star_dec)
@@ -1953,8 +1955,10 @@ class PlateTool(QtWidgets.QMainWindow):
                 ###
 
                 ### PLOT MAG DIFFERENCE BY RADIUS
+                x_center, y_center = imageCenter(self.platepar, center_of_distortion=True)
 
-                img_diagonal = np.hypot(self.platepar.X_res/2, self.platepar.Y_res/2)
+
+                img_diagonal = np.hypot(x_center, y_center)
 
                 # Plot radius from centre vs. fit residual (including vignetting)
                 ax_r.scatter(radius_list, fit_resids, s=5, c='b', alpha=0.5, zorder=3)
@@ -3607,8 +3611,10 @@ class PlateTool(QtWidgets.QMainWindow):
         img_time = self.img_handle.currentTime()
 
         # Convert the FOV centre to RA/Dec
-        _, ra_centre, dec_centre, _ = xyToRaDecPP([img_time], [self.platepar.X_res/2],
-                                                  [self.platepar.Y_res/2], [1], self.platepar,
+        x_center, y_center = imageCenter(self.platepar, center_of_distortion=True)
+
+        _, ra_centre, dec_centre, _ = xyToRaDecPP([img_time], [x_center],
+                                                  [y_center], [1], self.platepar,
                                                   extinction_correction=False)
 
         ra_centre = ra_centre[0]
@@ -3920,7 +3926,8 @@ class PlateTool(QtWidgets.QMainWindow):
         """
 
         # Load catalog stars
-        catalog_stars, self.mag_band_string, self.config.star_catalog_band_ratios = StarCatalog.readStarCatalog(
+        catalog_stars, self.mag_band_string, self.config.star_catalog_band_ratios = StarCatalog.readStarCatalog_Precessed(
+            self.platepar.JD,
             self.config.star_catalog_path, self.config.star_catalog_file, lim_mag=lim_mag,
             mag_band_ratios=self.config.star_catalog_band_ratios)
 
@@ -4657,9 +4664,6 @@ class PlateTool(QtWidgets.QMainWindow):
 
             img_x, img_y, sum_intens = img_c
             ra, dec, mag = cat_coords
-            ra, dec = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
-            ra, dec = np.degrees(ra), np.degrees(dec)
-
 
             delta_x = cat_x - img_x
             delta_y = cat_y - img_y
@@ -4760,15 +4764,15 @@ class PlateTool(QtWidgets.QMainWindow):
         ra_centre, dec_centre = self.computeCentreRADec()
 
         # Calculate the distance and the angle between each pair of image positions and catalog predictions
+        x_center, y_center = imageCenter(self.platepar, center_of_distortion=True)
+
         for star_no, (cat_x, cat_y, cat_coords, img_c) in enumerate(zip(catalog_x, catalog_y, catalog_stars, \
                                                                         img_stars)):
             # Compute image coordinates
             img_x, img_y, _ = img_c
-            img_radius = np.hypot(img_x - self.platepar.X_res/2, img_y - self.platepar.Y_res/2)
+            img_radius = np.hypot(img_x - x_center, img_y - y_center)
             
             cat_ra, cat_dec, _ = cat_coords
-            cat_ra, cat_dec = equatorialCoordPrecession(2451545.0, jd, np.radians(cat_ra), np.radians(cat_dec))
-            cat_ra, cat_dec = np.degrees(cat_ra), np.degrees(cat_dec)
 
             # Compute sky coordinates
             cat_ang_separation = np.degrees(angularSeparation(np.radians(cat_ra), np.radians(cat_dec), \
@@ -4788,7 +4792,7 @@ class PlateTool(QtWidgets.QMainWindow):
             # Compute image residuals
             x_residuals.append(cat_x - img_x)
             y_residuals.append(cat_y - img_y)
-            radius_residuals.append(np.hypot(cat_x - self.platepar.X_res/2, cat_y - self.platepar.Y_res/2) \
+            radius_residuals.append(np.hypot(cat_x - x_center, cat_y - y_center) \
                                     - img_radius)
 
             # Compute sky residuals
@@ -4894,10 +4898,12 @@ class PlateTool(QtWidgets.QMainWindow):
         # Plot radius vs radius error
         ax_radius.scatter(radius_list, radius_residuals, s=2, c='k', zorder=3)
 
+        x_center, y_center = imageCenter(self.platepar, center_of_distortion=True)
+
         ax_radius.grid()
         ax_radius.set_xlabel("Radius (px)")
         ax_radius.set_ylabel("Radius error (px)")
-        ax_radius.set_xlim([0, np.hypot(self.platepar.X_res/2, self.platepar.Y_res/2)])
+        ax_radius.set_xlim([0, np.hypot(x_center, y_center)])
 
         # Equalize Y limits, make them integers, and set a minimum range of 1 px
         x_max_ylim = np.max(np.abs(ax_x.get_ylim()))
