@@ -685,6 +685,7 @@ if __name__ == "__main__":
     pp.read(filename, fmt=fmt)
 
     # Initialize the InfluxDB client
+    # TODO: consider defining URL in config file
     client = InfluxDBClient(host='contrailcast.local', port=8086)
     client.switch_database('adsb_data')  # Switch to your specific database
 
