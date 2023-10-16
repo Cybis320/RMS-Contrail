@@ -4,7 +4,7 @@ from __future__ import print_function, division, absolute_import
 
 import numpy as np
 
-from RMS.Astrometry.ApplyAstrometry import xyToRaDecPP, raDecToXYPP, computeFOVSize, getFOVSelectionRadius
+from RMS.Astrometry.ApplyAstrometry import xyToRaDecPP, raDecToXYPP, computeFOVSize, getFOVSelectionRadius, imageCenter
 from RMS.Astrometry.Conversions import jd2Date, apparentAltAz2TrueRADec, trueRaDec2ApparentAltAz
 from RMS.Math import angularSeparation
 
@@ -21,7 +21,9 @@ def addEquatorialGrid(plt_handle, platepar, jd):
 
 
     # Estimate RA,dec of the centre of the FOV
-    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(jd)], [platepar.X_res/2], [platepar.Y_res/2], [1], 
+    x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+
+    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(jd)], [x_center], [y_center], [1], 
         platepar, extinction_correction=False)
 
     RA_c = RA_c[0]
@@ -171,7 +173,9 @@ def updateRaDecGrid(grid, platepar):
     ### COMPUTE FOV CENTRE ###
     
     # Estimate RA,dec of the centre of the FOV
-    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(platepar.JD)], [platepar.X_res/2], [platepar.Y_res/2], [1], \
+    x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+
+    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(platepar.JD)], [x_center], [y_center], [1], \
                                     platepar, extinction_correction=False)
 
     # Compute alt/az of FOV centre
@@ -324,7 +328,9 @@ def updateAzAltGrid(grid, platepar):
     ### COMPUTE FOV CENTRE ###
     
     # Estimate RA,dec of the centre of the FOV
-    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(platepar.JD)], [platepar.X_res/2], [platepar.Y_res/2], [1], \
+    x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+
+    _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(platepar.JD)], [x_center], [y_center], [1], \
                                     platepar, extinction_correction=False)
 
     # Compute alt/az of FOV centre
