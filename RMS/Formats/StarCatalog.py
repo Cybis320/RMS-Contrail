@@ -288,7 +288,6 @@ def readStarCatalog_Precessed(jd, dir_path, file_name, lim_mag=None, mag_band_ra
     """
 
     catalog = readStarCatalog(dir_path, file_name, lim_mag, mag_band_ratios)
-    print(f"HERERERERERERERER {jd}")
     
     star_data, mag_band_string, mag_band_ratios = catalog
     ra_catalog, dec_catalog, mag = star_data.T
