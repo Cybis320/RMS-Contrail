@@ -104,17 +104,9 @@ def getCatalogStarsImagePositions(catalog_stars, jd, platepar):
     """
 
     ra_catalog, dec_catalog, mag_array = catalog_stars.T
-    ra_corrected = np.empty_like(ra_catalog)
-    dec_corrected = np.empty_like(dec_catalog)
-
-    # Loop through each star in the catalog
-    for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
-        ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
-        ra_corrected[i] = np.degrees(ra_corr)
-        dec_corrected[i] = np.degrees(dec_corr)
 
     # Convert corrected RA, DEC to image coordinates
-    x_array, y_array = RMS.Astrometry.ApplyAstrometry.raDecToXYPP(ra_corrected, dec_corrected, jd, platepar)
+    x_array, y_array = RMS.Astrometry.ApplyAstrometry.raDecToXYPP(ra_catalog, dec_catalog, jd, platepar)
 
     return x_array, y_array, mag_array
 
@@ -468,23 +460,13 @@ class Platepar(object):
 
             ra_catalog, dec_catalog, _ = catalog_stars.T
 
-            # Correct for precession
-            ra_corrected = np.empty_like(ra_catalog)
-            dec_corrected = np.empty_like(dec_catalog)
-
-            # Loop through each star in the catalog
-            for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
-                ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
-                ra_corrected[i] = np.degrees(ra_corr)
-                dec_corrected[i] = np.degrees(dec_corr)
-
             # Compute the sum of the angular separation
             separation_sum = np.sum(
                 angularSeparation(
                     np.radians(ra_array),
                     np.radians(dec_array),
-                    np.radians(ra_corrected),
-                    np.radians(dec_corrected),
+                    np.radians(ra_catalog),
+                    np.radians(dec_catalog),
                 )
                 ** 2
             )
@@ -612,23 +594,13 @@ class Platepar(object):
 
             ra_catalog, dec_catalog, _ = catalog_stars.T
 
-            # Correct for precession
-            ra_corrected = np.empty_like(ra_catalog)
-            dec_corrected = np.empty_like(dec_catalog)
-
-            # Loop through each star in the catalog
-            for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
-                ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
-                ra_corrected[i] = np.degrees(ra_corr)
-                dec_corrected[i] = np.degrees(dec_corr)
-
             # Compute the sum of the angular separation
             separation_sum = np.sum(
                 angularSeparation(
                     np.radians(ra_array),
                     np.radians(dec_array),
-                    np.radians(ra_corrected),
-                    np.radians(dec_corrected),
+                    np.radians(ra_catalog),
+                    np.radians(dec_catalog),
                 )
                 ** 2
             )
@@ -707,23 +679,13 @@ class Platepar(object):
 
             ra_catalog, dec_catalog, _ = catalog_stars.T
 
-            # Correct for precession
-            ra_corrected = np.empty_like(ra_catalog)
-            dec_corrected = np.empty_like(dec_catalog)
-
-            # Loop through each star in the catalog
-            for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
-                ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
-                ra_corrected[i] = np.degrees(ra_corr)
-                dec_corrected[i] = np.degrees(dec_corr)
-
             # Compute the sum of the angular separation
             separation_sum = np.sum(
                 angularSeparation(
                     np.radians(ra_array),
                     np.radians(dec_array),
-                    np.radians(ra_corrected),
-                    np.radians(dec_corrected),
+                    np.radians(ra_catalog),
+                    np.radians(dec_catalog),
                 )
                 ** 2
             )
