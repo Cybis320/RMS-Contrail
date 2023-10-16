@@ -140,10 +140,12 @@ def extinctionCorrectionTrueToApparent(catalog_mags, ra_data, dec_data, jd, plat
     for ra, dec in zip(ra_data, dec_data):
 
         # Precess to epoch of date
-        ra, dec = equatorialCoordPrecession(J2000_JD.days, jd, np.radians(ra), np.radians(dec))
+        # ra, dec = equatorialCoordPrecession(J2000_JD.days, jd, np.radians(ra), np.radians(dec))
 
         # Compute elevation
-        _, elev = raDec2AltAz(np.degrees(ra), np.degrees(dec), jd, platepar.lat, platepar.lon)
+        # _, elev = raDec2AltAz(np.degrees(ra), np.degrees(dec), jd, platepar.lat, platepar.lon)
+        _, elev = raDec2AltAz(ra, dec, jd, platepar.lat, platepar.lon)
+
 
         if elev < 0:
             elev = 0
@@ -188,11 +190,11 @@ def extinctionCorrectionApparentToTrue(mags, x_data, y_data, jd, platepar):
     for ra, dec in zip(ra_data, dec_data):
 
         # Precess to epoch of date
-        ra, dec = equatorialCoordPrecession(J2000_JD.days, jd, np.radians(ra), np.radians(dec))
+        # ra, dec = equatorialCoordPrecession(J2000_JD.days, jd, np.radians(ra), np.radians(dec))
 
         # Compute elevation
-        _, elev = raDec2AltAz(np.degrees(ra), np.degrees(dec), jd, platepar.lat, platepar.lon)
-
+        # _, elev = raDec2AltAz(np.degrees(ra), np.degrees(dec), jd, platepar.lat, platepar.lon)
+        _, elev = raDec2AltAz(ra, dec, jd, platepar.lat, platepar.lon)
         if elev < 0:
             elev = 0
             
@@ -555,8 +557,9 @@ def rotationWrtStandard(platepar):
     dx = 5
 
     # Image coordiantes of the center
-    img_down_w = (platepar.X_res/2) + platepar.x_poly_fwd[0]- dx
-    img_down_h = platepar.Y_res/2 + platepar.x_poly_fwd[1]
+    x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+    img_down_w = x_center - dx
+    img_down_h = y_center
     # Image coordinate slighty right of the center (horizontal)
     img_up_w = img_down_w + 2*dx
     img_up_h = img_down_h
@@ -656,6 +659,38 @@ def calculateMagnitudes(px_sum_arr, radius_arr, photom_offset, vignetting_coeff)
 
 
 
+def imageCenter(platepar, center_of_distortion=False):
+    """
+    Returns image x, y of the FOV center, or the center of distortion
+
+    Arguments:
+        platepar: [Platepar structure] Astrometry parameters.
+    
+    Keyword arguments:
+        center_of_distortion: [bool] If True, return the image x,y of the center of distortion
+
+    Return: (x, y)
+    """
+
+    if center_of_distortion:
+        if platepar.distortion_type.startswith("radial"):
+            x0_norm = platepar.x_poly_fwd[0]
+            y0_norm = platepar.x_poly_fwd[1]
+        else:
+            x0_norm = platepar.x_poly_fwd[0]
+            y0_norm = platepar.y_poly_fwd[0]
+    
+    else:
+        x0_norm = 0
+        y0_norm = 0
+    
+    x = (1 + x0_norm) * platepar.X_res / 2
+    y = (1 + y0_norm) * platepar.Y_res / 2
+
+    return (x, y)
+
+
+
 def xyToRaDecPP(time_data, X_data, Y_data, level_data, platepar, extinction_correction=True, \
     measurement=False, jd_time=False):
     """ Converts image XY to RA,Dec, but it takes a platepar instead of individual parameters. 
@@ -715,7 +750,8 @@ def xyToRaDecPP(time_data, X_data, Y_data, level_data, platepar, extinction_corr
             
 
     # Compute radiia from image centre
-    radius_arr = np.hypot(np.array(X_data) - platepar.X_res/2, np.array(Y_data) - platepar.Y_res/2)
+    x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+    radius_arr = np.hypot(np.array(X_data) - x_center, np.array(Y_data) - y_center)
 
     # Calculate magnitudes
     magnitude_data = calculateMagnitudes(level_data, radius_arr, platepar.mag_lev, platepar.vignetting_coeff)
@@ -908,11 +944,12 @@ def applyPlateparToCentroids(ff_name, fps, meteor_meas, platepar, add_calstatus=
         dec_tmp = dec_data[i]
 
         # Precess RA/Dec to epoch of date
-        ra_tmp, dec_tmp = equatorialCoordPrecession(J2000_JD.days, jd, np.radians(ra_tmp), \
-            np.radians(dec_tmp))
+        # ra_tmp, dec_tmp = equatorialCoordPrecession(J2000_JD.days, jd, np.radians(ra_tmp), \
+        #     np.radians(dec_tmp))
 
         # Alt/Az are apparent (in the epoch of date, corresponding to geographical azimuths)
-        az_tmp, alt_tmp = raDec2AltAz(np.degrees(ra_tmp), np.degrees(dec_tmp), jd, platepar.lat, platepar.lon)
+        # az_tmp, alt_tmp = raDec2AltAz(np.degrees(ra_tmp), np.degrees(dec_tmp), jd, platepar.lat, platepar.lon)
+        az_tmp, alt_tmp = raDec2AltAz(ra_tmp, dec_tmp, jd, platepar.lat, platepar.lon)
 
         az_data[i] = az_tmp
         alt_data[i] = alt_tmp
