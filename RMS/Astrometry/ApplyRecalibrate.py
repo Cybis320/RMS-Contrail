@@ -28,7 +28,7 @@ from RMS.Astrometry.ApplyAstrometry import (
     photometryFitRobust,
     rotationWrtHorizon,
 )
-from RMS.Astrometry.Conversions import date2JD, raDec2AltAz
+from RMS.Astrometry.Conversions import date2JD, datetime2JD, raDec2AltAz
 from RMS.Astrometry.FFTalign import alignPlatepar
 from RMS.Formats import CALSTARS, FFfile, FTPdetectinfo, Platepar, StarCatalog
 from RMS.Formats.FTPdetectinfo import findFTPdetectinfoFile
@@ -532,8 +532,11 @@ def recalibrateSelectedFF(dir_path, ff_file_names, calstars_list, config, lim_ma
     config = copy.deepcopy(config)
     calstars = {ff_file: star_data for ff_file, star_data in calstars_list}
 
+    date = FFfile.filenameToDatetime(ff_file_names[0])
+    jd = datetime2JD(date)
     # load star catalog with increased catalog limiting magnitude
-    star_catalog_status = StarCatalog.readStarCatalog(
+    star_catalog_status = StarCatalog.readStarCatalog_Precessed(
+        jd,
         config.star_catalog_path,
         config.star_catalog_file,
         lim_mag=lim_mag,
@@ -652,7 +655,8 @@ def recalibrateIndividualFFsAndApplyAstrometry(
     config.catalog_mag_limit += 1
 
     # Load catalog stars (overwrite the mag band ratios if specific catalog is used)
-    star_catalog_status = StarCatalog.readStarCatalog(
+    star_catalog_status = StarCatalog.readStarCatalog_Precessed(
+        platepar.JD,
         config.star_catalog_path,
         config.star_catalog_file,
         lim_mag=config.catalog_mag_limit,
