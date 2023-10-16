@@ -31,6 +31,7 @@ from RMS.Astrometry.ApplyAstrometry import (
     getFOVSelectionRadius,
     raDecToXYPP,
     xyToRaDecPP,
+    imageCenter
 )
 from RMS.Astrometry.ApplyRecalibrate import applyRecalibrate, loadRecalibratedPlatepar, recalibrateSelectedFF
 from RMS.Astrometry.Conversions import J2000_JD, areaGeoPolygon, date2JD, datetime2JD, jd2Date, raDec2AltAz
@@ -1044,13 +1045,15 @@ def detectMoon(file_list, platepar, config):
     radius = getFOVSelectionRadius(platepar)
     new_file_list = []
 
+    x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+
     # going through all ff files to check if moon is in fov
     for filename in file_list:
         # getting right ascension and declination of middle of fov
         _, ra_mid, dec_mid, _ = xyToRaDecPP(
             [FFfile.getMiddleTimeFF(filename, config.fps)],
-            [platepar.X_res/2],
-            [platepar.Y_res/2],
+            [x_center],
+            [y_center],
             [1],
             platepar,
         )
@@ -1498,7 +1501,8 @@ def predictStarNumberInFOV(recalibrated_platepars, ff_limiting_magnitude, config
             )
 
             # Collect and filter catalog stars
-            catalog_stars, _, _ = StarCatalog.readStarCatalog(
+            catalog_stars, _, _ = StarCatalog.readStarCatalog_Precessed(
+                platepar.JD,
                 config.star_catalog_path,
                 config.star_catalog_file,
                 lim_mag=lim_mag,
@@ -3094,10 +3098,12 @@ def computeFlux(config, dir_path, ftpdetectinfo_path, shower_code, dt_beg, dt_en
         col_areas_ht, col_area_100km_raw = getCollectingArea(dir_path, config, flux_config, platepar, mask)
 
         # Compute the pointing of the middle of the FOV
+        x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+
         _, ra_mid, dec_mid, _ = xyToRaDecPP(
             [jd2Date(J2000_JD.days)],
-            [platepar.X_res/2],
-            [platepar.Y_res/2],
+            [x_center],
+            [y_center],
             [1],
             platepar,
             extinction_correction=False,
@@ -3107,8 +3113,8 @@ def computeFlux(config, dir_path, ftpdetectinfo_path, shower_code, dt_beg, dt_en
         # Compute the range to the middle point at the meteor layer
         r_mid, _, _, _ = xyHt2Geo(
             platepar,
-            platepar.X_res/2,
-            platepar.Y_res/2,
+            x_center,
+            y_center,
             meteor_ht,
             indicate_limit=True,
             elev_limit=flux_config.elev_limit,
