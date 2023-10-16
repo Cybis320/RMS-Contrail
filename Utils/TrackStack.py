@@ -18,7 +18,7 @@ except:
     got_tqdm = False
 
 import RMS.ConfigReader as cr
-from RMS.Astrometry.ApplyAstrometry import xyToRaDecPP, raDecToXYPP
+from RMS.Astrometry.ApplyAstrometry import xyToRaDecPP, raDecToXYPP, imageCenter
 from RMS.Astrometry.Conversions import date2JD, jd2Date
 from RMS.Formats.FFfile import validFFName, getMiddleTimeFF
 from RMS.Formats.FFfile import read as readFF
@@ -175,7 +175,9 @@ def trackStack(dir_paths, config, border=5, background_compensation=True,
 
 
     # Compute the middle RA/Dec of the reference platepar
-    _, ra_temp, dec_temp, _ = xyToRaDecPP([jd2Date(jd_middle)], [pp_ref.X_res/2], [pp_ref.Y_res/2], [1],
+    x_center, y_center = imageCenter(pp_ref, center_of_distortion=True)
+
+    _, ra_temp, dec_temp, _ = xyToRaDecPP([jd2Date(jd_middle)], [x_center], [y_center], [1],
         pp_ref, extinction_correction=False)
 
     ra_mid, dec_mid = ra_temp[0], dec_temp[0]
