@@ -226,12 +226,14 @@ def alignPlatepar(config, platepar, calstars_time, calstars_coords, scale_update
     for inum in range(maxiter):
 
         # Load the catalog stars
-        catalog_stars, _, _ = StarCatalog.readStarCatalog(config.star_catalog_path, config.star_catalog_file, \
+        catalog_stars, _, _ = StarCatalog.readStarCatalog_Precessed(platepar.JD, config.star_catalog_path, config.star_catalog_file, \
             lim_mag=config.catalog_mag_limit, mag_band_ratios=config.star_catalog_band_ratios)
 
         # Get the RA/Dec of the image centre
-        _, ra_centre, dec_centre, _ = ApplyAstrometry.xyToRaDecPP([calstars_time], [platepar.X_res/2], \
-                [platepar.Y_res/2], [1], platepar, extinction_correction=False)
+        x_center, y_center = ApplyAstrometry.imageCenter(platepar, center_of_distortion=True)
+
+        _, ra_centre, dec_centre, _ = ApplyAstrometry.xyToRaDecPP([calstars_time], [x_center], \
+                [y_center], [1], platepar, extinction_correction=False)
 
         ra_centre = ra_centre[0]
         dec_centre = dec_centre[0]
@@ -297,9 +299,11 @@ def alignPlatepar(config, platepar, calstars_time, calstars_coords, scale_update
         platepar_aligned.F_scale *= scale
 
     # Compute the new reference RA and Dec
+    x_center, y_center = ApplyAstrometry.imageCenter(platepar, center_of_distortion=True)
+
     _, ra_centre_new, dec_centre_new, _ = ApplyAstrometry.xyToRaDecPP([jd2Date(platepar.JD)], \
-        [platepar.X_res/2 - platepar.x_poly_fwd[0] - translation_x], \
-        [platepar.Y_res/2 - platepar.y_poly_fwd[0] - translation_y], [1], platepar, \
+        [x_center - translation_x], \
+        [y_center - translation_y], [1], platepar, \
         extinction_correction=False)
 
     # Correct RA/Dec

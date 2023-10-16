@@ -19,7 +19,7 @@ import pyximport
 import RMS.ConfigReader as cr
 import scipy.optimize
 from RMS.Astrometry.ApplyAstrometry import (getFOVSelectionRadius, raDecToXYPP,
-                                            rotationWrtHorizon, xyToRaDecPP)
+                                            rotationWrtHorizon, xyToRaDecPP, imageCenter)
 from RMS.Astrometry.Conversions import date2JD, jd2Date, raDec2AltAz
 from RMS.Astrometry.FFTalign import alignPlatepar
 from RMS.Formats import CALSTARS, FFfile, Platepar, StarCatalog
@@ -91,7 +91,9 @@ def matchStarsResiduals(config, platepar, catalog_stars, star_dict, match_radius
     for jd in star_dict:
 
         # Estimate RA,dec of the centre of the FOV
-        _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(jd)], [(platepar.X_res/2)*(1+platepar.x_poly[0])], [(platepar.Y_res/2)*(1+platepar.x_poly[1])], [1], \
+        x_center, y_center = imageCenter(platepar, center_of_distortion=True)
+
+        _, RA_c, dec_c, _ = xyToRaDecPP([jd2Date(jd)], [x_center], [y_center], [1], \
             platepar, extinction_correction=False)
 
         RA_c = RA_c[0]
@@ -102,16 +104,6 @@ def matchStarsResiduals(config, platepar, catalog_stars, star_dict, match_radius
             fov_radius, lim_mag)
         ra_catalog, dec_catalog, mag_catalog = extracted_catalog.T
 
-        ra_corrected = np.empty_like(ra_catalog)
-        dec_corrected = np.empty_like(dec_catalog)
-
-        # Loop through each star in the catalog
-        for i, (ra, dec) in enumerate(zip(ra_catalog, dec_catalog)):
-            ra_corr, dec_corr = equatorialCoordPrecession(2451545.0, jd, np.radians(ra), np.radians(dec))
-            ra_corrected[i] = np.degrees(ra_corr)
-            dec_corrected[i] = np.degrees(dec_corr)
-
-
         # Extract stars for the given Julian date
         stars_list = star_dict[jd]
         stars_list = np.array(stars_list)
@@ -121,7 +113,7 @@ def matchStarsResiduals(config, platepar, catalog_stars, star_dict, match_radius
             continue
 
         # Convert all catalog stars to image coordinates
-        cat_x_array, cat_y_array = raDecToXYPP(ra_corrected, dec_corrected, jd, platepar)
+        cat_x_array, cat_y_array = raDecToXYPP(ra_catalog, dec_catalog, jd, platepar)
 
         # Take only those stars which are within the FOV
         x_indices = np.argwhere((cat_x_array >= 0) & (cat_x_array < platepar.X_res))
@@ -519,7 +511,8 @@ def autoCheckFit(config, platepar, calstars_list, _fft_refinement=False):
 
 
     # Load catalog stars (overwrite the mag band ratios if specific catalog is used)
-    catalog_stars, _, config.star_catalog_band_ratios = StarCatalog.readStarCatalog(config.star_catalog_path, \
+    catalog_stars, _, config.star_catalog_band_ratios = StarCatalog.readStarCatalog_Precessed(
+        platepar.JD, config.star_catalog_path, \
         config.star_catalog_file, lim_mag=config.catalog_mag_limit, \
         mag_band_ratios=config.star_catalog_band_ratios)
 
