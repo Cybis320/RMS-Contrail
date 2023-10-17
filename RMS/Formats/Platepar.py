@@ -893,6 +893,18 @@ class Platepar(object):
 
         self.star_list = fit_star_list
 
+        # Set the jd to the platepar
+        self.JD = jd
+
+        # Calculate the reference hour angle
+        T = (jd - 2451545.0) / 36525.0
+        self.Ho = (
+            280.46061837
+            + 360.98564736629 * (jd - 2451545.0)
+            + 0.000387933 * T ** 2
+            - T ** 3 / 38710000.0
+        ) % 360
+
         # Set the flag to indicate that the platepar was manually fitted
         self.auto_check_fit_refined = False
         self.auto_recalibrated = False
