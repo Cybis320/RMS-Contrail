@@ -241,7 +241,7 @@ class BufferedCapture(Process):
 
             total_frames = first_skipped_frames
 
-            # Create dir to save uncompressed images
+            # Create dir to save uncompressed images (for Contrails)
             stationID = str(self.config.stationID)
             date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
             dirname = f"UC_{stationID}_"+ date_string
@@ -373,7 +373,7 @@ class BufferedCapture(Process):
                     # Grab the current UNIX timestamp
                     frame_timestamp = time.time()
 
-                    # If a video device is used, save a uncompressed frame every nth frames
+                    # If a video device is used, save a uncompressed frame every nth frames (for Contrails)
                     # if i % 64 == 0:   > img every 2.56s, 3.7GB per day
                     # if i % 128 == 0:   > img every 5.12s, 1.9GB per day
                     # if i == 0:   > img every 10.24s, 0.9GB per day
@@ -390,13 +390,7 @@ class BufferedCapture(Process):
 
                         img_path = os.path.join(dirname, filename)
 
-                        # # Draw text to image
-                        # font = cv2.FONT_HERSHEY_SIMPLEX
-                        # text = f"{self.config.stationID} {date_string} {millis} UTC"
-                        # cv2.putText(frame, text, (10, frame.shape[0] - 6), font, 0.4, (255, 255, 255), 1, \
-                        #     cv2.LINE_AA)
-
-                        # Save the labelled image to disk with a separate thread
+                        # Save the image to disk with a separate thread
                         try:
                             worker_thread = Thread(target=self.save_image_and_log_time, args=(filename, img_path, frame, frame_timestamp,i), daemon=True)
                             worker_thread.start()
