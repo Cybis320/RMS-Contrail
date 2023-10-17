@@ -81,6 +81,8 @@ def resetSIGINT():
 
     signal.signal(signal.SIGINT, ORIGINAL_BREAK_HANDLE)
 
+
+
 # TODO: consider moving and combining function to CaptureDuration.py
 
 def setDayorNight(latitude, longitude, elevation):
@@ -100,10 +102,11 @@ def setDayorNight(latitude, longitude, elevation):
             rest of the processing.
     
     Return:
-        (start_time, duration):
+        (start_time, duration, isday):
             - start_time: [datetime object] time when the capturing should start, True if capturing should
                 start right away
             - duration: [float] seconds of capturing time
+            - isday: [Bool] True if day capture
     """
 
     # Calculate when and how should the capture run
