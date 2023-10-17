@@ -5,6 +5,7 @@ from __future__ import print_function, division, absolute_import
 
 
 import os
+import glob
 import sys
 import traceback
 import argparse
@@ -35,6 +36,7 @@ from Utils.MakeFlat import makeFlat
 from Utils.PlotFieldsums import plotFieldsums
 from Utils.RMS2UFO import FTPdetectinfo2UFOOrbitInput
 from Utils.ShowerAssociation import showerAssociation
+from Utils.adsb2jpg import run_overlay_on_images, create_video_from_images
 
 
 # Get the logger from the main module
@@ -391,6 +393,46 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
 
         except Exception as e:
             log.debug('Generating a timelapse failed with message:\n' + repr(e))
+            log.debug(repr(traceback.format_exception(*sys.exc_info())))
+    
+    # TODO: have contrail specific settings
+    # Generate a ADSB timelapse (for Contrails)
+    if config.timelapse_generate_captured:
+        
+        log.info('Generating a ADS-B timelapse...')
+        try:
+            unprocessed_dir = os.path.join(config.data_dir, 'Unprocessed')
+
+            # Loop through each directory in 'Unprocessed'
+            for subdir in os.listdir(unprocessed_dir):
+                full_subdir = os.path.join(unprocessed_dir, subdir)
+                
+                # If it's not a directory, skip
+                if not os.path.isdir(full_subdir):
+                    continue
+                
+                # Search for *_adsb_timelapse.mp4
+                search_pattern = os.path.join(full_subdir, '*_adsb_timelapse.mp4')
+                found_files = glob.glob(search_pattern)
+                
+                # If not found, run your code
+                if not found_files:
+                    print(f"File not found in {full_subdir}, running code...")
+                    
+                    temp_dir = run_overlay_on_images(full_subdir, platepar)
+
+                    # Make the name of the timelapse file
+                    timelapse_file_name = subdir + "_adsb_timelapse.mp4"
+                    timelapse_path = os.path.join(full_subdir, timelapse_file_name)
+
+                    # Generate the timelapse
+                    create_video_from_images(temp_dir, timelapse_path, delete_images=True)
+
+                    # Add the timelapse to the extra files
+                    extra_files.append(timelapse_path)
+
+        except Exception as e:
+            log.debug('Generating an ADS-B timelapse failed with message:\n' + repr(e))
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
 
 
