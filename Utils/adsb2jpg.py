@@ -7,7 +7,6 @@ sys.path.append('/Users/lucbusquin/Projects/RMS-Contrail')
 
 import glob
 import json
-import sys
 import os
 import shutil
 import platform
@@ -549,6 +548,8 @@ def run_overlay_on_images(input_path, platepar):
         client (InfluxDBClient): The InfluxDB client.
         input_path (str): The path to a directory containing image files or a single image file.
         platepar (object): Platepar object for coordinate conversion.
+    Return:
+        Outpur_dir: [path object] the path to the dir containing the images with adsb overlay
     """
     start_total_time = time.time()
 
@@ -748,7 +749,7 @@ if __name__ == "__main__":
     if os.path.isdir(cml_args.input_path):
         normalized_path = os.path.dirname(cml_args.input_path) if cml_args.input_path.endswith('/') else cml_args.input_path
         dir_name = os.path.basename(normalized_path)
-        
+
         timelapse_file_name = dir_name + "_adsb_timelapse.mp4"
         video_path = os.path.join(cml_args.input_path, timelapse_file_name)
         
