@@ -7,7 +7,11 @@ sys.path.append('/Users/lucbusquin/Projects/RMS-Contrail')
 
 import glob
 import json
+import sys
 import os
+import shutil
+import platform
+import subprocess
 import re
 import time
 from collections import defaultdict
@@ -538,7 +542,7 @@ def print_structure(data, depth=0, max_depth=3, max_items=3):
 
 
 # === ENTRY POINT ===
-def run_overlay_on_images(client, input_path, platepar):
+def run_overlay_on_images(input_path, platepar):
     """Overlay aircraft positions on image files in a directory or a single image.
     
     Args:
@@ -547,15 +551,21 @@ def run_overlay_on_images(client, input_path, platepar):
         platepar (object): Platepar object for coordinate conversion.
     """
     start_total_time = time.time()
+
+    # Initialize the InfluxDB client
+    # TODO: consider defining URL in config file
+    client = InfluxDBClient(host='contrailcast.local', port=8086)
+    client.switch_database('adsb_data')  # Switch to your specific database
+
     time_buffer = timedelta(seconds=30)
 
     # Determine input type and set appropriate directories
     if os.path.isdir(input_path):
-        output_dir = os.path.join(input_path, "overlay_images")
+        output_dir = os.path.join(input_path, "temp_images")
         image_files = glob.glob(os.path.join(input_path, '*.jpg')) + glob.glob(os.path.join(input_path, '*.png'))
         kml_dir = input_path
     elif os.path.isfile(input_path):
-        output_dir = os.path.join(os.path.dirname(input_path), "overlay_images")
+        output_dir = os.path.join(os.path.dirname(input_path), "temp_images")
         image_files = [input_path]
         kml_dir = os.path.dirname(input_path)
     else:
@@ -618,38 +628,82 @@ def run_overlay_on_images(client, input_path, platepar):
 
             image_count += 1
             print(f"\rSaved {image_count}/{total_images}. {time.time() - start_total_time:.2f}s. batches of: {batch_size}", end="", flush=True)
+    
+    return  output_dir
 
 
 
 
-def create_video_from_images(image_folder, video_name, delete_images=False):
+# def create_video_from_images(image_folder, video_name, delete_images=False):
+#     images = [img for img in sorted(glob.glob(os.path.join(image_folder, "*_overlay.*")))]
+#     if len(images) == 0:
+#         print("No overlay images found.")
+#         return
+    
+#     frame = cv2.imread(images[0])
+
+#     # Setting the frame width, height, assuming all images are the same size
+#     height, width, layers = frame.shape
+#     size = (width, height)
+
+#     # Get the parent directory of the image_folder
+#     parent_directory = os.path.dirname(image_folder)
+#     video_path = os.path.join(parent_directory, video_name)
+
+#     out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, size)
+
+#     for i in range(len(images)):
+#         img_path = images[i]
+#         out.write(cv2.imread(img_path))
+
+#         # Delete the image file if the flag is set
+#         if delete_images:
+#             os.remove(img_path)
+
+#     out.release()
+
+# cfr   size (MB)
+#   1   2050
+#  15    502
+#  20    168
+#  23     70
+
+def create_video_from_images(image_folder, video_path, fps=30, crf=22, delete_images=False):
+    """
+    
+    """
     images = [img for img in sorted(glob.glob(os.path.join(image_folder, "*_overlay.*")))]
     if len(images) == 0:
         print("No overlay images found.")
         return
-    
-    frame = cv2.imread(images[0])
 
-    # Setting the frame width, height, assuming all images are the same size
-    height, width, layers = frame.shape
-    size = (width, height)
+    # Create a text file listing all the images
+    list_file_path = os.path.join(image_folder, "filelist.txt")
+    with open(list_file_path, 'w') as f:
+        for img_path in images:
+            f.write(f"file '{os.path.basename(img_path)}'\n")
 
-    # Get the parent directory of the image_folder
-    parent_directory = os.path.dirname(image_folder)
-    video_path = os.path.join(parent_directory, video_name)
+    # Formulate the ffmpeg command
+    base_command = "-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 -crf {crf} -g 15 {video_path}"
 
-    out = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, size)
+    if platform.system() in ['Linux', 'Darwin']:  # Darwin is macOS
+        software_name = "ffmpeg"
+        encode_command = f"{software_name} {base_command}"
+    elif platform.system() == 'Windows':
+        ffmpeg_path = os.path.join(os.path.dirname(__file__), "ffmpeg.exe")
+        encode_command = f"{ffmpeg_path} {base_command}"
+    else:
+        print("Unsupported platform.")
+        return
 
-    for i in range(len(images)):
-        img_path = images[i]
-        out.write(cv2.imread(img_path))
+    # Execute the command
+    subprocess.call(encode_command.format(fps=fps, list_file_path=list_file_path, crf=crf, video_path=video_path), shell=True)
 
-        # Delete the image file if the flag is set
-        if delete_images:
-            os.remove(img_path)
 
-    out.release()
-
+    # Optionally, delete the source images and list file
+    if os.path.exists(image_folder) and delete_images:
+        shutil.rmtree(image_folder)
+        print(f"Deleted temporary directory : {image_folder}")
 
 
 if __name__ == "__main__":
@@ -684,19 +738,21 @@ if __name__ == "__main__":
     pp = Platepar()
     pp.read(filename, fmt=fmt)
 
-    # Initialize the InfluxDB client
-    # TODO: consider defining URL in config file
-    client = InfluxDBClient(host='contrailcast.local', port=8086)
-    client.switch_database('adsb_data')  # Switch to your specific database
+    
 
-    run_overlay_on_images(client, cml_args.input_path, pp)
+    temp_dir = run_overlay_on_images(cml_args.input_path, pp)
 
 
     # If the input_path is a directory, run the function to create mp4 video
+
     if os.path.isdir(cml_args.input_path):
-        output_dir = os.path.join(cml_args.input_path, "overlay_images")
-        video_name = os.path.join(output_dir, "overlay_video.mp4")
-        create_video_from_images(output_dir, video_name, True)
+        normalized_path = os.path.dirname(cml_args.input_path) if cml_args.input_path.endswith('/') else cml_args.input_path
+        dir_name = os.path.basename(normalized_path)
+        
+        timelapse_file_name = dir_name + "_adsb_timelapse.mp4"
+        video_path = os.path.join(cml_args.input_path, timelapse_file_name)
+        
+        create_video_from_images(temp_dir, video_path, delete_images=True)
 
 '''
 # Debug Test code
