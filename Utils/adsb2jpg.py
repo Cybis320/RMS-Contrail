@@ -616,19 +616,21 @@ def run_overlay_on_images(input_path, platepar):
                 overlay_data_on_image(image, point, platepar.az_centre)
             
             # overlay timestamp
-            station_name = img_file.split("_")[1]
+            img_name = os.path.basename(img_file)
+            station_name = img_name.split("_")[1]
+
             height, _, _ = image.shape
+
             timestamp = extract_timestamp_from_image(img_file).strftime('%Y-%m-%d %H:%M:%S UTC')
             cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
-
-
-            img_name = os.path.basename(img_file)
+            
             output_name = f"{img_name.rsplit('.', 1)[0]}_overlay.{img_name.rsplit('.', 1)[1]}"
             output_path = os.path.join(output_dir, output_name)
             cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
             image_count += 1
             print(f"\rSaved {image_count}/{total_images}. {time.time() - start_total_time:.2f}s. batches of: {batch_size}", end="", flush=True)
+    print("\nFinished applying ADS-B overlay to images.")
     
     return  output_dir
 
