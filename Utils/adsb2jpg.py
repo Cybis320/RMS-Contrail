@@ -592,7 +592,7 @@ def run_overlay_on_images(input_path, platepar):
     grouped_points = group_and_sort_points(query_result)
 
     # Divide grouped_points into batches
-    batch_size = 25 # 75 gave best perf on a macbook
+    batch_size = 10 # 75 gave best perf on a macbook
     batches = create_image_batches(image_timestamps, batch_size)
     image_count = 0
     total_images = len(image_timestamps)
@@ -625,7 +625,7 @@ def run_overlay_on_images(input_path, platepar):
             img_name = os.path.basename(img_file)
             output_name = f"{img_name.rsplit('.', 1)[0]}_overlay.{img_name.rsplit('.', 1)[1]}"
             output_path = os.path.join(output_dir, output_name)
-            cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 100])
+            cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
             image_count += 1
             print(f"\rSaved {image_count}/{total_images}. {time.time() - start_total_time:.2f}s. batches of: {batch_size}", end="", flush=True)
