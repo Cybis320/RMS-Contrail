@@ -427,7 +427,7 @@ def center_distance_two_rectangles(w1, h1, w2, h2, theta):
 
 
 
-def overlay_data_on_image(image, point, img_file, az_center):
+def overlay_data_on_image(image, point, az_center):
     """Helper function to overlay aircraft data on an image."""
     x, y = point['x'], point['y']
     alt_baro = int(round(point.get('alt_baro', None))) if point.get('alt_baro', None) is not None else 'N/A'
@@ -613,7 +613,7 @@ def run_overlay_on_images(input_path, platepar):
             
             image = cv2.imread(img_file)
             for point in points_XY:
-                overlay_data_on_image(image, point, img_file, platepar.az_centre)
+                overlay_data_on_image(image, point, platepar.az_centre)
             
             # overlay timestamp
             station_name = img_file.split("_")[1]
