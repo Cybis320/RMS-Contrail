@@ -672,7 +672,7 @@ def run_overlay_on_images(input_path, platepar):
 #  20    168
 #  23     70
 
-def create_video_from_images(image_folder, video_path, fps=30, crf=22, delete_images=False):
+def create_video_from_images(image_folder, video_path, fps=30, crf=25, delete_images=False):
     """
     
     """
