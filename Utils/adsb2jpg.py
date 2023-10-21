@@ -432,6 +432,7 @@ def overlay_data_on_image(image, point, az_center):
     x, y = point['x'], point['y']
     alt_baro = int(round(point.get('alt_baro', None))) if point.get('alt_baro', None) is not None else 'N/A'
     aircraft_type = point['t']
+    aircraft_reg = point['r']
     aircraft_track = point['track'] if point['track'] is not None else az_center
     diff_angle = (aircraft_track - az_center) % 360
 
@@ -443,11 +444,11 @@ def overlay_data_on_image(image, point, az_center):
 
     # Adjust color as a function of an altitude threshold and set alt to N/A if None
     if isinstance(alt_baro, int):
-        text = f"{alt_baro:,} ft\n{aircraft_type}"
+        text = f"{alt_baro:,} ft\n{aircraft_type}\n{aircraft_reg}"
         if alt_baro >= 27000:
             color = (0, 50, 255)
     else:
-        text = f"{alt_baro} ft\n{aircraft_type}"  # This will be 'N/A ft'
+        text = f"{alt_baro} ft\n{aircraft_type}\n{aircraft_reg}"  # This will be 'N/A ft'
 
     # Splits lines of text
     lines = text.split('\n')
@@ -636,7 +637,7 @@ def run_overlay_on_images(input_path, platepar):
 
 
 
-
+# CV2 MP4
 # def create_video_from_images(image_folder, video_name, delete_images=False):
 #     images = [img for img in sorted(glob.glob(os.path.join(image_folder, "*_overlay.*")))]
 #     if len(images) == 0:
@@ -686,7 +687,10 @@ def create_video_from_images(image_folder, video_path, fps=30, crf=22, delete_im
         for img_path in images:
             f.write(f"file '{os.path.basename(img_path)}'\n")
 
+    print("Starting timelapse MP4 creation...")
+
     # Formulate the ffmpeg command
+    # base_command = "-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 -pix_fmt yuv420p -crf {crf} -g 15 -vf \"hqdn3d=4:3:6:4.5,lutyuv=y=gammaval(0.77)\" {video_path}"
     base_command = "-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 -crf {crf} -g 15 {video_path}"
 
     if platform.system() in ['Linux', 'Darwin']:  # Darwin is macOS
