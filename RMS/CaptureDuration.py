@@ -34,7 +34,9 @@ def captureDuration(lat, lon, elevation, current_time=None, max_hours=23):
     o.elevation = elevation
 
     # The Sun should be about 5.5 degrees below the horizon when the capture should begin/end
-    o.horizon = '-5:26'
+    # o.horizon = '-5:26'
+    o.horizon = '-6:30'
+
 
     # If the current time is not given, use the current time
     if current_time is None:
