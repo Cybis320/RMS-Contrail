@@ -4,7 +4,7 @@ import datetime
 
 import ephem
 
-
+# For Contails
 def captureDurationDay(lat, lon, elevation, current_time=None, max_hours=23):
     """ Calcualtes the start time and the duration of capturing, for the given geographical coordinates. 
     
@@ -36,7 +36,10 @@ def captureDurationDay(lat, lon, elevation, current_time=None, max_hours=23):
     # The Sun should be about 5.5 degrees below the horizon when the capture should begin/end
     # The angle of 5.5 degrees below the horizon signifies the end of nautical twilight and
     # the beginning of astronomical twilight. Astronomical Night starts at 18 degrees below.
-    o.horizon = '-5:26'
+    # o.horizon = '-5:26'
+    o.horizon = '-6:30'
+
+
 
     # If the current time is not given, use the current time
     if current_time is None:
@@ -111,8 +114,8 @@ def captureDurationDay(lat, lon, elevation, current_time=None, max_hours=23):
     # Calculate the duration of capture in seconds
     duration = duration.total_seconds()
 
-    # Stops day capture 5 min before night capture starts
-    duration = duration - 5*60  
+    # Stops day capture 65 min before night capture starts
+    duration = duration - 65 * 60  
 
     # If the duration is longer than the maximum allowed, set it to the maximum
     max_duration = 3600*max_hours
