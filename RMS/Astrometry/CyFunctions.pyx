@@ -293,12 +293,12 @@ cpdef double cyjd2LST(double jd, double lon):
 
 
 @cython.cdivision(False)
-cpdef (double, double) equatorialCoordPrecession(double start_epoch, double final_epoch, double ra, \
+cpdef (double, double) equatorialCoordPrecession_1976(double start_epoch, double final_epoch, double ra, \
     double dec):
     """ Corrects Right Ascension and Declination from one epoch to another, taking only precession into 
         account.
 
-        Implemented from: Jean Meeus - Astronomical Algorithms, 2nd edition, pages 134-135
+        Implemented from: Jean Meeus - Astronomical Algorithms, 2nd edition, pages 134-135 (IAU 1976)
     
     Arguments:
         start_epoch: [float] Julian date of the starting epoch.
@@ -340,6 +340,62 @@ cpdef (double, double) equatorialCoordPrecession(double start_epoch, double fina
         dec_corr = asin(C)
 
     return ra_corr, dec_corr
+
+
+
+@cython.cdivision(False)
+cpdef (double, double) equatorialCoordPrecession(double start_epoch, double final_epoch, double ra, double dec):
+    """ Corrects Right Ascension and Declination from one epoch to another, taking only precession into 
+        account.
+
+        Implemented from: IAU 2006 model
+    
+    Arguments:
+        start_epoch: [float] Julian date of the starting epoch.
+        final_epoch: [float] Julian date of the final epoch.
+        ra: [float] Input right ascension (radians).
+        dec: [float] Input declination (radians).
+    
+    Return:
+        (ra, dec): [tuple of floats] Precessed equatorial coordinates (radians).
+    """
+
+    cdef double T, t, zeta, z, theta, A, B, C, ra_corr, dec_corr
+
+    T = (start_epoch - J2000_DAYS)/36525.0
+    t = (final_epoch - start_epoch)/36525.0
+
+    # IAU 2006 model constants (in arcsec)
+    cdef double pA = 5029.0966, pB = 1.1120, pC = 0.000013
+    cdef double qA = 628.3076, qB = 0.0134, qC = 0.000004
+    cdef double rA = 8328.6914, rB = 1.6129, rC = 0.000014
+
+    # Calculate correction parameters
+    zeta  = ((pA + pB * T + pC * T ** 2) * t) / 3600
+    z     = ((qA + qB * T + qC * T ** 2) * t + (pA + pB * T + pC * T ** 2) * t ** 2 / 2) / 3600
+    theta = ((rA + rB * T + rC * T ** 2) * t) / 3600
+
+    # Convert to radians
+    zeta  = radians(zeta)
+    z     = radians(z)
+    theta = radians(theta)
+
+    # Calculate the next set of parameters
+    A = cos(dec) * sin(ra + zeta)
+    B = cos(theta) * cos(dec) * cos(ra + zeta) - sin(theta) * sin(dec)
+    C = sin(theta) * cos(dec) * cos(ra + zeta) + cos(theta) * sin(dec)
+
+    # Calculate corrected right ascension
+    ra_corr = (atan2(A, B) + z + 2 * pi) % (2 * pi)
+
+    # Calculate corrected declination
+    if (pi/2 - fabs(dec)) < radians(0.5):
+        dec_corr = sign(dec) * acos(sqrt(A ** 2 + B ** 2))
+    else:
+        dec_corr = asin(C)
+
+    return ra_corr, dec_corr
+
 
 
 
