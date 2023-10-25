@@ -114,8 +114,8 @@ def captureDurationDay(lat, lon, elevation, current_time=None, max_hours=23):
     # Calculate the duration of capture in seconds
     duration = duration.total_seconds()
 
-    # Stops day capture 65 min before night capture starts
-    duration = duration - 65 * 60  
+    # Stops day capture 50 min before night capture starts
+    duration -= 50 * 60  
 
     # If the duration is longer than the maximum allowed, set it to the maximum
     max_duration = 3600*max_hours
