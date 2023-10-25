@@ -293,7 +293,7 @@ cpdef double cyjd2LST(double jd, double lon):
 
 
 @cython.cdivision(False)
-cpdef (double, double) equatorialCoordPrecession_1976(double start_epoch, double final_epoch, double ra, \
+cpdef (double, double) equatorialCoordPrecession(double start_epoch, double final_epoch, double ra, \
     double dec):
     """ Corrects Right Ascension and Declination from one epoch to another, taking only precession into 
         account.
@@ -344,7 +344,7 @@ cpdef (double, double) equatorialCoordPrecession_1976(double start_epoch, double
 
 
 @cython.cdivision(False)
-cpdef (double, double) equatorialCoordPrecession(double start_epoch, double final_epoch, double ra, double dec):
+cpdef (double, double) equatorialCoordPrecession_2006(double start_epoch, double final_epoch, double ra, double dec):
     """ Corrects Right Ascension and Declination from one epoch to another, taking only precession into 
         account.
 
