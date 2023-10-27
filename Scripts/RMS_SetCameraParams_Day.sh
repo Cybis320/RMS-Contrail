@@ -49,13 +49,13 @@ python -m Utils.CameraControl SetParam Camera ElecLevel 50
 # python -m Utils.CameraControl SetParam Camera ExposureParam LeastTime 40000
 python -m Utils.CameraControl SetParam Camera ExposureParam Level 8
 # python -m Utils.CameraControl SetParam Camera ExposureParam MostTime 40000
-# python -m Utils.CameraControl SetParam Camera GainParam AutoGain 1
+python -m Utils.CameraControl SetParam Camera GainParam AutoGain 0
 # python -m Utils.CameraControl SetParam Camera GainParam Gain 60
 # python -m Utils.CameraControl SetParam Camera IRCUTMode 0
 # python -m Utils.CameraControl SetParam Camera IrcutSwap 0
 # python -m Utils.CameraControl SetParam Camera Night_nfLevel 0
 # python -m Utils.CameraControl SetParam Camera RejectFlicker 0
-# python -m Utils.CameraControl SetParam Camera WhiteBalance 2
+p÷ython -m Utils.CameraControl SetParam Camera WhiteBalance 1
 # python -m Utils.CameraControl SetParam Camera PictureFlip 0
 # python -m Utils.CameraControl SetParam Camera PictureMirror 0
 

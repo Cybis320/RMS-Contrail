@@ -907,11 +907,12 @@ if __name__ == "__main__":
                 # Reboot the computer
                 if reboot_go:
 
-                    log.info('Rebooting now!')
+                    
 
                     # Reboot the camera
                     try:
                         cc.cameraControlV2(config, 'reboot')
+                        log.info('Rebooting Camera...')
 
                     except Exception as e:
                         log.debug('Rebooting camera failed with message:\n' + repr(e))
@@ -919,6 +920,7 @@ if __name__ == "__main__":
 
                     # Reboot the computer (script needs sudo priviledges, works only on Linux)
                     try:
+                        log.info('Rebooting now!')
                         os.system('sudo shutdown -r now')
 
                     except Exception as e:
