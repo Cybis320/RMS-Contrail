@@ -55,7 +55,7 @@ python -m Utils.CameraControl SetParam Camera GainParam AutoGain 0
 # python -m Utils.CameraControl SetParam Camera IrcutSwap 0
 # python -m Utils.CameraControl SetParam Camera Night_nfLevel 0
 # python -m Utils.CameraControl SetParam Camera RejectFlicker 0
-p÷ython -m Utils.CameraControl SetParam Camera WhiteBalance 1
+python -m Utils.CameraControl SetParam Camera WhiteBalance 1
 # python -m Utils.CameraControl SetParam Camera PictureFlip 0
 # python -m Utils.CameraControl SetParam Camera PictureMirror 0
 
