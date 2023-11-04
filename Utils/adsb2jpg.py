@@ -578,7 +578,7 @@ def run_overlay_on_images(input_path, platepar):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    kml_path = fovKML(kml_dir, platepar, area_ht=14000, plot_station=False)
+    kml_path = fovKML(kml_dir, platepar, area_ht=15000, plot_station=False)
     bounding_box = get_bounding_box_from_kml_file(kml_path)
     
     # Extract, filter, and sort timestamps
