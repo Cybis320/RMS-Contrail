@@ -578,7 +578,7 @@ def run_overlay_on_images(input_path, platepar):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    kml_path = fovKML(kml_dir, platepar, area_ht=15000, plot_station=False)
+    kml_path = fovKML(kml_dir, platepar, area_ht=18000, plot_station=False)
     bounding_box = get_bounding_box_from_kml_file(kml_path)
     
     # Extract, filter, and sort timestamps
@@ -613,6 +613,12 @@ def run_overlay_on_images(input_path, platepar):
             points_XY = add_pixel_coordinates(interpolated_points, platepar)
             
             image = cv2.imread(img_file)
+
+            # Check if the image was loaded successfully
+            if image is None:
+                print(f"Failed to load image: {img_file}")
+                continue  # Skip processing this image
+
             for point in points_XY:
                 overlay_data_on_image(image, point, platepar.az_centre)
             
@@ -672,7 +678,7 @@ def run_overlay_on_images(input_path, platepar):
 #  20    168
 #  23     70
 
-def create_video_from_images(image_folder, video_path, fps=30, crf=25, delete_images=False):
+def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_images=False):
     """
     
     """
