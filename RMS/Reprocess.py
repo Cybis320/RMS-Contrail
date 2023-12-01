@@ -401,11 +401,11 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
         
         log.info('Generating a ADS-B timelapse...')
         try:
-            unprocessed_dir = os.path.join(config.data_dir, 'Unprocessed')
+            contrails_dir = os.path.join(config.data_dir, config.contrails_dir)
 
-            # Loop through each directory in 'Unprocessed'
-            for subdir in os.listdir(unprocessed_dir):
-                full_subdir = os.path.join(unprocessed_dir, subdir)
+            # Loop through each directory in the contrails dir
+            for subdir in os.listdir(contrails_dir):
+                full_subdir = os.path.join(contrails_dir, subdir)
                 
                 # If it's not a directory, skip
                 if not os.path.isdir(full_subdir):
@@ -429,7 +429,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     create_video_from_images(temp_dir, timelapse_path, delete_images=True)
 
                     # Add the timelapse to the extra files
-                    extra_files.append(timelapse_path)
+                    # extra_files.append(timelapse_path)
 
         except Exception as e:
             log.debug('Generating an ADS-B timelapse failed with message:\n' + repr(e))

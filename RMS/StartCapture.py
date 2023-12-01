@@ -795,7 +795,7 @@ if __name__ == "__main__":
     mkdirP(root_dir)
     mkdirP(os.path.join(root_dir, config.captured_dir))
     mkdirP(os.path.join(root_dir, config.archived_dir))
-
+    mkdirP(os.path.join(root_dir, config.contrails_dir))
 
     # If the duration of capture was given, capture right away for a specified time
     if cml_args.duration:

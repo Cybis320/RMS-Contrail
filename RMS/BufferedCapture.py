@@ -245,7 +245,7 @@ class BufferedCapture(Process):
             stationID = str(self.config.stationID)
             date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
             dirname = f"UC_{stationID}_"+ date_string
-            dirname = os.path.join(self.config.data_dir, "Unprocessed", dirname)
+            dirname = os.path.join(self.config.data_dir, self.config.contrails_dir, dirname)
 
             # Create the directory
             os.makedirs(dirname, exist_ok=True)
@@ -355,6 +355,7 @@ class BufferedCapture(Process):
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()
                 ret, frame = device.read()
+                frame_timestamp = time.time()
                 t_frame = time.time() - t1_frame
 
 
@@ -369,9 +370,6 @@ class BufferedCapture(Process):
 
                 # If a video device is used, get the current time
                 if self.video_file is None:
-
-                    # Grab the current UNIX timestamp
-                    frame_timestamp = time.time()
 
                     # If a video device is used, save a uncompressed frame every nth frames (for Contrails)
                     # if i % 64 == 0:   > img every 2.56s, 3.7GB per day
