@@ -693,7 +693,7 @@ def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_im
         for img_path in images:
             f.write(f"file '{os.path.basename(img_path)}'\n")
 
-    print("Starting timelapse MP4 creation...")
+    print("Initiating ADS-B timelapse MP4 creation process. Please wait...")
 
     # Formulate the ffmpeg command
     # base_command = "-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 -pix_fmt yuv420p -crf {crf} -g 15 -vf \"hqdn3d=4:3:6:4.5,lutyuv=y=gammaval(0.77)\" {video_path}"
