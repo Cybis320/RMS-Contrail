@@ -417,7 +417,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                 
                 # If not found, run your code
                 if not found_files:
-                    print(f"File not found in {full_subdir}, running code...")
+                    print(f"No cached ADS-B data found in {full_subdir}, fetching data...")
                     
                     temp_dir = run_overlay_on_images(full_subdir, platepar)
 
