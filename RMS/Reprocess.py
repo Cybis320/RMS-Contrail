@@ -396,10 +396,10 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
     
     # TODO: have contrail specific settings
-    # Generate a ADSB timelapse (for Contrails)
+    # Generate an ADSB timelapse (for Contrails)
     if config.timelapse_generate_captured:
         
-        log.info('Generating a ADS-B timelapse...')
+        log.info('Generating ADS-B timelapse...')
         try:
             contrails_dir = os.path.join(config.data_dir, config.contrails_dir)
 
@@ -417,7 +417,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                 
                 # If not found, run your code
                 if not found_files:
-                    print(f"No cached ADS-B data found in {full_subdir}, fetching data...")
+                    print(f"No cached ADS-B data found in {full_subdir}, fetching new data...")
                     
                     temp_dir = run_overlay_on_images(full_subdir, platepar)
 
@@ -432,7 +432,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     # extra_files.append(timelapse_path)
 
         except Exception as e:
-            log.debug('Generating an ADS-B timelapse failed with message:\n' + repr(e))
+            log.debug('Generating ADS-B timelapse failed with message:\n' + repr(e))
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
 
 
