@@ -355,9 +355,10 @@ class BufferedCapture(Process):
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()
                 ret, frame = device.read()
-                frame_timestamp = time.time()
+                # Debug
+                # frame_timestamp = time.time()
+                frame_timestamp = t1_frame
                 t_frame = time.time() - t1_frame
-
 
                 # If the video device was disconnected, wait for reconnection
                 if (self.video_file is None) and (not ret):
