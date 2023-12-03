@@ -636,7 +636,7 @@ def run_overlay_on_images(input_path, platepar):
             cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
             image_count += 1
-            print(f"\rSaved {image_count}/{total_images}. {time.time() - start_total_time:.2f}s. batches of: {batch_size}", end="", flush=True)
+            print(f"\rProcessed {image_count} ADS-B jpgs out of {total_images} in {time.time() - start_total_time:.2f}s. (batches of: {batch_size})", end="", flush=True)
     print("\nFinished applying ADS-B overlay to images.")
     
     return  output_dir
