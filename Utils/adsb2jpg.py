@@ -25,7 +25,9 @@ from influxdb import InfluxDBClient
 
 from RMS.Astrometry.ApplyAstrometry import GeoHt2xy
 from RMS.Formats.Platepar import Platepar
+from RMS.Formats.FFfile import filenameToDatetime
 from Utils.FOVKML import fovKML
+
 
 # ---- Helper Functions ---- 
 
@@ -63,7 +65,7 @@ def get_bounding_box_from_kml_file(file_path):
 
 
 
-def extract_timestamp_from_image(image_name):
+def extract_timestamp_from_name(image_name):
     """Extracts the timestamp from the image name (JPG or PNG).
     
     Args:
@@ -165,7 +167,7 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
 
     if input_dir:
         # Check if a cache file covers the required time range.
-        cache_files = glob.glob(os.path.join(input_dir, '*.json'))
+        cache_files = glob.glob(os.path.join(input_dir, 'query_cache*.json'))
         for cache_file in cache_files:
             match = re.search(r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})", cache_file)
             if match:
@@ -484,6 +486,22 @@ def overlay_data_on_image(image, point, az_center):
 
 
 
+def find_closest_entry(dictionary, target_timestamp):
+    closest_timestamp = None
+    smallest_difference = None
+
+    for timestamp in dictionary.keys():
+        difference = abs(timestamp - target_timestamp)
+
+        if smallest_difference is None or difference < smallest_difference:
+            smallest_difference = difference
+            closest_timestamp = timestamp
+
+    return dictionary[closest_timestamp]
+
+
+
+
 
 # ---- Debug Functions ---- 
 
@@ -548,7 +566,7 @@ def run_overlay_on_images(input_path, platepar):
     Args:
         client (InfluxDBClient): The InfluxDB client.
         input_path (str): The path to a directory containing image files or a single image file.
-        platepar (object): Platepar object for coordinate conversion.
+        platepar (object): Either a Platepar object or a path to a platepar json for coordinate conversion.
     Return:
         Outpur_dir: [path object] the path to the dir containing the images with adsb overlay
     """
@@ -557,7 +575,7 @@ def run_overlay_on_images(input_path, platepar):
     # Initialize the InfluxDB client
     # TODO: consider defining URL in config file
     client = InfluxDBClient(host='contrailcast.local', port=8086)
-    client.switch_database('adsb_data')  # Switch to your specific database
+    client.switch_database('adsb_data')
 
     time_buffer = timedelta(seconds=30)
 
@@ -578,17 +596,63 @@ def run_overlay_on_images(input_path, platepar):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    kml_path = fovKML(kml_dir, platepar, area_ht=18000, plot_station=False)
-    bounding_box = get_bounding_box_from_kml_file(kml_path)
     
     # Extract, filter, and sort timestamps
-    image_timestamps = {img_file: extract_timestamp_from_image(img_file) for img_file in image_files}
+    image_timestamps = {img_file: extract_timestamp_from_name(img_file) for img_file in image_files}
     image_timestamps = {img: ts for img, ts in image_timestamps.items() if ts is not None}
     image_timestamps = sorted(image_timestamps.items(), key=lambda item: item[1])
 
     # Query aircraft positions
     min_timestamp = image_timestamps[0][1]
     max_timestamp = image_timestamps[-1][1]
+
+    find_platepar = False
+
+    if isinstance(platepar, str) and os.path.isfile(platepar):
+        with open(platepar) as f:
+            try:
+                # Load the JSON file with recalibrated platepars
+                recalibrated_platepars_dict = json.load(f)
+            
+            except json.decoder.JSONDecodeError:
+                return None
+
+            # Convert the dictionary of recalibrated platepars to a dictionary of Platepar objects
+            recalibrated_platepars = {}
+
+            # Initialize to extreme values
+            min_time_pp = datetime.max
+            max_time_pp = datetime.min
+
+            for ff_name in recalibrated_platepars_dict:
+                print(f"ff_name: {ff_name}")
+                time_pp = filenameToDatetime(ff_name)
+
+                # Update min and max times
+                min_time_pp = min(min_time_pp, time_pp)
+                max_time_pp = max(max_time_pp, time_pp)
+
+                pp = Platepar()
+                pp.loadFromDict(recalibrated_platepars_dict[ff_name])
+
+                recalibrated_platepars[time_pp] = pp
+
+            if max_timestamp.replace(tzinfo=None) < min_time_pp:
+                platepar = recalibrated_platepars[min_time_pp]
+            elif min_timestamp.replace(tzinfo=None) > max_time_pp:
+                platepar = recalibrated_platepars[max_time_pp]
+            else:
+                find_platepar = True
+    
+    if find_platepar:
+        kml_path = fovKML(kml_dir, recalibrated_platepars[max_time_pp], area_ht=18000, plot_station=False)
+
+    else:
+        kml_path = fovKML(kml_dir, platepar, area_ht=18000, plot_station=False)
+
+
+    bounding_box = get_bounding_box_from_kml_file(kml_path)
+
     query_result = batch_query_aircraft_positions(client, min_timestamp, max_timestamp, time_buffer, bounding_box, input_path)
     grouped_points = group_and_sort_points(query_result)
 
@@ -597,6 +661,7 @@ def run_overlay_on_images(input_path, platepar):
     batches = create_image_batches(image_timestamps, batch_size)
     image_count = 0
     total_images = len(image_timestamps)
+
 
     for batch in batches:
         batch_start_time = batch[0][1]
@@ -609,7 +674,11 @@ def run_overlay_on_images(input_path, platepar):
         # Overlay aircraft positions on images
         for img_file, timestamp in batch:
             interpolated_points = interpolate_aircraft_positions(relevant_points, timestamp, time_buffer)
-            # TODO: load the closest recalibrated platepar
+
+            # Load the closest recalibrated platepar
+            if find_platepar:
+                platepar = find_closest_entry(recalibrated_platepars, timestamp.replace(tzinfo=None))
+
             points_XY = add_pixel_coordinates(interpolated_points, platepar)
             
             image = cv2.imread(img_file)
@@ -628,7 +697,7 @@ def run_overlay_on_images(input_path, platepar):
 
             height, _, _ = image.shape
 
-            timestamp = extract_timestamp_from_image(img_file).strftime('%Y-%m-%d %H:%M:%S UTC')
+            timestamp = extract_timestamp_from_name(img_file).strftime('%Y-%m-%d %H:%M:%S UTC')
             cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
             
             output_name = f"{img_name.rsplit('.', 1)[0]}_overlay.{img_name.rsplit('.', 1)[1]}"
@@ -636,7 +705,7 @@ def run_overlay_on_images(input_path, platepar):
             cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
             image_count += 1
-            print(f"\rProcessed {image_count} ADS-B jpgs out of {total_images} in {time.time() - start_total_time:.2f}s. (batches of: {batch_size})", end="", flush=True)
+            print(f"\r{image_count} / {total_images} Elapsed: {time.time() - start_total_time:.2f}s. (batches of: {batch_size})", end="", flush=True)
     print("\nFinished applying ADS-B overlay to images.")
     
     return  output_dir
@@ -693,7 +762,7 @@ def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_im
         for img_path in images:
             f.write(f"file '{os.path.basename(img_path)}'\n")
 
-    print("Initiating ADS-B timelapse MP4 creation process. Please wait...")
+    print("Preparing files for the ADS-B timelapse...")
 
     # Formulate the ffmpeg command
     # base_command = "-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 -pix_fmt yuv420p -crf {crf} -g 15 -vf \"hqdn3d=4:3:6:4.5,lutyuv=y=gammaval(0.77)\" {video_path}"
@@ -746,12 +815,15 @@ if __name__ == "__main__":
     # Check the file extension
     file_extension = os.path.splitext(filename)[1]
 
-    # If it's a JSON file, set the format accordingly, else set it to None
-    fmt = 'json' if file_extension == '.json' else None
-    pp = Platepar()
-    pp.read(filename, fmt=fmt)
+    # If it's a JSON file, pass the path, otherwise pass a platepar object
+    if file_extension == '.cal':
+        pp = Platepar()
+        pp.read(filename)
+    elif file_extension == '.json':
+        pp = filename
+    else:
+        raise ValueError("Unsupported calibration file")
 
-    
 
     temp_dir = run_overlay_on_images(cml_args.input_path, pp)
 
@@ -765,7 +837,7 @@ if __name__ == "__main__":
         timelapse_file_name = dir_name + "_adsb_timelapse.mp4"
         video_path = os.path.join(cml_args.input_path, timelapse_file_name)
         
-        create_video_from_images(temp_dir, video_path, delete_images=True)
+        create_video_from_images(temp_dir, video_path, delete_images=False)
 
 '''
 # Debug Test code

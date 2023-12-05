@@ -36,7 +36,7 @@ from Utils.MakeFlat import makeFlat
 from Utils.PlotFieldsums import plotFieldsums
 from Utils.RMS2UFO import FTPdetectinfo2UFOOrbitInput
 from Utils.ShowerAssociation import showerAssociation
-from Utils.adsb2jpg import run_overlay_on_images, create_video_from_images
+from Utils.adsb2jpg import run_overlay_on_images, create_video_from_images, extract_timestamp_from_name, find_closest_entry
 
 
 # Get the logger from the main module
@@ -402,28 +402,55 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
         log.info('Generating ADS-B timelapse...')
         try:
             contrails_dir = os.path.join(config.data_dir, config.contrails_dir)
+            archived_dir = os.path.join(config.data_dir, config.archived_dir)
 
             # Loop through each directory in the contrails dir
-            for subdir in os.listdir(contrails_dir):
-                full_subdir = os.path.join(contrails_dir, subdir)
+            for contrails_subdir in os.listdir(contrails_dir):
+                full_contrails_subdir = os.path.join(contrails_dir, contrails_subdir)
                 
                 # If it's not a directory, skip
-                if not os.path.isdir(full_subdir):
+                if not os.path.isdir(full_contrails_subdir):
                     continue
                 
                 # Search for *_adsb_timelapse.mp4
-                search_pattern = os.path.join(full_subdir, '*_adsb_timelapse.mp4')
+                search_pattern = os.path.join(full_contrails_subdir, '*_adsb_timelapse.mp4')
                 found_files = glob.glob(search_pattern)
                 
-                # If not found, run your code
+                # If not found, generate timelapse
                 if not found_files:
-                    print(f"No cached ADS-B data found in {full_subdir}, fetching new data...")
+                    print(f"No ADS-B timelapse found in {contrails_subdir}, generating new timelapse...")
+
+                    # Find best recalibrated all platepars json
+                    try:
+                        contrails_subdir_timestamp = extract_timestamp_from_name(contrails_subdir)
+
+                        recalibrated_platepars_dict = {}
+                        for archived_subdir in os.listdir(archived_dir):
+                            recalibrated_all_platepars_path = os.path.join(archived_dir, archived_subdir, config.platepars_recalibrated_name)
+                            
+                            # Skip this iteration if file does not exist
+                            if not os.path.exists(recalibrated_all_platepars_path):
+                                continue
+
+                            archived_subdir_timestamp = extract_timestamp_from_name(archived_subdir)
+                            recalibrated_platepars_dict[archived_subdir_timestamp] = recalibrated_all_platepars_path
+
+                        # Check if no valid files were found
+                        if not recalibrated_platepars_dict:
+                            overlay_platepar = platepar
+                        
+                        else:
+                            overlay_platepar = find_closest_entry(recalibrated_platepars_dict, contrails_subdir_timestamp)
                     
-                    temp_dir = run_overlay_on_images(full_subdir, platepar)
+                    except Exception as e:
+                        log.debug('Finding recalibrated platepar failed with message:\n' + repr(e))
+                        overlay_platepar = platepar
+                    
+                    temp_dir = run_overlay_on_images(full_contrails_subdir, overlay_platepar)
 
                     # Make the name of the timelapse file
-                    timelapse_file_name = subdir + "_adsb_timelapse.mp4"
-                    timelapse_path = os.path.join(full_subdir, timelapse_file_name)
+                    timelapse_file_name = contrails_subdir + "_adsb_timelapse.mp4"
+                    timelapse_path = os.path.join(full_contrails_subdir, timelapse_file_name)
 
                     # Generate the timelapse
                     create_video_from_images(temp_dir, timelapse_path, delete_images=True)
