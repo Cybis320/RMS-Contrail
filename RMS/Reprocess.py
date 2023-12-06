@@ -423,7 +423,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     # Find best recalibrated all platepars json
                     try:
                         contrails_subdir_timestamp = extract_timestamp_from_name(contrails_subdir)
-
+                        print(f"contrails_subdir_timestamp: {contrails_subdir_timestamp}")
                         recalibrated_platepars_dict = {}
                         for archived_subdir in os.listdir(archived_dir):
                             recalibrated_all_platepars_path = os.path.join(archived_dir, archived_subdir, config.platepars_recalibrated_name)
@@ -433,13 +433,16 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                                 continue
 
                             archived_subdir_timestamp = extract_timestamp_from_name(archived_subdir)
+                            print(f"archived_subdir_timestamp: {archived_subdir_timestamp}")
                             recalibrated_platepars_dict[archived_subdir_timestamp] = recalibrated_all_platepars_path
 
                         # Check if no valid files were found
                         if not recalibrated_platepars_dict:
+                            print("Using default platepar.")
                             overlay_platepar = platepar
                         
                         else:
+                            print("Using closest recalibrated platepar.")
                             overlay_platepar = find_closest_entry(recalibrated_platepars_dict, contrails_subdir_timestamp)
                     
                     except Exception as e:

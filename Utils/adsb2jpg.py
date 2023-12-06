@@ -65,26 +65,26 @@ def get_bounding_box_from_kml_file(file_path):
 
 
 
-def extract_timestamp_from_name(image_name):
+def extract_timestamp_from_name(name):
     """Extracts the timestamp from the image name (JPG or PNG).
-    
+
     Args:
-        image_name (str): The name of the image file.
-        
+        name (str): The name from which to extract timestamp from.
+
     Returns:
         datetime: The timestamp as a datetime object, or None if extraction fails.
     """
 
-    # Use a regular expression to find the date and time components in the image name
-    match = re.search(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_(\d{3})", image_name)
+    # Use a regular expression to find the date and time components in the image name (optionally match milliseconds)
+    match = re.search(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(?:_(\d{3}))?", name)
 
     if match:
-        # Extract and convert the date, time, and milliseconds components to integers
-        year, month, day, hour, minute, second, millisecond = map(int, match.groups())
+        # Extract and convert the date, time components to integers
+        year, month, day, hour, minute, second, *millisecond = map(int, match.groups(default=0))
 
-        # Create and return a datetime object with milliseconds
+        # Create and return a datetime object
         try:
-            microsecond = millisecond * 1000
+            microsecond = millisecond[0] * 1000 if millisecond else 0
             return datetime(year, month, day, hour, minute, second, microsecond, tzinfo=timezone.utc)
         except:
             return None
