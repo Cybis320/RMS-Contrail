@@ -403,6 +403,8 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
         try:
             contrails_dir = os.path.join(config.data_dir, config.contrails_dir)
             archived_dir = os.path.join(config.data_dir, config.archived_dir)
+            captured_dir = os.path.join(config.data_dir, config.captured_dir)
+
 
             # Loop through each directory in the contrails dir
             for contrails_subdir in os.listdir(contrails_dir):
@@ -442,8 +444,9 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                             overlay_platepar = platepar
                         
                         else:
-                            print("Using closest recalibrated platepar.")
                             overlay_platepar = find_closest_entry(recalibrated_platepars_dict, contrails_subdir_timestamp)
+                            print(f"Using closest recalibrated platepar: {overlay_platepar}")
+
                     
                     except Exception as e:
                         log.debug('Finding recalibrated platepar failed with message:\n' + repr(e))
