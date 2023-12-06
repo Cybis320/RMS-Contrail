@@ -66,7 +66,7 @@ def get_bounding_box_from_kml_file(file_path):
 
 
 def extract_timestamp_from_name(name):
-    """Extracts the timestamp from the image name (JPG or PNG).
+    """Extracts the timestamp from a file or directory name.
 
     Args:
         name (str): The name from which to extract timestamp from.
@@ -75,9 +75,11 @@ def extract_timestamp_from_name(name):
         datetime: The timestamp as a datetime object, or None if extraction fails.
     """
 
+    # Extract the filename from the path
+    name = os.path.basename(name)
+
     # Use a regular expression to find the date and time components in the image name (optionally match milliseconds)
     match = re.search(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(?:_(\d{3}))?", name)
-
     if match:
         # Extract and convert the date, time components to integers
         year, month, day, hour, minute, second, *millisecond = map(int, match.groups(default=0))
@@ -605,6 +607,7 @@ def run_overlay_on_images(input_path, platepar):
     # Query aircraft positions
     min_timestamp = image_timestamps[0][1]
     max_timestamp = image_timestamps[-1][1]
+    print(f"min ts: {min_timestamp}, max ts: {max_timestamp}")
 
     find_platepar = False
 
