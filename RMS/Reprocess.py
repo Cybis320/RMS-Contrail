@@ -428,7 +428,13 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                         print(f"contrails_subdir_timestamp: {contrails_subdir_timestamp}")
                         recalibrated_platepars_dict = {}
                         for archived_subdir in os.listdir(combined_dirs):
-                            recalibrated_all_platepars_path = os.path.join(archived_dir, archived_subdir, config.platepars_recalibrated_name)
+                            # Determine which parent directory the subdir belongs to
+                            if archived_subdir in os.listdir(archived_dir):
+                                parent_dir = archived_dir
+                            else:
+                                parent_dir = night_data_dir
+
+                            recalibrated_all_platepars_path = os.path.join(parent_dir, archived_subdir, config.platepars_recalibrated_name)
                             
                             # Skip this iteration if file does not exist
                             if not os.path.exists(recalibrated_all_platepars_path):
