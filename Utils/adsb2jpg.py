@@ -75,7 +75,8 @@ def extract_timestamp_from_name(name):
         datetime: The timestamp as a datetime object, or None if extraction fails.
     """
 
-    # Extract the filename from the path
+    # Extract the filename or directory name from the path
+    name = name.rstrip('/')
     name = os.path.basename(name)
 
     # Use a regular expression to find the date and time components in the image name (optionally match milliseconds)
@@ -607,7 +608,6 @@ def run_overlay_on_images(input_path, platepar):
     # Query aircraft positions
     min_timestamp = image_timestamps[0][1]
     max_timestamp = image_timestamps[-1][1]
-    print(f"min ts: {min_timestamp}, max ts: {max_timestamp}")
 
     find_platepar = False
 
@@ -624,12 +624,12 @@ def run_overlay_on_images(input_path, platepar):
             recalibrated_platepars = {}
 
             # Initialize to extreme values
-            min_time_pp = datetime.max
-            max_time_pp = datetime.min
+            min_time_pp = datetime.max.replace(tzinfo=timezone.utc)
+            max_time_pp = datetime.min.replace(tzinfo=timezone.utc)
 
             for ff_name in recalibrated_platepars_dict:
                 print(f"ff_name: {ff_name}")
-                time_pp = filenameToDatetime(ff_name)
+                time_pp = extract_timestamp_from_name(ff_name)
 
                 # Update min and max times
                 min_time_pp = min(min_time_pp, time_pp)
@@ -640,9 +640,9 @@ def run_overlay_on_images(input_path, platepar):
 
                 recalibrated_platepars[time_pp] = pp
 
-            if max_timestamp.replace(tzinfo=None) < min_time_pp:
+            if max_timestamp < min_time_pp:
                 platepar = recalibrated_platepars[min_time_pp]
-            elif min_timestamp.replace(tzinfo=None) > max_time_pp:
+            elif min_timestamp > max_time_pp:
                 platepar = recalibrated_platepars[max_time_pp]
             else:
                 find_platepar = True
@@ -680,7 +680,7 @@ def run_overlay_on_images(input_path, platepar):
 
             # Load the closest recalibrated platepar
             if find_platepar:
-                platepar = find_closest_entry(recalibrated_platepars, timestamp.replace(tzinfo=None))
+                platepar = find_closest_entry(recalibrated_platepars, timestamp)
 
             points_XY = add_pixel_coordinates(interpolated_points, platepar)
             
