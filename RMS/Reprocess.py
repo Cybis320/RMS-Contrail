@@ -403,7 +403,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
         try:
             contrails_dir = os.path.join(config.data_dir, config.contrails_dir)
             archived_dir = os.path.join(config.data_dir, config.archived_dir)
-            captured_dir = os.path.join(config.data_dir, config.captured_dir)
+            combined_dirs = os.listdir(archived_dir) + os.listdir(night_data_dir)
 
 
             # Loop through each directory in the contrails dir
@@ -427,11 +427,20 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                         contrails_subdir_timestamp = extract_timestamp_from_name(contrails_subdir)
                         print(f"contrails_subdir_timestamp: {contrails_subdir_timestamp}")
                         recalibrated_platepars_dict = {}
-                        for archived_subdir in os.listdir(archived_dir):
+                        for archived_subdir in os.listdir(combined_dirs):
                             recalibrated_all_platepars_path = os.path.join(archived_dir, archived_subdir, config.platepars_recalibrated_name)
                             
                             # Skip this iteration if file does not exist
                             if not os.path.exists(recalibrated_all_platepars_path):
+                                continue
+
+                            # Open and check if '.fits' is in the file's content
+                            try:
+                                with open(recalibrated_all_platepars_path, 'r') as file:
+                                    if '.fits' not in file.read():
+                                        continue
+                            except UnicodeDecodeError:
+                                # Handle potential decoding errors for non-text files
                                 continue
 
                             archived_subdir_timestamp = extract_timestamp_from_name(archived_subdir)
