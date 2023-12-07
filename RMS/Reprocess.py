@@ -402,9 +402,17 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
         log.info('Generating ADS-B timelapse...')
         try:
             contrails_dir = os.path.join(config.data_dir, config.contrails_dir)
-            archived_dir = os.path.join(config.data_dir, config.archived_dir)
-            combined_dirs = os.listdir(archived_dir) + os.listdir(night_data_dir)
 
+            # Construct the paths for archived_dir and captured_dir
+            archived_dir = os.path.join(config.data_dir, config.archived_dir)
+            captured_dir = os.path.join(config.data_dir, config.captured_dir)
+
+            # Get the list of subdirectories for both directories
+            archived_subdirs = [os.path.join(archived_dir, d) for d in os.listdir(archived_dir)]
+            captured_subdirs = [os.path.join(captured_dir, d) for d in os.listdir(captured_dir)]
+
+            # Combine the lists
+            combined_dirs = archived_subdirs + captured_subdirs 
 
             # Loop through each directory in the contrails dir
             for contrails_subdir in os.listdir(contrails_dir):
@@ -427,14 +435,8 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                         contrails_subdir_timestamp = extract_timestamp_from_name(contrails_subdir)
                         print(f"contrails_subdir_timestamp: {contrails_subdir_timestamp}")
                         recalibrated_platepars_dict = {}
-                        for archived_subdir in os.listdir(combined_dirs):
-                            # Determine which parent directory the subdir belongs to
-                            if archived_subdir in os.listdir(archived_dir):
-                                parent_dir = archived_dir
-                            else:
-                                parent_dir = night_data_dir
-
-                            recalibrated_all_platepars_path = os.path.join(parent_dir, archived_subdir, config.platepars_recalibrated_name)
+                        for subdir_path in combined_dirs:
+                            recalibrated_all_platepars_path = os.path.join(subdir_path, config.platepars_recalibrated_name)
                             
                             # Skip this iteration if file does not exist
                             if not os.path.exists(recalibrated_all_platepars_path):
@@ -449,7 +451,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                                 # Handle potential decoding errors for non-text files
                                 continue
 
-                            archived_subdir_timestamp = extract_timestamp_from_name(archived_subdir)
+                            archived_subdir_timestamp = extract_timestamp_from_name(subdir_path)
                             print(f"archived_subdir_timestamp: {archived_subdir_timestamp}")
                             recalibrated_platepars_dict[archived_subdir_timestamp] = recalibrated_all_platepars_path
 
