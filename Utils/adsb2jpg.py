@@ -665,6 +665,7 @@ def run_overlay_on_images(input_path, platepar):
     image_count = 0
     total_images = len(image_timestamps)
 
+    print("Preparing files for the ADS-B timelapse...")
 
     for batch in batches:
         batch_start_time = batch[0][1]
@@ -700,7 +701,7 @@ def run_overlay_on_images(input_path, platepar):
 
             height, _, _ = image.shape
 
-            timestamp = extract_timestamp_from_name(img_file).strftime('%Y-%m-%d %H:%M:%S UTC')
+            timestamp = extract_timestamp_from_name(img_file).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] + ' UTC'
             cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
             
             output_name = f"{img_name.rsplit('.', 1)[0]}_overlay.{img_name.rsplit('.', 1)[1]}"
@@ -765,7 +766,6 @@ def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_im
         for img_path in images:
             f.write(f"file '{os.path.basename(img_path)}'\n")
 
-    print("Preparing files for the ADS-B timelapse...")
 
     # Formulate the ffmpeg command
     # base_command = "-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 -pix_fmt yuv420p -crf {crf} -g 15 -vf \"hqdn3d=4:3:6:4.5,lutyuv=y=gammaval(0.77)\" {video_path}"
@@ -782,6 +782,7 @@ def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_im
         return
 
     # Execute the command
+    print("Creating timelapse using ffmpeg...")
     subprocess.call(encode_command.format(fps=fps, list_file_path=list_file_path, crf=crf, video_path=video_path), shell=True)
 
 
