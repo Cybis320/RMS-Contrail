@@ -29,7 +29,7 @@ from math import floor
 
 # pylint: disable=E1101
 import cv2
-import BufferedFrameCapture as bfc
+import RMS.BufferedFrameCapture as bfc
 
 from RMS.Misc import ping
 
