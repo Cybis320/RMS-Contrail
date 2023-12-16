@@ -71,7 +71,7 @@ class BufferedCapture(Process):
         self.video_file = video_file
 
         # A frame will be considered dropped if it was late more then half a frame
-        self.time_for_drop = 1.5*(1.0/config.fps)
+        self.time_for_drop = 1.9/config.fps
 
         self.dropped_frames = 0
 
