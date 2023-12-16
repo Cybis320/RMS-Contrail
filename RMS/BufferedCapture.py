@@ -277,7 +277,6 @@ class BufferedCapture(Process):
 
 
 
-            last_frame_timestamp = 0
             
             if buffer_one:
                 self.startTime1.value = 0
@@ -331,7 +330,7 @@ class BufferedCapture(Process):
             # Capture a block of 256 frames
             block_frames = 256
 
-                    # For video devices only (not files), throw away the first 10 frames
+            # For video devices only (not files)
             if self.video_file is None:
 
                 # Create dir to save uncompressed images (for Contrails)
@@ -346,10 +345,12 @@ class BufferedCapture(Process):
                 # Start capturing with initial buffer flush
                 device.start_capture()
 
-
+            
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
-            for i in range(block_frames):
 
+            last_frame_timestamp = time.time()
+
+            for i in range(block_frames):
 
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()

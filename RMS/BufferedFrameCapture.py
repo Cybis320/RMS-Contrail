@@ -93,7 +93,7 @@ class BufferedFrameCapture(threading.Thread):
             if self.frames and self.timestamps:
                 return True, (self.frames.pop(0), self.timestamps.pop(0))
             else:
-                time.sleep(0.01)
+                time.sleep(0.005)
         
         # If the capture has stopped running, return False
         return False, (None, None)
