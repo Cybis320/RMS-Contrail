@@ -191,7 +191,7 @@ class BufferedCapture(Process):
             except:
                 pass
 
-            buffered_capture_device = bfc(device, buffer_size=250, fps=self.config.fps, remove_jitter=True)
+            buffered_capture_device = bfc.BufferedFrameCapture(device, buffer_size=250, fps=self.config.fps, remove_jitter=True)
 
 
         return buffered_capture_device
