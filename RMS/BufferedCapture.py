@@ -232,24 +232,7 @@ class BufferedCapture(Process):
 
 
         # Keep track of the total number of frames
-        total_frames = 0
-
-
-        # For video devices only (not files), throw away the first 10 frames
-        if self.video_file is None:
-
-            # Start capturing with initial buffer flush
-            device.start_capture()
-
-            # Create dir to save uncompressed images (for Contrails)
-            stationID = str(self.config.stationID)
-            date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
-            dirname = f"UC_{stationID}_"+ date_string
-            dirname = os.path.join(self.config.data_dir, self.config.contrails_dir, dirname)
-
-            # Create the directory
-            os.makedirs(dirname, exist_ok=True)
-            
+        total_frames = 0            
 
 
 
@@ -347,6 +330,22 @@ class BufferedCapture(Process):
 
             # Capture a block of 256 frames
             block_frames = 256
+
+                    # For video devices only (not files), throw away the first 10 frames
+            if self.video_file is None:
+
+                # Create dir to save uncompressed images (for Contrails)
+                stationID = str(self.config.stationID)
+                date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
+                dirname = f"UC_{stationID}_"+ date_string
+                dirname = os.path.join(self.config.data_dir, self.config.contrails_dir, dirname)
+
+                # Create the directory
+                os.makedirs(dirname, exist_ok=True)
+
+                # Start capturing with initial buffer flush
+                device.start_capture()
+
 
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
             for i in range(block_frames):
