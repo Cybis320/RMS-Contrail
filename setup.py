@@ -60,6 +60,8 @@ cython_modules = [
     Extension('RMS.CompressionCy', sources=['RMS/CompressionCy.pyx'], \
         include_dirs=[numpy.get_include()]),
     Extension('Utils.SaturationTools', sources=['Utils/SaturationTools.pyx'], \
+        include_dirs=[numpy.get_include()]),
+    Extension('Utils.FrameTimingNormalizer', sources=['Utils/FrameTimingNormalizer.pyx'], \
         include_dirs=[numpy.get_include()])
     ]
 
