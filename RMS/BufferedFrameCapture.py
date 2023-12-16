@@ -88,11 +88,15 @@ class BufferedFrameCapture(threading.Thread):
                         print(f"\nFrame dropped!")
     
     def read(self):
-        """Retrieve the next frame and its timestamp from the buffer."""
-        if self.frames and self.timestamps:
-            return True, (self.frames.pop(0), self.timestamps.pop(0))
-        else:
-            return False, (None, None)
+        """Block until the next frame and its timestamp are available from the buffer."""
+        while self.running:
+            if self.frames and self.timestamps:
+                return True, (self.frames.pop(0), self.timestamps.pop(0))
+            else:
+                time.sleep(0.01)
+        
+        # If the capture has stopped running, return False
+        return False, (None, None)
     
     def start_capture(self):
         self.flush_buffer()
@@ -140,34 +144,21 @@ def main():
 
     # Start capturing with initial buffer flush
     buffered_capture.start_capture()
-
-    start_time = time.time()
-    duration = 30  # seconds
-
-    try:
-        while time.time() - start_time < duration:
-            ret, (frame, timestamp) = buffered_capture.read()
-            if ret:
+    for i in range(256):
+        ret, (frame, timestamp) = buffered_capture.read()
+        print(f"\n{i}: {timestamp}")
+        if ret:
                 overlay_timestamp(frame, timestamp)
+                
                 out.write(frame)
                 #cv.imshow("Frame", frame)
-            if cv.waitKey(1) & 0xFF == ord('q'):  # 'q' key
-                break
-
-    finally:
-        # Process any remaining frames in the buffer
-        while True:
-            ret, (frame, timestamp) = buffered_capture.read()
-            if not ret:
-                break
-            overlay_timestamp(frame, timestamp)
-            out.write(frame)
-            #cv.imshow("Frame", frame)
+        if cv.waitKey(1) & 0xFF == ord('q'):  # 'q' key
+            break
         
-        buffered_capture.release()
-        out.release()
-        cv.destroyAllWindows()
-        print("\nFile saved!")
+    buffered_capture.release()
+    out.release()
+    cv.destroyAllWindows()
+    print("\nFile saved!")
 
 if __name__ == '__main__':
     main()
