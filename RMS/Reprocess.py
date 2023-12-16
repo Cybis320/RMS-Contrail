@@ -445,16 +445,17 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                             # Open and check if '.fits' is in the file's content
                             try:
                                 with open(recalibrated_all_platepars_path, 'r') as file:
-                                    if '.fits' not in file.read():
-                                        continue
+                                    if '.fits' in file.read():
+                                        archived_subdir_timestamp = extract_timestamp_from_name(subdir_path)
+                                        print(f"archived_subdir_timestamp: {archived_subdir_timestamp}")
+                                        recalibrated_platepars_dict[archived_subdir_timestamp] = recalibrated_all_platepars_path
+
                             except UnicodeDecodeError:
                                 # Handle potential decoding errors for non-text files
                                 continue
 
-                            archived_subdir_timestamp = extract_timestamp_from_name(subdir_path)
-                            print(f"archived_subdir_timestamp: {archived_subdir_timestamp}")
-                            recalibrated_platepars_dict[archived_subdir_timestamp] = recalibrated_all_platepars_path
-
+                            
+                            
                         # Check if no valid files were found
                         if not recalibrated_platepars_dict:
                             print("Using default platepar.")
