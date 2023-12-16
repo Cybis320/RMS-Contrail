@@ -30,7 +30,10 @@ class BufferedFrameCapture(threading.Thread):
 
         self.running = False
         super().__init__(name=name)
-
+    
+    def isOpened(self):
+        # Proxy the call to the underlying VideoCapture object
+        return self.capture.isOpened()
 
     def flush_buffer(self):
         # Flush the network buffer
