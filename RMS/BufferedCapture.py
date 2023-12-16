@@ -204,6 +204,17 @@ class BufferedCapture(Process):
         # Init the video device
         device = self.initVideoDevice()
 
+        # For video devices only (not files)
+
+        # Create dir to save uncompressed images (for Contrails)
+        stationID = str(self.config.stationID)
+        date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
+        dirname = f"UC_{stationID}_"+ date_string
+        dirname = os.path.join(self.config.data_dir, self.config.contrails_dir, dirname)
+
+        # Create the directory
+        os.makedirs(dirname, exist_ok=True)
+
 
         if device is None:
 
@@ -253,6 +264,12 @@ class BufferedCapture(Process):
         buffer_one = True
 
         wait_for_reconnect = False
+
+        # For video devices only (not files)
+        if self.video_file is None:
+            # Start capturing with initial buffer flush
+            device.start_capture()
+
         
         # Run until stopped from the outside
         while not self.exit.is_set():
@@ -329,22 +346,6 @@ class BufferedCapture(Process):
 
             # Capture a block of 256 frames
             block_frames = 256
-
-            # For video devices only (not files)
-            if self.video_file is None:
-
-                # Create dir to save uncompressed images (for Contrails)
-                stationID = str(self.config.stationID)
-                date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
-                dirname = f"UC_{stationID}_"+ date_string
-                dirname = os.path.join(self.config.data_dir, self.config.contrails_dir, dirname)
-
-                # Create the directory
-                os.makedirs(dirname, exist_ok=True)
-
-                # Start capturing with initial buffer flush
-                device.start_capture()
-
             
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
 
