@@ -29,6 +29,7 @@ from math import floor
 
 # pylint: disable=E1101
 import cv2
+import BufferedFrameCapture as bfc
 
 from RMS.Misc import ping
 
@@ -190,8 +191,10 @@ class BufferedCapture(Process):
             except:
                 pass
 
+            buffered_capture_device = bfc(device, buffer_size=250, fps=self.config.fps, remove_jitter=True)
 
-        return device
+
+        return buffered_capture_device
 
 
     def run(self):
@@ -235,11 +238,8 @@ class BufferedCapture(Process):
         # For video devices only (not files), throw away the first 10 frames
         if self.video_file is None:
 
-            first_skipped_frames = 10
-            for i in range(first_skipped_frames):
-                device.read()
-
-            total_frames = first_skipped_frames
+            # Start capturing with initial buffer flush
+            device.start_capture()
 
             # Create dir to save uncompressed images (for Contrails)
             stationID = str(self.config.stationID)
@@ -354,11 +354,9 @@ class BufferedCapture(Process):
 
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()
-                ret, frame = device.read()
-                # Debug
-                # frame_timestamp = time.time()
-                frame_timestamp = t1_frame
-                t_frame = time.time() - t1_frame
+                ret, (frame, frame_timestamp) = device.read()
+                t_frame = frame_timestamp - t1_frame
+
 
                 # If the video device was disconnected, wait for reconnection
                 if (self.video_file is None) and (not ret):
