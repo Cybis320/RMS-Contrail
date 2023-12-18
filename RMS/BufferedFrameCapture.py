@@ -22,7 +22,7 @@ class BufferedFrameCapture(threading.Thread):
 
         # Capture to grab latency
         self.device_buffer = 4 # Experimentally established for imx291 buffer size (does not set the buffer)
-        self.system_latency = 0.17 # Experimentally established network + machine latency
+        self.system_latency = 0.23 # Experimentally established network + machine latency
         self.total_latency = self.device_buffer / self.fps + self.system_latency
 
         self.frames = deque(maxlen=buffer_size)
