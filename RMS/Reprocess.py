@@ -37,7 +37,7 @@ from Utils.PlotFieldsums import plotFieldsums
 from Utils.RMS2UFO import FTPdetectinfo2UFOOrbitInput
 from Utils.ShowerAssociation import showerAssociation
 from Utils.adsb2jpg import run_overlay_on_images, create_video_from_images, extract_timestamp_from_name, find_closest_entry
-
+from Utils.PlotTimeIntervals import analyze_timestamps
 
 # Get the logger from the main module
 log = logging.getLogger("logger")
@@ -428,6 +428,8 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                 
                 # If not found, generate timelapse
                 if not found_files:
+                    print(f"Generating timestamp plot in {contrails_subdir}...")
+                    analyze_timestamps(contrails_subdir)
                     print(f"No ADS-B timelapse found in {contrails_subdir}, generating new timelapse...")
 
                     # Find best recalibrated all platepars json
