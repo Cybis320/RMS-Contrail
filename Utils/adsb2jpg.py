@@ -703,7 +703,7 @@ def run_overlay_on_images(input_path, platepar):
             height, _, _ = image.shape
 
             timestamp = extract_timestamp_from_name(img_file).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] + ' UTC'
-            cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 2505), 2, cv2.LINE_AA)
+            cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 2, cv2.LINE_AA)
             cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
             
             output_name = f"{img_name.rsplit('.', 1)[0]}_overlay.{img_name.rsplit('.', 1)[1]}"
