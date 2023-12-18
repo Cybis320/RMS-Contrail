@@ -82,7 +82,8 @@ class BufferedFrameCapture(threading.Thread):
 
                     print(f"\rCapturing! Buffer: {len(self.timestamps)} / {self.buffer_size} {next(wheel)}  ", end="", flush=True)
             else:
-                time.sleep(0.1/self.fps)
+                print("Failed to grab a frame. Waiting...")
+                time.sleep(0.5/self.fps)
 
     
     def read(self):
