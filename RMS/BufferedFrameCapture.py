@@ -80,7 +80,7 @@ class BufferedFrameCapture(threading.Thread):
                     else:
                         self.timestamps.append(raw_timestamp - self.total_latency)
 
-                    print(f"\rCapturing! Buffer: {len(self.frames)} / {self.buffer_size} {next(wheel)}", end="", flush=True)
+                    print(f"\rCapturing! Buffer: {len(self.timestamps)} / {self.buffer_size} {next(wheel)}  ", end="", flush=True)
 
     
     def read(self):
@@ -89,7 +89,8 @@ class BufferedFrameCapture(threading.Thread):
             if self.frames and self.timestamps:
                 return True, (self.frames.popleft(), self.timestamps.popleft())
             else:
-                time.sleep(0.005)
+                print("Waiting for new frame...")
+                time.sleep(0.02)
         
         # If the capture has stopped running, return False
         return False, (None, None)
