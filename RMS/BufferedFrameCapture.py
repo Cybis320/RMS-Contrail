@@ -90,7 +90,7 @@ class BufferedFrameCapture(threading.Thread):
                 return True, (self.frames.popleft(), self.timestamps.popleft())
             else:
                 print("Waiting for new frame...")
-                time.sleep(0.02)
+                time.sleep(1/self.fps)
         
         # If the capture has stopped running, return False
         return False, (None, None)
