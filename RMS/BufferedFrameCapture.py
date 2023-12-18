@@ -4,7 +4,7 @@ import time
 import datetime
 import Utils.CameraControl as cc
 from Utils.FrameTimingNormalizer import create_frame_timing_normalizer
-import collections
+from collections import deque
 import itertools
 
 
@@ -25,8 +25,8 @@ class BufferedFrameCapture(threading.Thread):
         self.system_latency = 0.17 # Experimentally established network + machine latency
         self.total_latency = self.device_buffer / self.fps + self.system_latency
 
-        self.frames = []
-        self.timestamps = []
+        self.frames = deque(maxlen=buffer_size)
+        self.timestamps = deque(maxlen=buffer_size)
 
         self.running = False
         super().__init__(name=name)
@@ -82,16 +82,12 @@ class BufferedFrameCapture(threading.Thread):
 
                     print(f"\rCapturing! Buffer: {len(self.frames)} / {self.buffer_size} {next(wheel)}", end="", flush=True)
 
-                    if len(self.frames) > self.buffer_size:
-                        self.frames.pop(0)
-                        self.timestamps.pop(0)
-                        print(f"\nFrame dropped!")
     
     def read(self):
         """Block until the next frame and its timestamp are available from the buffer."""
         while self.running:
             if self.frames and self.timestamps:
-                return True, (self.frames.pop(0), self.timestamps.pop(0))
+                return True, (self.frames.popleft(), self.timestamps.popleft())
             else:
                 time.sleep(0.005)
         
