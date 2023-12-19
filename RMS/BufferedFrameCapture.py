@@ -21,8 +21,9 @@ class BufferedFrameCapture(threading.Thread):
             self.normalizer = create_frame_timing_normalizer(window_size=fps*60, fps=fps)
 
         # Capture to grab latency
+        # if timstamp is late, increase latency. If ts is early, decrease latency.
         self.device_buffer = 4 # Experimentally established for imx291 buffer size (does not set the buffer)
-        self.system_latency = 0.23 # Experimentally established network + machine latency
+        self.system_latency = 0.13 # Experimentally established network + machine latency
         self.total_latency = self.device_buffer / self.fps + self.system_latency
 
         self.frames = deque(maxlen=buffer_size)
