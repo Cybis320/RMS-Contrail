@@ -3,11 +3,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import math
 from datetime import datetime
 import sys
 
 def analyze_timestamps(folder_path):
     timestamps = []
+
+    # Extract the subdir_name from folder_path
+    subdir_name = os.path.basename(folder_path.rstrip('/\\'))
+
     for file in os.listdir(folder_path):
         if file.endswith('.jpg'):
             try:
@@ -40,8 +45,12 @@ def analyze_timestamps(folder_path):
     # Plotting
     plt.figure(figsize=(12, 6))
 
-    # Scatter plot for differences
-    plt.scatter(df['Timestamp'], df['Difference'], label='Normal', c=df['Outlier'].map({True: 'red', False: 'gray'}), s=10, alpha=0.5)
+    # Separate scatter plots for normal points and outliers
+    normal_points = df[~df['Outlier']]
+    outlier_points = df[df['Outlier']]
+
+    plt.scatter(normal_points['Timestamp'], normal_points['Difference'], label='Normal', c='gray', s=10, alpha=0.5)
+    plt.scatter(outlier_points['Timestamp'], outlier_points['Difference'], label='Outliers', c='red', s=10, alpha=0.5)
 
     # Expected and Average lines
     plt.axhline(y=5.12, color='green', linestyle='-', label='Expected Interval (5.12s)')
@@ -49,17 +58,40 @@ def analyze_timestamps(folder_path):
 
     # Find the minimum difference and round down to nearest 0.1
     min_difference = df['Difference'].min()
-    rounded_min_difference = np.floor(min_difference * 10) / 10
 
     # Find the maximum difference and round up to nearest 0.1
     max_difference = df['Difference'].max()
-    rounded_max_difference = np.ceil(max_difference * 10) / 10
 
     # Setting gridlines
-    # Horizontal grid every 0.1 seconds
-    y_ticks = np.arange(rounded_min_difference, rounded_max_difference + 0.1, 0.1)
+    # Determine grid interval dynamically
+    difference_range = df['Difference'].max() - df['Difference'].min()
+    raw_interval = difference_range / 11
+
+    # Round the interval up to the nearest 0.1, 1, or 10
+    if raw_interval < 0.1:
+        grid_interval = round(raw_interval, 1)
+        grid_color = 'grey'
+        rounded_min_difference = np.floor(min_difference * 10) / 10
+        rounded_max_difference = np.ceil(max_difference * 10) / 10
+
+    elif raw_interval < 1:
+        grid_interval = round(raw_interval)
+        grid_color = 'FFBF00'
+        rounded_min_difference = np.floor(min_difference)
+        rounded_max_difference = np.ceil(max_difference)
+
+    else:
+        grid_interval = round(raw_interval, -1)
+        grid_color = 'red'
+        rounded_min_difference = np.floor(min_difference / 10) * 10
+        rounded_max_difference = np.ceil(max_difference / 10) * 10
+
+
+
+
+    y_ticks = np.arange(rounded_min_difference, rounded_max_difference + grid_interval, grid_interval)
     plt.yticks(y_ticks)
-    plt.grid(axis='y', linestyle='-', alpha=0.7)
+    plt.grid(axis='y', color=grid_color, linestyle='-', alpha=0.7)
 
     # Vertical grid every hour
     plt.gca().xaxis.set_major_locator(mdates.HourLocator())
@@ -69,13 +101,13 @@ def analyze_timestamps(folder_path):
     # Labeling
     plt.xlabel('Timestamp')
     plt.ylabel('Time Difference (seconds)')
-    plt.title('Time Differences Between Consecutive Video Frames')
+    plt.title(f'Frame Intervals: {subdir_name}')
     plt.legend()
 
     # Save the plot in the folder_path
     plot_filename = os.path.join(folder_path, 'time_difference_plot.png')
     plt.savefig(plot_filename, format='png', dpi=300)
-    # plt.show()
+    #plt.show()
 
     return df
 
