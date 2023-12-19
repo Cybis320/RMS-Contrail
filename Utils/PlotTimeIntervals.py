@@ -75,7 +75,7 @@ def analyze_timestamps(folder_path):
     # Save the plot in the folder_path
     plot_filename = os.path.join(folder_path, 'time_difference_plot.png')
     plt.savefig(plot_filename, format='png', dpi=300)
-    plt.show()
+    # plt.show()
 
     return df
 
