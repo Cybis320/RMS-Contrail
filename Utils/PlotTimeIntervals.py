@@ -67,26 +67,29 @@ def analyze_timestamps(folder_path):
     difference_range = df['Difference'].max() - df['Difference'].min()
     raw_interval = difference_range / 11
 
+
     # Round the interval up to the nearest 0.1, 1, or 10
     if raw_interval < 0.1:
-        grid_interval = round(raw_interval, 1)
+        grid_interval = math.ceil(raw_interval * 10) / 10
         grid_color = 'grey'
         rounded_min_difference = np.floor(min_difference * 10) / 10
         rounded_max_difference = np.ceil(max_difference * 10) / 10
 
     elif raw_interval < 1:
-        grid_interval = round(raw_interval)
-        grid_color = 'FFBF00'
+        grid_interval = math.ceil(raw_interval)
+        grid_color = '#FFBF00'  # Corrected color format
         rounded_min_difference = np.floor(min_difference)
         rounded_max_difference = np.ceil(max_difference)
 
     else:
-        grid_interval = round(raw_interval, -1)
+        grid_interval = math.ceil(raw_interval / 10) * 10
         grid_color = 'red'
         rounded_min_difference = np.floor(min_difference / 10) * 10
         rounded_max_difference = np.ceil(max_difference / 10) * 10
 
-
+    # Ensure grid_interval is not too small
+    minimum_allowed_interval = 0.1  # Example minimum
+    grid_interval = max(grid_interval, minimum_allowed_interval)
 
 
     y_ticks = np.arange(rounded_min_difference, rounded_max_difference + grid_interval, grid_interval)
