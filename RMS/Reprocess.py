@@ -429,7 +429,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                 # If not found, generate timelapse
                 if not found_files:
                     print(f"Generating timestamp plot in {contrails_subdir}...")
-                    analyze_timestamps(contrails_subdir)
+                    analyze_timestamps(full_contrails_subdir)
                     print(f"No ADS-B timelapse found in {contrails_subdir}, generating new timelapse...")
 
                     # Find best recalibrated all platepars json
