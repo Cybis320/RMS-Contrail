@@ -7,6 +7,20 @@ import math
 from datetime import datetime
 import sys
 
+
+def calculate_score(differences, alpha=0.5):
+    """
+    Calculate a score using an exponential decay function based on the standard deviation.
+    A higher standard deviation results in a lower score.
+    The alpha parameter controls the rate of decay.
+    """
+    current_std_dev = np.std(differences)
+    
+    score = 100 * np.exp(-alpha * current_std_dev)
+
+    return int(round(score))
+
+
 def analyze_timestamps(folder_path):
     timestamps = []
 
@@ -25,6 +39,8 @@ def analyze_timestamps(folder_path):
     timestamps.sort()
     differences = [(timestamps[i+1] - timestamps[i]).total_seconds() for i in range(len(timestamps) - 1)]
     df = pd.DataFrame({'Timestamp': timestamps[:-1], 'Difference': differences})
+
+    score = calculate_score(differences)
 
     # Calculate mean and standard deviation
     mean_diff = df['Difference'].mean()
@@ -104,11 +120,11 @@ def analyze_timestamps(folder_path):
     # Labeling
     plt.xlabel('Timestamp')
     plt.ylabel('Time Difference (seconds)')
-    plt.title(f'Frame Intervals: {subdir_name}')
+    plt.title(f'Frame Intervals {subdir_name} - Score: {score}')
     plt.legend()
 
     # Save the plot in the folder_path
-    plot_filename = os.path.join(folder_path, 'time_difference_plot.png')
+    plot_filename = os.path.join(folder_path, f'time_difference_plot_score_{score}.png')
     plt.savefig(plot_filename, format='png', dpi=300)
     #plt.show()
 
