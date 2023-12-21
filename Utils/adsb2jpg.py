@@ -302,14 +302,15 @@ def get_points_for_batch(grouped_points, batch_start_time, batch_end_time, time_
 
 
 
-def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=timedelta(seconds=5)):
+def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=timedelta(seconds=5), adsb_latency=timedelta(milliseconds=50)):
     """Interpolates aircraft positions for a given timestamp.
 
     Args:
-        grouped_points (dict): Grouped and sorted aircraft positions by hex code.
+        relevant_points (dict): Grouped and sorted aircraft positions by hex code.
         target_time (datetime): The timestamp for which to interpolate positions.
-        max_time_diff (int, optional): The maximum time difference in seconds for which interpolation is allowed.
-
+        time_buffer (timedelta, optional): The time buffer around the target time in which to include adsb position positions.
+        adsb_latency (timedelta, optional): the time offset to apply to adsb data
+        
     Returns:
         list: A list of dictionaries containing interpolated positions.
     """
@@ -317,7 +318,7 @@ def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=tim
     interpolated_positions = {}
 
     for hex_code, points_list in relevant_points.items():
-        close_points = [point for point in points_list if abs(point['time'] - target_time) <= time_buffer]
+        close_points = [point for point in points_list if abs(point['time'] - adsb_latency - target_time) <= time_buffer]
         
         if not close_points:
             continue
@@ -328,7 +329,7 @@ def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=tim
         min_diff_after = timedelta.max  # Initialize with maximum timedelta
 
         for point in close_points:
-            time_diff = point['time'] - target_time
+            time_diff = point['time'] - adsb_latency - target_time
             
             # Check for the closest before point
             if time_diff <= timedelta(0) and abs(time_diff) < min_diff_before:
@@ -349,10 +350,10 @@ def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=tim
         if before and after:
             for field in before:
                 if isinstance(before[field], (int, float)) and isinstance(after[field], (int, float)):
-                    weight = (target_time - before['time']) / (after['time'] - before['time'])
+                    weight = (target_time - before['time'] + adsb_latency) / (after['time'] - before['time'])
                     interpolated_point[field] = before[field] + weight * (after[field] - before[field])
                 else:
-                    interpolated_point[field] = before[field] if (target_time - before['time']) < (after['time'] - target_time) else after[field]
+                    interpolated_point[field] = before[field] if (target_time - before['time'] + adsb_latency) < (after['time'] - adsb_latency - target_time) else after[field]
         else:
             closest_point = before or after
             interpolated_point = closest_point.copy()
@@ -466,7 +467,7 @@ def overlay_data_on_image(image, point, az_center):
     max_width = 0
 
     for i, line in enumerate(lines):
-        text_width, text_height = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        text_width, text_height = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
         total_text_height += text_height + line_spacing
         if text_width > max_width:
             max_width = text_width
@@ -481,7 +482,7 @@ def overlay_data_on_image(image, point, az_center):
 
     # Write multiline text
     for i, line in enumerate(lines):
-        text_width, text_height = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        text_width, text_height = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
         text_height += line_spacing
         x_line = x_new - text_width / 2
         y_line = y_new + text_height * (i+1 - number_of_lines / 2)
