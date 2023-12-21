@@ -124,7 +124,7 @@ def analyze_timestamps(folder_path):
     plt.legend()
 
     # Save the plot in the folder_path
-    plot_filename = os.path.join(folder_path, f'time_difference_plot_score_{score}.png')
+    plot_filename = os.path.join(folder_path, f'{subdir_name}_intervals_score_{score}.png')
     plt.savefig(plot_filename, format='png', dpi=300)
     #plt.show()
 
