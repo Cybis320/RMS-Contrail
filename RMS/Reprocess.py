@@ -480,7 +480,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     create_video_from_images(temp_dir, timelapse_path, delete_images=True)
                     
                     print(f"Generating timestamp plot in {contrails_subdir}...")
-                    analyze_timestamps(full_contrails_subdir)
+                    analyze_timestamps(full_contrails_subdir, config.fps)
 
                     # Add the timelapse to the extra files
                     # extra_files.append(timelapse_path)

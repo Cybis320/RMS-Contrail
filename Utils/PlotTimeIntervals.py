@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import math
 from datetime import datetime
+from RMS.ConfigReader import Config
 import sys
 
 
@@ -21,7 +22,7 @@ def calculate_score(differences, alpha=0.5):
     return int(round(score))
 
 
-def analyze_timestamps(folder_path):
+def analyze_timestamps(folder_path, fps=25):
     timestamps = []
 
     # Extract the subdir_name from folder_path
@@ -69,7 +70,7 @@ def analyze_timestamps(folder_path):
     plt.scatter(outlier_points['Timestamp'], outlier_points['Difference'], label='Outliers', c='red', s=10, alpha=0.5)
 
     # Expected and Average lines
-    plt.axhline(y=5.12, color='green', linestyle='-', label='Expected Interval (5.12s)')
+    plt.axhline(y=1/fps, color='green', linestyle='-', label='Expected Interval (5.12s)')
     plt.axhline(y=average_difference, color='blue', linestyle='--', label=f'Average Interval ({average_difference:.4f}s)')
 
     # Find the minimum difference and round down to nearest 0.1
