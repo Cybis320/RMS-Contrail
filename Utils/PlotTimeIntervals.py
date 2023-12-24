@@ -59,6 +59,9 @@ def analyze_timestamps(folder_path, fps=25):
     # Calculate average excluding outliers
     average_difference = df[~df['Outlier']]['Difference'].mean()
 
+    # Calculate average fps
+    average_fps = 128 / average_difference
+
     # Plotting
     plt.figure(figsize=(12, 6))
 
@@ -70,8 +73,8 @@ def analyze_timestamps(folder_path, fps=25):
     plt.scatter(outlier_points['Timestamp'], outlier_points['Difference'], label='Outliers', c='red', s=10, alpha=0.5)
 
     # Expected and Average lines
-    plt.axhline(y=1/fps, color='green', linestyle='-', label='Expected Interval (5.12s)')
-    plt.axhline(y=average_difference, color='blue', linestyle='--', label=f'Average Interval ({average_difference:.4f}s)')
+    # plt.axhline(y=1/fps, color='green', linestyle='-', label='Expected Interval (5.12s)')
+    plt.axhline(y=average_difference, color='blue', linestyle='--', label=f'Average Interval ({average_difference:.4f}s), Average ({average_fps:.1f} fps)')
 
     # Find the minimum difference and round down to nearest 0.1
     min_difference = df['Difference'].min()
@@ -105,7 +108,7 @@ def analyze_timestamps(folder_path, fps=25):
         rounded_max_difference = np.ceil(max_difference / 10) * 10
 
     # Ensure grid_interval is not too small
-    minimum_allowed_interval = 0.1  # Example minimum
+    minimum_allowed_interval = 0.1
     grid_interval = max(grid_interval, minimum_allowed_interval)
 
 
