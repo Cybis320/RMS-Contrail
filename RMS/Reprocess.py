@@ -479,6 +479,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     # Generate the timelapse
                     create_video_from_images(temp_dir, timelapse_path, delete_images=True)
                     
+                    # Generate the interval plot
                     print(f"Generating timestamp plot in {contrails_subdir}...")
                     analyze_timestamps(full_contrails_subdir, config.fps)
 
