@@ -9,7 +9,7 @@ from RMS.ConfigReader import Config
 import sys
 
 
-def calculate_score(differences, alpha=0.5):
+def calculate_score(differences, alpha=1.5):
     """
     Calculate a score using an exponential decay function based on the standard deviation.
     A higher standard deviation results in a lower score.
@@ -17,7 +17,7 @@ def calculate_score(differences, alpha=0.5):
     """
     current_std_dev = np.std(differences)
     
-    score = 100 * np.exp(-alpha * current_std_dev)
+    score = 1000 * np.exp(-alpha * current_std_dev)
 
     return int(round(score))
 
