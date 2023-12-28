@@ -137,6 +137,8 @@ def main():
     rtsp_url = "rtsp://192.168.42.10:554/user=admin&password=&channel=1&stream=0.sdp"
     
     cap = cv.VideoCapture(rtsp_url)
+    cap.set(cv.CAP_PROP_BUFFERSIZE, 1)
+
     # Assuming 1280x720 resolution; adjust to match your camera's resolution
     out = cv.VideoWriter('output.mp4', cv.VideoWriter_fourcc(*'mp4v'), 25.0, (1280, 720))
 
