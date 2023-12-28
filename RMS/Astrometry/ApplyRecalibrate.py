@@ -791,10 +791,10 @@ def recalibrateIndividualFFsAndApplyAstrometry(
         # Compute the angular separation from the reference platepar
         ang_dist = np.degrees(
             angularSeparation(
-                np.radians(platepar.RA_d),
-                np.radians(platepar.dec_d),
-                np.radians(pp_temp.RA_d),
-                np.radians(pp_temp.dec_d),
+                np.radians(platepar.alt_centre),
+                np.radians(platepar.az_centre),
+                np.radians(pp_temp.alt_centre),
+                np.radians(pp_temp.az_centre),
             )
         )
         ang_dists.append(ang_dist*60)
