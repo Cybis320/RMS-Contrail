@@ -1,4 +1,5 @@
-import threading
+from multiprocessing import Process
+import psutil
 import cv2 as cv
 import time
 import datetime
@@ -8,8 +9,9 @@ from collections import deque
 import itertools
 
 
-class BufferedFrameCapture(threading.Thread):
+class BufferedFrameCapture(Process):
     def __init__(self, capture, buffer_size=250, fps=25, remove_jitter=False, name='BufferedFrameCapture'):
+        super().__init__(name=name)
         self.capture = capture
         assert self.capture.isOpened()
 
@@ -30,7 +32,6 @@ class BufferedFrameCapture(threading.Thread):
         self.timestamps = deque(maxlen=buffer_size)
 
         self.running = False
-        super().__init__(name=name)
     
     def isOpened(self):
         # Proxy the call to the underlying VideoCapture object
@@ -64,6 +65,13 @@ class BufferedFrameCapture(threading.Thread):
                     break
 
     def run(self):
+        # Set the process to a high priority (low niceness)
+        try:
+            p = psutil.Process(self.pid)
+            p.nice(-10)  # Set high priority, requires superuser for negative values
+        except Exception as e:
+            print(f"Error setting priority: {e}")
+            
         # Spinning wheel characters
         wheel = itertools.cycle(['-', '\\', '|', '/'])
 

@@ -22,7 +22,7 @@ import logging
 import datetime
 import os.path
 from multiprocessing import Process, Event
-from threading import Thread
+#from threading import Thread
 
 
 from math import floor
@@ -390,8 +390,9 @@ class BufferedCapture(Process):
 
                         # Save the image to disk with a separate thread
                         try:
-                            worker_thread = Thread(target=self.save_image_and_log_time, args=(filename, img_path, frame, frame_timestamp,i), daemon=True)
-                            worker_thread.start()
+                            # worker_thread = Thread(target=self.save_image_and_log_time, args=(filename, img_path, frame, frame_timestamp,i), daemon=True)
+                            # worker_thread.start()
+                            self.save_image_and_log_time(filename, img_path, frame, frame_timestamp,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
 
