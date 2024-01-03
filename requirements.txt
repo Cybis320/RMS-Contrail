@@ -21,3 +21,4 @@ tflite-runtime; python_version>='3.6' and python_version<'3.10'
 tflite-runtime @ https://github.com/hjonnala/snippets/raw/main/wheels/python3.10/tflite_runtime-2.5.0.post1-cp310-cp310-linux_x86_64.whl ; python_version=='3.10'
 influxdb
 pandas
+psutil
