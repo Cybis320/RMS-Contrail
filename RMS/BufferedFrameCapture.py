@@ -10,10 +10,9 @@ import itertools
 
 
 class BufferedFrameCapture(Process):
-    def __init__(self, capture, buffer_size=250, fps=25, remove_jitter=False, name='BufferedFrameCapture'):
+    def __init__(self, deviceID, buffer_size=250, fps=25, remove_jitter=False, name='BufferedFrameCapture'):
         super().__init__(name=name)
-        self.capture = capture
-        assert self.capture.isOpened()
+        self.deviceID = deviceID
 
         self.buffer_size = buffer_size
         self.fps = fps
@@ -65,13 +64,16 @@ class BufferedFrameCapture(Process):
                     break
 
     def run(self):
+        self.capture = cv.VideoCapture(self.deviceID)
+        assert self.capture.isOpened()
+
         # Set the process to a high priority (low niceness)
         try:
             p = psutil.Process(self.pid)
             p.nice(-10)  # Set high priority, requires superuser for negative values
         except Exception as e:
-            print(f"Error setting priority: {e}")
-            
+            print(f"Error setting priority: {e} \nConsider running: 'sudo setcap 'cap_sys_nice=eip' /usr/bin/python3.7' in a terminal")
+
         # Spinning wheel characters
         wheel = itertools.cycle(['-', '\\', '|', '/'])
 

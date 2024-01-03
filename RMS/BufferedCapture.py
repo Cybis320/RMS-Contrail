@@ -176,7 +176,8 @@ class BufferedCapture(Process):
                 device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
                 device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
             else:
-                device = cv2.VideoCapture(self.config.deviceID)
+                #device = cv2.VideoCapture(self.config.deviceID)
+                deviceID = self.config.deviceID
 
             # Try setting the resultion if using a video device, not gstreamer
             try:
@@ -191,7 +192,7 @@ class BufferedCapture(Process):
             except:
                 pass
 
-            buffered_capture_device = bfc.BufferedFrameCapture(device, buffer_size=250, fps=self.config.fps, remove_jitter=False)
+            buffered_capture_device = bfc.BufferedFrameCapture(deviceID, buffer_size=250, fps=self.config.fps, remove_jitter=False)
 
 
         return buffered_capture_device
