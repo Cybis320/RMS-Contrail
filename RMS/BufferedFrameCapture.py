@@ -63,7 +63,6 @@ class BufferedFrameCapture(Process):
                     break
 
     def run(self):
-        self.capture = cv.VideoCapture(self.deviceID)
         assert self.capture.isOpened()
 
         # Set the process to a high priority (low niceness)
@@ -108,6 +107,7 @@ class BufferedFrameCapture(Process):
         return False, (None, None)
     
     def start_capture(self):
+        self.capture = cv.VideoCapture(self.deviceID)
         self.flush_buffer()
         self.running = True
         self.start()
