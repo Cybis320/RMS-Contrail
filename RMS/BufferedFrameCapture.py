@@ -86,7 +86,7 @@ class BufferedFrameCapture(Process):
                     else:
                         self.frame_queue.put((img, raw_timestamp - self.total_latency))
 
-                    print(f"\rCapturing! Buffer: {len(self.frame_queue)} / {self.buffer_size} {next(wheel)}  ", end="", flush=True)
+                    print(f"\rCapturing! Buffer: {self.frame_queue.qsize()} / {self.buffer_size} {next(wheel)}  ", end="", flush=True)
             else:
                 print("Failed to grab a frame. Waiting...")
                 time.sleep(0.5/self.fps)
@@ -95,7 +95,7 @@ class BufferedFrameCapture(Process):
     def read(self):
         """Block until the next frame and its timestamp are available from the buffer."""
         while self.running:
-            if self.frame_queue:
+            if not self.frame_queue.empty():
                 return True, self.frame_queue.get()
             else:
                 time.sleep(1/self.fps)
