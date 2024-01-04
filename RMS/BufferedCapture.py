@@ -224,23 +224,23 @@ class BufferedCapture(Process):
             return False
 
 
-        # Wait until the device is opened
-        device_opened = False
-        for i in range(20):
-            time.sleep(1)
-            if device.isOpened():
-                device_opened = True
-                break
+        # # Wait until the device is opened
+        # device_opened = False
+        # for i in range(20):
+        #     time.sleep(1)
+        #     if device.isOpened():
+        #         device_opened = True
+        #         break
 
 
-        # If the device could not be opened, stop capturing
-        if not device_opened:
-            log.info('The video source could not be opened!')
-            self.exit.set()
-            return False
+        # # If the device could not be opened, stop capturing
+        # if not device_opened:
+        #     log.info('The video source could not be opened!')
+        #     self.exit.set()
+        #     return False
 
-        else:
-            log.info('Video device opened!')
+        # else:
+        #     log.info('Video device opened!')
 
 
         # Keep track of the total number of frames

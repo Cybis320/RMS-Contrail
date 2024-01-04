@@ -33,8 +33,7 @@ class BufferedFrameCapture(Process):
         self.running = False
     
     def isOpened(self):
-        # Proxy the call to the underlying VideoCapture object
-        return self.capture.isOpened()
+        return hasattr(self, 'capture') and self.capture.isOpened()
 
     def flush_buffer(self):
         # Flush the network buffer
@@ -72,7 +71,7 @@ class BufferedFrameCapture(Process):
             p = psutil.Process(self.pid)
             p.nice(-10)  # Set high priority, requires superuser for negative values
         except Exception as e:
-            print(f"Error setting priority: {e} \nConsider adding 'username    -   nice    -10' to '/etc/security/limits.conf")
+            print(f"Error setting priority: {e} \nConsider adding 'pi    -   nice    -10' to '/etc/security/limits.conf")
 
         # Spinning wheel characters
         wheel = itertools.cycle(['-', '\\', '|', '/'])
