@@ -1,4 +1,4 @@
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 import psutil
 import cv2 as cv
 import time
@@ -27,8 +27,7 @@ class BufferedFrameCapture(Process):
         self.system_latency = 0.13 # Experimentally established network + machine latency
         self.total_latency = self.device_buffer / self.fps + self.system_latency
 
-        self.frames = deque(maxlen=buffer_size)
-        self.timestamps = deque(maxlen=buffer_size)
+        self.frame_queue = Queue(maxsize=buffer_size)
 
         self.running = False
     
@@ -81,15 +80,13 @@ class BufferedFrameCapture(Process):
                 raw_timestamp = time.time()
                 success, img = self.capture.retrieve()
                 if success:
-                    self.frames.append(img)
-
                     if self.remove_jitter:
                         corrected_timestamp = self.normalizer.correct_timestamp(raw_timestamp)
-                        self.timestamps.append(corrected_timestamp - self.total_latency)
+                        self.frame_queue.put((img, corrected_timestamp - self.total_latency))
                     else:
-                        self.timestamps.append(raw_timestamp - self.total_latency)
+                        self.frame_queue.put((img, raw_timestamp - self.total_latency))
 
-                    print(f"\rCapturing! Buffer: {len(self.timestamps)} / {self.buffer_size} {next(wheel)}  ", end="", flush=True)
+                    print(f"\rCapturing! Buffer: {len(self.frame_queue)} / {self.buffer_size} {next(wheel)}  ", end="", flush=True)
             else:
                 print("Failed to grab a frame. Waiting...")
                 time.sleep(0.5/self.fps)
@@ -98,8 +95,8 @@ class BufferedFrameCapture(Process):
     def read(self):
         """Block until the next frame and its timestamp are available from the buffer."""
         while self.running:
-            if self.frames and self.timestamps:
-                return True, (self.frames.popleft(), self.timestamps.popleft())
+            if self.frame_queue:
+                return True, self.frame_queue.get()
             else:
                 time.sleep(1/self.fps)
         
