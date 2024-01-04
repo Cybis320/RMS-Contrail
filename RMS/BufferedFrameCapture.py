@@ -1,4 +1,5 @@
-import threading
+from multiprocessing import Process
+import psutil
 import cv2 as cv
 import time
 import datetime
@@ -8,10 +9,10 @@ from collections import deque
 import itertools
 
 
-class BufferedFrameCapture(threading.Thread):
-    def __init__(self, capture, buffer_size=250, fps=25, remove_jitter=False, name='BufferedFrameCapture'):
-        self.capture = capture
-        assert self.capture.isOpened()
+class BufferedFrameCapture(Process):
+    def __init__(self, deviceID, buffer_size=250, fps=25, remove_jitter=False, name='BufferedFrameCapture'):
+        super().__init__(name=name)
+        self.deviceID = deviceID
 
         self.buffer_size = buffer_size
         self.fps = fps
@@ -30,7 +31,6 @@ class BufferedFrameCapture(threading.Thread):
         self.timestamps = deque(maxlen=buffer_size)
 
         self.running = False
-        super().__init__(name=name)
     
     def isOpened(self):
         # Proxy the call to the underlying VideoCapture object
@@ -64,6 +64,16 @@ class BufferedFrameCapture(threading.Thread):
                     break
 
     def run(self):
+        self.capture = cv.VideoCapture(self.deviceID)
+        assert self.capture.isOpened()
+
+        # Set the process to a high priority (low niceness)
+        try:
+            p = psutil.Process(self.pid)
+            p.nice(-10)  # Set high priority, requires superuser for negative values
+        except Exception as e:
+            print(f"Error setting priority: {e} \nConsider adding 'username    -   nice    -10' to '/etc/security/limits.conf")
+
         # Spinning wheel characters
         wheel = itertools.cycle(['-', '\\', '|', '/'])
 
@@ -136,7 +146,6 @@ def main():
     # Replace with your camera's RTSP URL
     rtsp_url = "rtsp://192.168.42.10:554/user=admin&password=&channel=1&stream=0.sdp"
     
-
     cap = cv.VideoCapture(rtsp_url)
     cap.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
