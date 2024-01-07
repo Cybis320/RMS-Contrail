@@ -76,9 +76,12 @@ class BufferedCapture(Process):
         self.dropped_frames = 0
 
     def save_image_and_log_time(self, filename, img_path, img, start_time, i):
-        cv2.imwrite(img_path, img)
-        elapsed_time = time.time() - start_time
-        print(f"Saving completed: i={i}: {filename} time: {elapsed_time:.3f} s")
+        try:
+            cv2.imwrite(img_path, img)
+            elapsed_time = time.time() - start_time
+            print(f"Saving completed: i={i}: {filename} time: {elapsed_time:.3f} s")
+        except Exception as e:
+            log.info(f"Error in save_image_and_log_time: {e}")
 
 
     def startCapture(self, cameraID=0):
@@ -270,6 +273,7 @@ class BufferedCapture(Process):
         if self.video_file is None:
             # Start capturing with initial buffer flush
             device.start_capture()
+            device.device_opened.wait()
 
         
         # Run until stopped from the outside
@@ -373,11 +377,11 @@ class BufferedCapture(Process):
                 if self.video_file is None:
 
                     # If a video device is used, save a uncompressed frame every nth frames (for Contrails)
-                    # if i % 64 == 0:   > img every 2.56s, 3.7GB per day
-                    # if i % 128 == 0:   > img every 5.12s, 1.9GB per day
-                    # if i == 0:   > img every 10.24s, 0.9GB per day
+                    # if i % 64 == 0:   > img every 2.56s, 3.7GB per day @ 25 fps
+                    # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
+                    # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
 
-                    if i % 128 == 0:
+                    if i % 64 == 0:
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
 

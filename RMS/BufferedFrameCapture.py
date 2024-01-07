@@ -1,4 +1,4 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Event, Value
 import psutil
 import cv2 as cv
 import time
@@ -13,6 +13,9 @@ class BufferedFrameCapture(Process):
     def __init__(self, deviceID, buffer_size=250, fps=25, remove_jitter=False, name='BufferedFrameCapture'):
         super().__init__(name=name)
         self.deviceID = deviceID
+        
+        self.device_opened = Event()
+        self.stop_event = Event()
 
         self.buffer_size = buffer_size
         self.fps = fps
@@ -24,17 +27,25 @@ class BufferedFrameCapture(Process):
         # Capture to grab latency
         # if timstamp is late, increase latency. If ts is early, decrease latency.
         self.device_buffer = 4 # Experimentally established for imx291 buffer size (does not set the buffer)
-        self.system_latency = 0.13 # Experimentally established network + machine latency
+        self.system_latency = 0.105 # Experimentally established network + machine latency
         self.total_latency = self.device_buffer / self.fps + self.system_latency
 
         self.frame_queue = Queue(maxsize=buffer_size)
-
-        self.running = False
+        
     
     def isOpened(self):
         return hasattr(self, 'capture') and self.capture.isOpened()
 
-    def flush_buffer(self):
+
+    def run(self):
+        # Set the process to a high priority (low niceness)
+        try:
+            p = psutil.Process(self.pid)
+            p.nice(-1)  # Set high priority, requires superuser for negative values
+        except Exception as e:
+            print(f"Error setting priority: {e} \nConsider adding 'pi    -   nice    -10' to '/etc/security/limits.conf")
+
+        self.capture = cv.VideoCapture(self.deviceID)
         # Flush the network buffer
         i = 0
         j = 0
@@ -42,7 +53,7 @@ class BufferedFrameCapture(Process):
         counter = 5 * self.fps # the number of seconds to be stable before releasing
 
         while True:
-            print(f"\r\033[KFlushing {j} frames! {(counter-i-1) / self.fps}", end="", flush=True)
+            print(f"\r\033[KFlushing {j} frames! {(counter-i-1) // self.fps}", end="", flush=True)
             j += 1
 
             t0 = time.time()
@@ -61,56 +72,65 @@ class BufferedFrameCapture(Process):
                     print("\nNetwork buffer empty. GO!")
                     break
 
-    def run(self):
         assert self.capture.isOpened()
-
-        # Set the process to a high priority (low niceness)
-        try:
-            p = psutil.Process(self.pid)
-            p.nice(-10)  # Set high priority, requires superuser for negative values
-        except Exception as e:
-            print(f"Error setting priority: {e} \nConsider adding 'pi    -   nice    -10' to '/etc/security/limits.conf")
+        if self.capture.isOpened():
+            self.device_opened.set()
 
         # Spinning wheel characters
         wheel = itertools.cycle(['-', '\\', '|', '/'])
+        timeout = 0.5 / self.fps
+        i = 0
 
-        while self.running:
+        while not self.stop_event.is_set():
+            if self.frame_queue.full():
+                # Discard the oldest item (non-blocking get)
+                try:
+                    self.frame_queue.get(timeout=2)
+                    i += 1
+                except Exception as e:
+                    print("Exception occurred while attempting to drop frame:", str(e))
+                    print("Exception type:", type(e).__name__)
+
             # using grab > time > retrieve instead of read > time for more accurate time capture
             if self.capture.grab():
                 raw_timestamp = time.time()
                 success, img = self.capture.retrieve()
                 if success:
                     if self.remove_jitter:
-                        corrected_timestamp = self.normalizer.correct_timestamp(raw_timestamp)
-                        self.frame_queue.put((img, corrected_timestamp - self.total_latency))
+                        corrected_timestamp = self.normalizer.correct_timestamp(raw_timestamp) - self.total_latency
                     else:
-                        self.frame_queue.put((img, raw_timestamp - self.total_latency))
+                        corrected_timestamp = raw_timestamp - self.total_latency
 
-                    print(f"\rCapturing! Buffer: {self.frame_queue.qsize()} / {self.buffer_size} {next(wheel)}  ", end="", flush=True)
-            else:
-                print("Failed to grab a frame. Waiting...")
-                time.sleep(0.5/self.fps)
+                    try:
+                        self.frame_queue.put((img, corrected_timestamp), timeout=timeout)
+                    except:
+                        print("Failed to store frame!")
 
-    
+                    print(f"\rCapturing! Buffer: {self.frame_queue.qsize()} / {self.buffer_size}, , Total dropped frames: {i} {next(wheel)}  ", end="", flush=True)
+                else:
+                    print("Failed to grab a frame. Waiting...")
+                    time.sleep(timeout)
+
+
     def read(self):
         """Block until the next frame and its timestamp are available from the buffer."""
-        while self.running:
-            if not self.frame_queue.empty():
-                return True, self.frame_queue.get()
-            else:
-                time.sleep(1/self.fps)
-        
+        while not self.stop_event.is_set():
+            try:
+                return True, self.frame_queue.get(timeout=1)
+            except Exception as e:
+                print("Exception occurred while waiting for frame:", str(e))
+                print("Exception type:", type(e).__name__)
+
         # If the capture has stopped running, return False
         return False, (None, None)
+
     
     def start_capture(self):
-        self.capture = cv.VideoCapture(self.deviceID)
-        self.flush_buffer()
         self.running = True
         self.start()
 
     def release(self, timeout=None):
-        self.running = False
+        self.stop_event.set()
         self.join(timeout=timeout)
         self.capture.release()
 
