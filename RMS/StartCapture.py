@@ -957,8 +957,8 @@ if __name__ == "__main__":
             resetSIGINT()
 
             try:
-                # Wait for 30 mins before checking again
-                time.sleep(30*60)
+                # Wait for 15 mins before checking again
+                time.sleep(max(duration, 60))
 
             except KeyboardInterrupt:
 
