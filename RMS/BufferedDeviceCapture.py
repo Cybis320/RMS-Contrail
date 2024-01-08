@@ -1,10 +1,10 @@
-from multiprocessing import Process, Queue, Event, Value
+from multiprocessing import Process, Queue, Event, Value, shared_memory
 import cv2
 import time
 import datetime
 import Utils.CameraControl as cc
 import itertools
-
+import numpy as np
 
 class BufferedFrameCapture(Process):
     def __init__(self, deviceID, buffer_size=250, fps=25, name='BufferedFrameCapture'):
@@ -23,7 +23,27 @@ class BufferedFrameCapture(Process):
         self.system_latency = 0.105 # Experimentally established network + machine latency
         self.total_latency = self.device_buffer / self.fps + self.system_latency
 
-        self.frame_queue = Queue(maxsize=buffer_size)
+        #  frame properties (modify as needed)
+        self.frame_height = 1080
+        self.frame_width = 1920
+        self.frame_channels = 3  # RGB
+
+        # Calculate frame size in bytes
+        self.frame_size = self.frame_height * self.frame_width * self.frame_channels
+        self.frame_dtype = np.uint8
+
+        # Shared memory for frames
+        self.frames_memory = shared_memory.SharedMemory(create=True, size=self.frame_size * buffer_size)
+        self.frames_buffer = np.ndarray((buffer_size, self.frame_height, self.frame_width, self.frame_channels), dtype=self.frame_dtype, buffer=self.frames_memory.buf)
+
+        # Shared memory for metadata
+        self.metadata_size = buffer_size * 8  # Assuming 8 bytes per timestamp
+        self.metadata_memory = shared_memory.SharedMemory(create=True, size=self.metadata_size)
+        self.metadata_buffer = np.ndarray((buffer_size,), dtype='d', buffer=self.metadata_memory.buf)  # 'd' for double
+
+        # Initialize pointers for the circular buffer
+        self.write_pointer = Value('i', 0)
+        self.read_pointer = Value('i', 0)
         
     
     def isOpened(self):
@@ -58,24 +78,21 @@ class BufferedFrameCapture(Process):
                     print("\nNetwork buffer empty. GO!")
                     break
 
-        assert self.capture.isOpened()
-        if self.capture.isOpened():
-            self.device_opened.set()
-
         # Spinning wheel characters
         wheel = itertools.cycle(['-', '\\', '|', '/'])
         timeout = 0.5 / self.fps
         i = 0
 
+        assert self.capture.isOpened()
+        if self.capture.isOpened():
+            self.device_opened.set()
+
         while not self.stop_event.is_set():
-            if self.frame_queue.full():
-                # Discard the oldest item (non-blocking get)
-                try:
-                    self.frame_queue.get(timeout=2)
-                    i += 1
-                except Exception as e:
-                    print("Exception occurred while attempting to drop frame:", str(e))
-                    print("Exception type:", type(e).__name__)
+            next_write_position = (self.write_pointer.value + 1) % self.buffer_size
+            if next_write_position == self.read_pointer.value:
+                print("Buffer is full. Overwriting oldest frame.")
+                with self.read_pointer.get_lock():
+                    self.read_pointer.value = (self.read_pointer.value + 1) % self.buffer_size
 
             # using grab > time > retrieve instead of read > time for more accurate time capture
             if self.capture.grab():
@@ -84,11 +101,18 @@ class BufferedFrameCapture(Process):
                 if success:
                     corrected_timestamp = raw_timestamp - self.total_latency
                     try:
-                        self.frame_queue.put((img, corrected_timestamp), timeout=timeout)
+                        # Write frame and timestamp to shared memory
+                        np.copyto(self.frames_buffer[self.write_pointer.value % self.buffer_size], img)
+                        self.metadata_buffer[self.write_pointer.value % self.buffer_size] = corrected_timestamp
+                        with self.write_pointer.get_lock():
+                            self.write_pointer.value = (self.write_pointer.value + 1) % self.buffer_size                        
                     except:
                         print("Failed to store frame!")
+                    
+                    # Calculate the number of frames currently in the buffer
+                    buffer_occupancy = (self.write_pointer.value - self.read_pointer.value) % self.buffer_size
 
-                    print(f"\rCapturing! Buffer: {self.frame_queue.qsize()} / {self.buffer_size}, , Total dropped frames: {i} {next(wheel)}  ", end="", flush=True)
+                    print(f"\rCapturing! Buffer: {buffer_occupancy} / {self.buffer_size}, Total dropped frames: {i} {next(wheel)}  ", end="", flush=True)
                 else:
                     print("Failed to grab a frame. Waiting...")
                     time.sleep(timeout)
@@ -98,23 +122,37 @@ class BufferedFrameCapture(Process):
         """Block until the next frame and its timestamp are available from the buffer."""
         while not self.stop_event.is_set():
             try:
-                return True, self.frame_queue.get(timeout=1)
+                frame = np.copy(self.frames_buffer[self.read_pointer.value % self.buffer_size])
+                timestamp = self.metadata_buffer[self.read_pointer.value % self.buffer_size]
+                with self.read_pointer.get_lock():
+                    self.read_pointer.value = (self.read_pointer.value + 1) % self.buffer_size
+                return frame, timestamp
             except Exception as e:
                 print("Exception occurred while waiting for frame:", str(e))
                 print("Exception type:", type(e).__name__)
 
         # If the capture has stopped running, return False
         return False, (None, None)
-
     
     def start_capture(self):
-        self.running = True
         self.start()
 
     def release(self, timeout=None):
+        # Signal the process to stop
         self.stop_event.set()
+
+        # Wait for the process to finish
         self.join(timeout=timeout)
-        self.capture.release()
+
+        # Close and unlink the shared memory blocks
+        self.frames_memory.close()
+        self.frames_memory.unlink()
+        self.metadata_memory.close()
+        self.metadata_memory.unlink()
+
+        # Release the capture device
+        if hasattr(self, 'capture') and self.capture.isOpened():
+            self.capture.release()
 
 
 def overlay_timestamp(frame, timestamp):

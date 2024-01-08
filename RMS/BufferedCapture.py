@@ -29,7 +29,8 @@ from math import floor
 
 # pylint: disable=E1101
 import cv2
-import RMS.BufferedFrameCapture as bfc
+#import RMS.BufferedFrameCapture as bfc
+import RMS.BufferedDeviceCapture as bfc
 
 from RMS.Misc import ping
 
@@ -195,7 +196,7 @@ class BufferedCapture(Process):
             except:
                 pass
 
-            buffered_capture_device = bfc.BufferedFrameCapture(deviceID, buffer_size=250, fps=self.config.fps, remove_jitter=False)
+            buffered_capture_device = bfc.BufferedFrameCapture(deviceID, buffer_size=250, fps=self.config.fps)
 
 
         return buffered_capture_device
@@ -439,15 +440,8 @@ class BufferedCapture(Process):
                     if self.config.report_dropped_frames:
                         log.info(f"{str(n_dropped)}/{str(self.dropped_frames)} frames dropped! Time for frame: {t_frame:.3f}, contrail: {t_contrail:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
 
-                    
-
-                    
-
                 last_frame_timestamp = frame_timestamp
                 
-
-
-
                 ### Convert the frame to grayscale ###
 
                 t1_convert = time.time()
