@@ -79,7 +79,7 @@ class BufferedCapture(Process):
         try:
             cv2.imwrite(img_path, img)
             elapsed_time = time.time() - start_time
-            log.info(f"Saving completed: i={i}: {filename} time: {elapsed_time:.3f} s")
+            log.info(f"Saving completed: i={i}: {filename} frame is {elapsed_time:.3f}s old.")
         except Exception as e:
             log.info(f"Error in save_image_and_log_time: {e}")
 
@@ -396,9 +396,9 @@ class BufferedCapture(Process):
 
                         # Save the image to disk with a separate thread
                         try:
-                            worker_thread = Thread(target=self.save_image_and_log_time, args=(filename, img_path, frame, frame_timestamp,i), daemon=True)
-                            worker_thread.start()
-                            #self.save_image_and_log_time(filename, img_path, frame, frame_timestamp,i)
+                            # worker_thread = Thread(target=self.save_image_and_log_time, args=(filename, img_path, frame, frame_timestamp,i), daemon=True)
+                            # worker_thread.start()
+                            self.save_image_and_log_time(filename, img_path, frame, frame_timestamp,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
                     t_contrail = time.time() - t1_contrail
