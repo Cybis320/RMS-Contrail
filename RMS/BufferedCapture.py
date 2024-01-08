@@ -79,7 +79,7 @@ class BufferedCapture(Process):
         try:
             cv2.imwrite(img_path, img)
             elapsed_time = time.time() - start_time
-            print(f"Saving completed: i={i}: {filename} time: {elapsed_time:.3f} s")
+            log.info(f"Saving completed: i={i}: {filename} time: {elapsed_time:.3f} s")
         except Exception as e:
             log.info(f"Error in save_image_and_log_time: {e}")
 
@@ -347,6 +347,7 @@ class BufferedCapture(Process):
             t_frame = 0
             t_assignment = 0
             t_convert = 0
+            t_contrail = 0
             t_block = time.time()
 
             # Capture a block of 256 frames
@@ -361,7 +362,7 @@ class BufferedCapture(Process):
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()
                 ret, (frame, frame_timestamp) = device.read()
-                t_frame = frame_timestamp - t1_frame
+                t_frame = time.time() - t1_frame
 
 
                 # If the video device was disconnected, wait for reconnection
@@ -380,7 +381,7 @@ class BufferedCapture(Process):
                     # if i % 64 == 0:   > img every 2.56s, 3.7GB per day @ 25 fps
                     # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
                     # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
-
+                    t1_contrail = time.time()
                     if i % 64 == 0:
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
@@ -400,6 +401,7 @@ class BufferedCapture(Process):
                             #self.save_image_and_log_time(filename, img_path, frame, frame_timestamp,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
+                    t_contrail = time.time() - t1_contrail
 
                 # If a video file is used, compute the time using the time from the file timestamp
                 else:
@@ -432,11 +434,12 @@ class BufferedCapture(Process):
                     
                     # Calculate the number of dropped frames
                     n_dropped = int((frame_timestamp - last_frame_timestamp)*self.config.fps)
-                    
-                    if self.config.report_dropped_frames:
-                        log.info(str(n_dropped) + " frames dropped! Time for frame: {:.3f}, convert: {:.3f}, assignment: {:.3f}".format(t_frame, t_convert, t_assignment))
-
                     self.dropped_frames += n_dropped
+
+                    if self.config.report_dropped_frames:
+                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames)} frames dropped! Time for frame: {t_frame:.3f}, contrail: {t_contrail:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
+
+                    
 
                     
 
