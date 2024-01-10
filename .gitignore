@@ -99,3 +99,11 @@ RMS/Routines/DynamicFTPCompressionCy.c
 RMS/Routines/Grouping3Dcy.c
 RMS/Routines/MorphCy.c
 Utils/SaturationTools.c
+
+#MacOS files:
+.DS_Store
+RMS/.DS_Store
+Utils/.DS_Store
+RMS/Routines/.DS_Store
+RMS/Formats/.DS_Store
+RMS/Astrometry/.DS_Store
