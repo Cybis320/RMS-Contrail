@@ -25,7 +25,6 @@ from influxdb import InfluxDBClient
 
 from RMS.Astrometry.ApplyAstrometry import GeoHt2xy
 from RMS.Formats.Platepar import Platepar
-from RMS.Formats.FFfile import filenameToDatetime
 from Utils.FOVKML import fovKML
 
 
@@ -448,7 +447,7 @@ def overlay_data_on_image(image, point, az_center):
 
     cv2.rectangle(image, (int(x - rectangle_size / 2), int(y - rectangle_size / 2)), (int(x + rectangle_size / 2), int(y + rectangle_size / 2)), (0, 0, 0), 2)
     cv2.rectangle(image, (int(x - rectangle_size / 2), int(y - rectangle_size / 2)), (int(x + rectangle_size / 2), int(y + rectangle_size / 2)), color, 1)
-
+    cv2.rectangle(image, (int(x - 2), int(y - 2)), (int(x + 2), int(y + 2)), color, 1)
     # Adjust color as a function of an altitude threshold and set alt to N/A if None
     if isinstance(alt_baro, int):
         text = f"{alt_baro:,} ft\n{aircraft_type}\n{aircraft_reg}"
