@@ -13,6 +13,8 @@ class BufferedFrameCapture(Process):
         
         self.device_opened = Event()
         self.stop_event = Event()
+        self.frame_available = Event()
+
 
         self.buffer_size = buffer_size
         self.fps = fps
@@ -24,8 +26,8 @@ class BufferedFrameCapture(Process):
         self.total_latency = self.device_buffer / self.fps + self.system_latency
 
         #  frame properties (modify as needed)
-        self.frame_height = 1080
-        self.frame_width = 1920
+        self.frame_height = 720
+        self.frame_width = 1280
         self.frame_channels = 3  # RGB
 
         # Calculate frame size in bytes
@@ -89,6 +91,7 @@ class BufferedFrameCapture(Process):
 
         while not self.stop_event.is_set():
             next_write_position = (self.write_pointer.value + 1) % self.buffer_size
+            # print(f"run: write pos: {self.write_pointer.value}, read pos: {self.read_pointer.value}")
             if next_write_position == self.read_pointer.value:
                 print("Buffer is full. Overwriting oldest frame.")
                 with self.read_pointer.get_lock():
@@ -105,7 +108,8 @@ class BufferedFrameCapture(Process):
                         np.copyto(self.frames_buffer[self.write_pointer.value % self.buffer_size], img)
                         self.metadata_buffer[self.write_pointer.value % self.buffer_size] = corrected_timestamp
                         with self.write_pointer.get_lock():
-                            self.write_pointer.value = (self.write_pointer.value + 1) % self.buffer_size                        
+                            self.write_pointer.value = (self.write_pointer.value + 1) % self.buffer_size
+                        self.frame_available.set()                       
                     except:
                         print("Failed to store frame!")
                     
@@ -121,12 +125,23 @@ class BufferedFrameCapture(Process):
     def read(self):
         """Block until the next frame and its timestamp are available from the buffer."""
         while not self.stop_event.is_set():
+            # print(f"read: write pos: {self.write_pointer.value}, read pos: {self.read_pointer.value}")
+            # Wait until a frame is available or the stop event is set
+            if not self.frame_available.wait(timeout=1) and not self.stop_event.is_set():
+                continue
             try:
-                frame = np.copy(self.frames_buffer[self.read_pointer.value % self.buffer_size])
-                timestamp = self.metadata_buffer[self.read_pointer.value % self.buffer_size]
                 with self.read_pointer.get_lock():
+                    if self.read_pointer.value == self.write_pointer.value:
+                        # No new frame available yet
+                        continue
+
+                    frame = np.copy(self.frames_buffer[self.read_pointer.value % self.buffer_size])
+                    timestamp = self.metadata_buffer[self.read_pointer.value % self.buffer_size]
                     self.read_pointer.value = (self.read_pointer.value + 1) % self.buffer_size
-                return frame, timestamp
+
+                # Clear the frame available event
+                self.frame_available.clear()
+                return True, (frame, timestamp)
             except Exception as e:
                 print("Exception occurred while waiting for frame:", str(e))
                 print("Exception type:", type(e).__name__)
@@ -149,6 +164,7 @@ class BufferedFrameCapture(Process):
         self.frames_memory.unlink()
         self.metadata_memory.close()
         self.metadata_memory.unlink()
+        print("Shared memory unlinked and closed.")
 
         # Release the capture device
         if hasattr(self, 'capture') and self.capture.isOpened():
