@@ -29,8 +29,10 @@ from math import floor
 
 # pylint: disable=E1101
 import cv2
-#import RMS.BufferedFrameCapture as bfc
-import RMS.BufferedDeviceCapture as bfc
+import gi
+import numpy as np
+gi.require_version('Gst', '1.0')
+from gi.repository import Gst
 
 from RMS.Misc import ping
 
@@ -75,6 +77,8 @@ class BufferedCapture(Process):
         self.time_for_drop = 1.9/config.fps
 
         self.dropped_frames = 0
+
+        self.pipeline = None
 
     def save_image_and_log_time(self, filename, img_path, img, start_time, i):
         try:
@@ -180,8 +184,22 @@ class BufferedCapture(Process):
                 device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
                 device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
             else:
+                log.info("Initialize GStreamer Device: ")
                 #device = cv2.VideoCapture(self.config.deviceID)
-                deviceID = self.config.deviceID
+                # Initialize GStreamer
+                Gst.init(None)
+
+                # TODO: replace with self.config.deviceID
+                pipeline_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
+                "location=\"rtsp://192.168.42.101:554/user=admin&password=&channel=1&stream=0.sdp\" "
+                "latency=1000 ! rtpjitterbuffer ! rtph264depay ! h264parse ! "
+                "v4l2h264dec ! appsink name=appsink max-buffers=25 drop=true sync=1")
+
+                # deviceID = self.config.deviceID
+
+                # Create GStreamer pipeline
+                self.pipeline = Gst.parse_launch(pipeline_str)
+                device = self.pipeline.get_by_name("appsink")
 
             # Try setting the resultion if using a video device, not gstreamer
             try:
@@ -196,10 +214,8 @@ class BufferedCapture(Process):
             except:
                 pass
 
-            buffered_capture_device = bfc.BufferedFrameCapture(deviceID, buffer_size=250, fps=self.config.fps)
 
-
-        return buffered_capture_device
+        return device
 
 
     def run(self):
@@ -272,9 +288,11 @@ class BufferedCapture(Process):
 
         # For video devices only (not files)
         if self.video_file is None:
-            # Start capturing with initial buffer flush
-            device.start_capture()
-            device.device_opened.wait()
+            # Record the start time in seconds since the Unix epoch
+            first_frame_timestamp = time.time()
+
+            # Start the pipeline
+            self.pipeline.set_state(Gst.State.PLAYING)
 
         
         # Run until stopped from the outside
@@ -362,7 +380,24 @@ class BufferedCapture(Process):
 
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()
-                ret, (frame, frame_timestamp) = device.read()
+                sample = device.emit("pull-sample")
+                if sample:
+                    buffer = sample.get_buffer()
+                    # Get the timestamp
+                    gst_timestamp_ns = buffer.pts  # GStreamer timestamp in nanoseconds
+
+                    # Convert GStreamer timestamp to seconds and add to start time
+                    frame_timestamp = first_frame_timestamp + (gst_timestamp_ns / 1e9)
+
+                    # Extract frame data
+                    success, map_info = buffer.map(Gst.MapFlags.READ)
+                    if success:
+                        frame = np.ndarray(shape=(height, width, 3), buffer=map_info.data, dtype=np.uint8)
+
+                        buffer.unmap(map_info)
+
+                else:
+                    break
                 t_frame = time.time() - t1_frame
 
 
@@ -383,7 +418,7 @@ class BufferedCapture(Process):
                     # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
                     # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
                     t1_contrail = time.time()
-                    if i % 64 == 0:
+                    if i % 128 == 0:
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
 
@@ -525,6 +560,7 @@ class BufferedCapture(Process):
         
 
         log.info('Releasing video device...')
+        self.pipeline.set_state(Gst.State.NULL)
         device.release()
         log.info('Video device released!')
     
