@@ -237,7 +237,8 @@ class BufferedCapture(Process):
 
                 deviceID = self.config.deviceID
                 conversion = "videoconvert ! video/x-raw,format=BGR"
-                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+                # pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! omxh264dec ! {conversion} ! appsink name=appsink")
 
                 # Create GStreamer pipeline
                 self.pipeline = Gst.parse_launch(pipeline_str)
@@ -271,7 +272,8 @@ class BufferedCapture(Process):
                             if self.is_grayscale(frame):
                                 self.pipeline.set_state(Gst.State.NULL)
                                 conversion = "videoconvert ! video/x-raw,format=GRAY8"
-                                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+                                # pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+                                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! omxh264dec ! {conversion} ! appsink name=appsink")
 
                                 # Create GStreamer pipeline
                                 self.pipeline = Gst.parse_launch(pipeline_str)
