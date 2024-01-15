@@ -606,6 +606,11 @@ def run_overlay_on_images(input_path, platepar):
     image_timestamps = {img: ts for img, ts in image_timestamps.items() if ts is not None}
     image_timestamps = sorted(image_timestamps.items(), key=lambda item: item[1])
 
+    # Check if image_timestamps is empty
+    if not image_timestamps:
+        print("No valid images with timestamps found.")
+        return
+
     # Query aircraft positions
     min_timestamp = image_timestamps[0][1]
     max_timestamp = image_timestamps[-1][1]
