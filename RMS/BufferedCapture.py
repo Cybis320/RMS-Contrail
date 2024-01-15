@@ -150,6 +150,24 @@ class BufferedCapture(Process):
         self.pipeline.set_state(Gst.State.PLAYING)
 
         return self.pipeline.get_by_name("appsink")
+    
+
+    def device_isOpened(self, device):
+        if device is None:
+            return False
+        try:
+            if isinstance(device, cv2.VideoCapture):
+                return device.isOpened()
+            else:
+                state = device.get_state(Gst.CLOCK_TIME_NONE).state
+                if state == Gst.State.PLAYING:
+                    return True
+                else:
+                    return False
+        except Exception as e:
+            log.error(f'Error checking device status: {e}')
+            return False
+            
 
 
     def is_grayscale(self, frame):
@@ -316,23 +334,23 @@ class BufferedCapture(Process):
             return False
 
 
-        # # Wait until the device is opened
-        # device_opened = False
-        # for i in range(20):
-        #     time.sleep(1)
-        #     if device.isOpened():
-        #         device_opened = True
-        #         break
+        # Wait until the device is opened
+        device_opened = False
+        for i in range(20):
+            time.sleep(1)
+            if self.device_isOpened(device):
+                device_opened = True
+                break
 
 
-        # # If the device could not be opened, stop capturing
-        # if not device_opened:
-        #     log.info('The video source could not be opened!')
-        #     self.exit.set()
-        #     return False
+        # If the device could not be opened, stop capturing
+        if not device_opened:
+            log.info('The video source could not be opened!')
+            self.exit.set()
+            return False
 
-        # else:
-        #     log.info('Video device opened!')
+        else:
+            log.info('Video device opened!')
 
 
         # Keep track of the total number of frames
