@@ -85,11 +85,10 @@ class BufferedCapture(Process):
         self.start_timestamp = 0
         self.frame_shape = None
 
-    def save_image_and_log_time(self, filename, img_path, img, timestamp, i):
+    def save_image_and_log_time(self, filename, img_path, img, i):
         try:
             cv2.imwrite(img_path, img)
-            elapsed_time = time.time() - timestamp
-            log.info(f"Saving completed: i={i}: {filename} frame is {elapsed_time:.3f}s old.")
+            log.info(f"Saving completed: i={i}: {filename}")
         except Exception as e:
             log.info(f"Error in save_image_and_log_time: {e}")
 
@@ -489,9 +488,9 @@ class BufferedCapture(Process):
 
                         img_path = os.path.join(dirname, filename)
 
-                        # Save the image to disk with a separate thread
+                        # Save the image to disk
                         try:
-                            self.save_image_and_log_time(filename, img_path, frame, frame_timestamp,i)
+                            self.save_image_and_log_time(filename, img_path, frame,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
                     t_contrail = time.time() - t1_contrail
@@ -505,11 +504,16 @@ class BufferedCapture(Process):
                     
                 # Set the time of the first frame
                 if i == 0:
-                    # Initialize last frame timestamp if it hasn't been set
+                    # Initialize last frame timestamp if it's not set
                     if not last_frame_timestamp:
                         last_frame_timestamp = frame_timestamp
+                    
                     # Always set first frame timestamp in the beginning of the block
                     first_frame_timestamp = frame_timestamp
+
+                    # Calculate elapsed time since frame capture to assess sink fill level
+                    frame_age_seconds = time.time() - frame_timestamp
+                    log.info(f"Frame is {frame_age_seconds:.3f}s old.")
 
 
                 # If the end of the video file was reached, stop the capture
