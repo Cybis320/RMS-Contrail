@@ -171,7 +171,6 @@ class BufferedCapture(Process):
             return False
             
 
-
     def is_grayscale(self, frame):
         # Check if the R, G, and B channels are equal
         b, g, r = cv2.split(frame)
@@ -253,7 +252,6 @@ class BufferedCapture(Process):
                     return None
 
 
-
             # Init the video device
             log.info("Initializing the video device...")
             log.info("Device: " + str(self.config.deviceID))
@@ -279,6 +277,7 @@ class BufferedCapture(Process):
                     structure = caps.get_structure(0) if caps else None
 
                     if structure:
+                        
                         # Extract width, height, and format
                         width = structure.get_value('width')
                         height = structure.get_value('height')
@@ -328,7 +327,6 @@ class BufferedCapture(Process):
         # Create the directory
         os.makedirs(dirname, exist_ok=True)
 
-
         if device is None:
 
             log.info('The video source could not be opened!')
@@ -358,8 +356,6 @@ class BufferedCapture(Process):
         # Keep track of the total number of frames
         total_frames = 0            
 
-
-
         # If a video file was used, set the time of the first frame to the time read from the file name
         if self.video_file is not None:
             time_stamp = "_".join(os.path.basename(self.video_file).split("_")[1:4])
@@ -379,19 +375,9 @@ class BufferedCapture(Process):
         wait_for_reconnect = False
 
         last_frame_timestamp = False
-
-        # For video devices only (not files)
-        # if self.video_file is None:
-        #     # Record the start time in seconds since the Unix epoch
-        #     start_timestamp = time.time()
-
-        #     # Start the pipeline
-        #     self.pipeline.set_state(Gst.State.PLAYING)
-
         
         # Run until stopped from the outside
         while not self.exit.is_set():
-
 
             # Wait until the compression is done (only when a video file is used)
             if self.video_file is not None:
@@ -493,6 +479,7 @@ class BufferedCapture(Process):
                     # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
                     t1_contrail = time.time()
                     if i % 128 == 0:
+
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
 
@@ -520,6 +507,7 @@ class BufferedCapture(Process):
                     
                 # Set the time of the first frame
                 if i == 0:
+
                     # Initialize last frame timestamp if it's not set
                     if not last_frame_timestamp:
                         last_frame_timestamp = frame_timestamp
