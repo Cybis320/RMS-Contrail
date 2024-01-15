@@ -58,7 +58,7 @@ if ! git remote | grep -q 'fork'; then
 fi
 
 # Pull new code from the forked repository
-git pull fork master
+git pull fork
 
 # Activate the virtual environment
 source ~/vRMS/bin/activate
