@@ -527,7 +527,7 @@ class BufferedCapture(Process):
 
                     # Calculate elapsed time since frame capture to assess sink fill level
                     frame_age_seconds = time.time() - frame_timestamp
-                    log.info(f"Frame is {frame_age_seconds:.3f} s old.")
+                    log.info(f"Frame is {frame_age_seconds:.3f} s old. Total dropped frames: {self.dropped_frames}")
 
 
                 # If the end of the video file was reached, stop the capture
