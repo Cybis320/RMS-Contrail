@@ -16,21 +16,24 @@
 
 from __future__ import print_function, division, absolute_import
 
+import os
+os.environ['GST_DEBUG'] = '3'
+
 import re
 import time
 import logging
 import datetime
 import os.path
 from multiprocessing import Process, Event
-from threading import Thread
-
 
 from math import floor
 
 # pylint: disable=E1101
 import cv2
-import gi
+
 import numpy as np
+
+import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
 
@@ -79,11 +82,13 @@ class BufferedCapture(Process):
         self.dropped_frames = 0
 
         self.pipeline = None
+        self.start_timestamp = 0
+        self.frame_shape = None
 
-    def save_image_and_log_time(self, filename, img_path, img, start_time, i):
+    def save_image_and_log_time(self, filename, img_path, img, timestamp, i):
         try:
             cv2.imwrite(img_path, img)
-            elapsed_time = time.time() - start_time
+            elapsed_time = time.time() - timestamp
             log.info(f"Saving completed: i={i}: {filename} frame is {elapsed_time:.3f}s old.")
         except Exception as e:
             log.info(f"Error in save_image_and_log_time: {e}")
@@ -101,6 +106,47 @@ class BufferedCapture(Process):
         self.exit = Event()
         self.start()
     
+
+    def read(self, device):
+        '''
+        Retrieve frames and timestamp.
+        :param device: The video capture device or file.
+        :return: tuple (ret, frame, timestamp) where ret is a boolean indicating success,
+                 frame is the captured frame, and timestamp is the frame timestamp.
+        '''
+        ret, frame, timestamp = False, None, None
+
+        if self.video_file is not None:
+            ret, frame = device.read()
+            if ret:
+                timestamp = time.time()
+        
+        else:
+            if self.config.force_v4l2:
+                ret, frame = device.read()
+                if ret:
+                    timestamp = time.time()
+            else:
+                sample = device.emit("pull-sample")
+                if sample:
+                    buffer = sample.get_buffer()
+                    gst_timestamp_ns = buffer.pts  # GStreamer timestamp in nanoseconds
+
+                    ret, map_info = buffer.map(Gst.MapFlags.READ)
+                    if ret:
+                        frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+                        buffer.unmap(map_info)
+                        timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
+                
+        return ret, frame, timestamp
+    
+
+    def is_grayscale(self, frame):
+        # Check if the R, G, and B channels are equal
+        b, g, r = cv2.split(frame)
+        if np.array_equal(r, g) and np.array_equal(g, b):
+            return True
+        return False
 
 
     def stopCapture(self):
@@ -189,31 +235,62 @@ class BufferedCapture(Process):
                 # Initialize GStreamer
                 Gst.init(None)
 
-                # TODO: replace with self.config.deviceID
-                pipeline_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
-                "location=\"rtsp://192.168.42.101:554/user=admin&password=&channel=1&stream=0.sdp\" "
-                "latency=1000 ! rtpjitterbuffer ! rtph264depay ! h264parse ! "
-                "v4l2h264dec ! appsink name=appsink max-buffers=25 drop=true sync=1")
-
-                # deviceID = self.config.deviceID
+                deviceID = self.config.deviceID
+                conversion = "videoconvert ! video/x-raw,format=BGR"
+                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
 
                 # Create GStreamer pipeline
                 self.pipeline = Gst.parse_launch(pipeline_str)
+                self.start_timestamp = time.time()
+
+                # Start the pipeline
+                self.pipeline.set_state(Gst.State.PLAYING)
                 device = self.pipeline.get_by_name("appsink")
 
-            # Try setting the resultion if using a video device, not gstreamer
-            try:
+                # Determine the shape of the GStream
+                sample = device.emit("pull-sample")
+                buffer = sample.get_buffer()
+                ret, _ = buffer.map(Gst.MapFlags.READ)
+                if ret:
+                    # Get caps and extract video information
+                    caps = sample.get_caps()
+                    structure = caps.get_structure(0) if caps else None
 
-                # This will fail if the video device is a gstreamer pipe
-                int(self.config.deviceID)
-                
-                # Set the resolution (crashes if using an IP camera and gstreamer!)
-                device.set(3, self.config.width_device)
-                device.set(4, self.config.height_device)
+                    if structure:
+                        # Extract width, height, and format
+                        width = structure.get_value('width')
+                        height = structure.get_value('height')
+                        video_format = structure.get_value('format')
 
-            except:
-                pass
+                        # Determine the shape based on format
+                        if video_format in ['RGB', 'BGR']:
+                            self.frame_shape = (height, width, 3)  # RGB or BGR
+                            ret, frame, _ = self.read(device)
 
+                            # If frame is grayscale, stop and restart the pipeline in GRAY8 format
+                            if self.is_grayscale(frame):
+                                self.pipeline.set_state(Gst.State.NULL)
+                                conversion = "videoconvert ! video/x-raw,format=GRAY8"
+                                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+
+                                # Create GStreamer pipeline
+                                self.pipeline = Gst.parse_launch(pipeline_str)
+                                self.start_timestamp = time.time()
+
+                                # Start the pipeline
+                                self.pipeline.set_state(Gst.State.PLAYING)
+                                device = self.pipeline.get_by_name("appsink")
+                                self.frame_shape = (height, width)
+                        
+                        elif video_format == 'GRAY8':
+                            self.frame_shape = (height, width)  # Grayscale
+                            
+                        else:
+                            log.error(f"Unsupported video format: {video_format}.")
+                    else:
+                        log.error("Could not determine frame shape.")
+                else:
+                    log.error("Could not obtain frame.")
 
         return device
 
@@ -286,13 +363,15 @@ class BufferedCapture(Process):
 
         wait_for_reconnect = False
 
-        # For video devices only (not files)
-        if self.video_file is None:
-            # Record the start time in seconds since the Unix epoch
-            first_frame_timestamp = time.time()
+        last_frame_timestamp = False
 
-            # Start the pipeline
-            self.pipeline.set_state(Gst.State.PLAYING)
+        # For video devices only (not files)
+        # if self.video_file is None:
+        #     # Record the start time in seconds since the Unix epoch
+        #     start_timestamp = time.time()
+
+        #     # Start the pipeline
+        #     self.pipeline.set_state(Gst.State.PLAYING)
 
         
         # Run until stopped from the outside
@@ -317,8 +396,6 @@ class BufferedCapture(Process):
                     continue
 
 
-
-            
             if buffer_one:
                 self.startTime1.value = 0
             else:
@@ -350,7 +427,7 @@ class BufferedCapture(Process):
 
                     # Read the frame
                     log.info("Reading frame...")
-                    ret, frame = device.read()
+                    ret, _, _ = self.read(device)
                     log.info("Frame read!")
 
                     # If the connection was made and the frame was retrieved, continue with the capture
@@ -374,30 +451,12 @@ class BufferedCapture(Process):
             
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
 
-            last_frame_timestamp = time.time()
 
             for i in range(block_frames):
 
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()
-                sample = device.emit("pull-sample")
-                if sample:
-                    buffer = sample.get_buffer()
-                    # Get the timestamp
-                    gst_timestamp_ns = buffer.pts  # GStreamer timestamp in nanoseconds
-
-                    # Convert GStreamer timestamp to seconds and add to start time
-                    frame_timestamp = first_frame_timestamp + (gst_timestamp_ns / 1e9)
-
-                    # Extract frame data
-                    success, map_info = buffer.map(Gst.MapFlags.READ)
-                    if success:
-                        frame = np.ndarray(shape=(height, width, 3), buffer=map_info.data, dtype=np.uint8)
-
-                        buffer.unmap(map_info)
-
-                else:
-                    break
+                ret, frame, frame_timestamp = self.read(device)
                 t_frame = time.time() - t1_frame
 
 
@@ -432,8 +491,6 @@ class BufferedCapture(Process):
 
                         # Save the image to disk with a separate thread
                         try:
-                            # worker_thread = Thread(target=self.save_image_and_log_time, args=(filename, img_path, frame, frame_timestamp,i), daemon=True)
-                            # worker_thread.start()
                             self.save_image_and_log_time(filename, img_path, frame, frame_timestamp,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
@@ -447,7 +504,11 @@ class BufferedCapture(Process):
 
                     
                 # Set the time of the first frame
-                if i == 0: 
+                if i == 0:
+                    # Initialize last frame timestamp if it hasn't been set
+                    if not last_frame_timestamp:
+                        last_frame_timestamp = frame_timestamp
+                    # Always set first frame timestamp in the beginning of the block
                     first_frame_timestamp = frame_timestamp
 
 
@@ -560,7 +621,23 @@ class BufferedCapture(Process):
         
 
         log.info('Releasing video device...')
-        self.pipeline.set_state(Gst.State.NULL)
-        device.release()
-        log.info('Video device released!')
+
+        # Check if using GStreamer and release resources
+        if hasattr(self, 'pipeline') and self.pipeline:
+            try:
+                self.pipeline.set_state(Gst.State.NULL)
+                log.info('GStreamer Video device released!')
+            except Exception as e:
+                log.error(f'Error releasing GStreamer pipeline: {e}')
+
+        # Check if using OpenCV and release resources
+        if 'device' in locals() and device:
+            try:
+                if isinstance(device, cv2.VideoCapture):
+                    device.release()
+                    log.info('OpenCV Video device released!')
+            except Exception as e:
+                log.error(f'Error releasing OpenCV device: {e}')
+
+
     
