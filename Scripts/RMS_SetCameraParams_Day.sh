@@ -30,7 +30,7 @@ python -m Utils.CameraControl SetAutoReboot Never
 # python -m Utils.CameraControl SetParam Encode Video Compression H.264
 # python -m Utils.CameraControl SetParam Encode Video Resolution 720P
 # python -m Utils.CameraControl SetParam Encode Video BitRateControl VBR
-python -m Utils.CameraControl SetParam Encode Video FPS 25
+python -m Utils.CameraControl SetParam Encode Video FPS 20
 # python -m Utils.CameraControl SetParam Encode Video Quality 6
 # python -m Utils.CameraControl SetParam Encode AudioEnable 0
 # python -m Utils.CameraControl SetParam Encode VideoEnable 1
