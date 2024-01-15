@@ -422,13 +422,20 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                 if not os.path.isdir(full_contrails_subdir):
                     continue
                 
+                # Search for JPG files
+                jpg_search_pattern = os.path.join(full_contrails_subdir, '*.jpg')
+                jpg_files = glob.glob(jpg_search_pattern)
+                if len(jpg_files) < 2:
+                    # Skip this directory if fewer than 2 JPG files are found
+                    continue
+
                 # Search for *_adsb_timelapse.mp4
                 search_pattern = os.path.join(full_contrails_subdir, '*_adsb_timelapse.mp4')
                 found_files = glob.glob(search_pattern)
                 
                 # If not found, generate timelapse
                 if not found_files:
-                    print(f"No ADS-B timelapse found in {contrails_subdir}, generating new timelapse...")
+                    log.info(f"No ADS-B timelapse found in {contrails_subdir}, generating new timelapse...")
 
                     # Find best recalibrated all platepars json
                     try:
@@ -446,9 +453,9 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                             try:
                                 with open(recalibrated_all_platepars_path, 'r') as file:
                                     if '.fits' in file.read():
-                                        archived_subdir_timestamp = extract_timestamp_from_name(subdir_path)
-                                        print(f"archived_subdir_timestamp: {archived_subdir_timestamp}")
-                                        recalibrated_platepars_dict[archived_subdir_timestamp] = recalibrated_all_platepars_path
+                                        subdir_timestamp = extract_timestamp_from_name(subdir_path)
+                                        print(f"subdir_timestamp: {subdir_timestamp}")
+                                        recalibrated_platepars_dict[subdir_timestamp] = recalibrated_all_platepars_path
 
                             except UnicodeDecodeError:
                                 # Handle potential decoding errors for non-text files
@@ -458,12 +465,12 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                             
                         # Check if no valid files were found
                         if not recalibrated_platepars_dict:
-                            print("Using default platepar.")
+                            log.info("Using default platepar.")
                             overlay_platepar = platepar
                         
                         else:
                             overlay_platepar = find_closest_entry(recalibrated_platepars_dict, contrails_subdir_timestamp)
-                            print(f"Using closest recalibrated platepar: {overlay_platepar}")
+                            log.info(f"Using closest recalibrated platepar: {overlay_platepar}")
 
                     
                     except Exception as e:
@@ -480,7 +487,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     create_video_from_images(temp_dir, timelapse_path, delete_images=True)
                     
                     # Generate the interval plot
-                    print(f"Generating timestamp plot in {contrails_subdir}...")
+                    log.info(f"Generating timestamp plot in {contrails_subdir}...")
                     analyze_timestamps(full_contrails_subdir, config.fps)
 
                     # Add the timelapse to the extra files
