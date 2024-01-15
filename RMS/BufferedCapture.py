@@ -17,7 +17,8 @@
 from __future__ import print_function, division, absolute_import
 
 import os
-os.environ['GST_DEBUG'] = '3'
+# Set GStreamer debug level. Use '2' for warnings in production environments.
+os.environ['GST_DEBUG'] = '*:3,queue:5,GST_PADS:5'
 
 import re
 import time
