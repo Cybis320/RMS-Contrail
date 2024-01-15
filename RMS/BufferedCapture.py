@@ -139,7 +139,18 @@ class BufferedCapture(Process):
                         timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
                 
         return ret, frame, timestamp
-    
+
+
+    def create_gstream_device(self, video_format):
+        conversion = f"videoconvert ! video/x-raw,format={video_format}"
+        pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=udp ! "
+                        f"rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+        self.pipeline = Gst.parse_launch(pipeline_str)
+        self.start_timestamp = time.time()
+        self.pipeline.set_state(Gst.State.PLAYING)
+
+        return self.pipeline.get_by_name("appsink")
+
 
     def is_grayscale(self, frame):
         # Check if the R, G, and B channels are equal
@@ -235,17 +246,8 @@ class BufferedCapture(Process):
                 # Initialize GStreamer
                 Gst.init(None)
 
-                deviceID = self.config.deviceID
-                conversion = "videoconvert ! video/x-raw,format=BGR"
-                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
-
-                # Create GStreamer pipeline
-                self.pipeline = Gst.parse_launch(pipeline_str)
-                self.start_timestamp = time.time()
-
-                # Start the pipeline
-                self.pipeline.set_state(Gst.State.PLAYING)
-                device = self.pipeline.get_by_name("appsink")
+                # Create and start a GStreamer pipeline
+                device = self.create_gstream_device('BGR')
 
                 # Determine the shape of the GStream
                 sample = device.emit("pull-sample")
@@ -269,17 +271,10 @@ class BufferedCapture(Process):
 
                             # If frame is grayscale, stop and restart the pipeline in GRAY8 format
                             if self.is_grayscale(frame):
+                                # Stop, Create and restart a GStreamer pipeline
                                 self.pipeline.set_state(Gst.State.NULL)
-                                conversion = "videoconvert ! video/x-raw,format=GRAY8"
-                                pipeline_str = (f"rtspsrc location={deviceID} protocols=udp ! rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+                                device = self.create_gstream_device('GRAY8')
 
-                                # Create GStreamer pipeline
-                                self.pipeline = Gst.parse_launch(pipeline_str)
-                                self.start_timestamp = time.time()
-
-                                # Start the pipeline
-                                self.pipeline.set_state(Gst.State.PLAYING)
-                                device = self.pipeline.get_by_name("appsink")
                                 self.frame_shape = (height, width)
                         
                         elif video_format == 'GRAY8':
@@ -514,7 +509,7 @@ class BufferedCapture(Process):
 
                     # Calculate elapsed time since frame capture to assess sink fill level
                     frame_age_seconds = time.time() - frame_timestamp
-                    log.info(f"Frame is {frame_age_seconds:.3f}s old.")
+                    log.info(f"Frame is {frame_age_seconds:.3f} s old.")
 
 
                 # If the end of the video file was reached, stop the capture
