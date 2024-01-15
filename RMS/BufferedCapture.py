@@ -145,7 +145,7 @@ class BufferedCapture(Process):
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
         pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=udp ! "
                         f"rtph264depay ! avdec_h264 ! {conversion} ! "
-                        "queue leaky=downstream max-size-buffers=10 max-size-bytes=0 max-size-time=0 ! "
+                        "queue ! "
                         "appsink name=appsink drop=true")
         self.pipeline = Gst.parse_launch(pipeline_str)
         self.start_timestamp = time.time()
@@ -277,7 +277,7 @@ class BufferedCapture(Process):
                     structure = caps.get_structure(0) if caps else None
 
                     if structure:
-                        
+
                         # Extract width, height, and format
                         width = structure.get_value('width')
                         height = structure.get_value('height')
