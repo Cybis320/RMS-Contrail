@@ -144,7 +144,7 @@ class BufferedCapture(Process):
     def create_gstream_device(self, video_format):
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
         pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=udp ! "
-                        f"rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink")
+                        f"rtph264depay ! avdec_h264 ! {conversion} ! appsink name=appsink drop=true")
         self.pipeline = Gst.parse_launch(pipeline_str)
         self.start_timestamp = time.time()
         self.pipeline.set_state(Gst.State.PLAYING)
