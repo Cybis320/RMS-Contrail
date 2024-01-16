@@ -18,7 +18,7 @@ from __future__ import print_function, division, absolute_import
 
 import os
 # Set GStreamer debug level. Use '2' for warnings in production environments.
-os.environ['GST_DEBUG'] = '*:3,queue:4,GST_PADS:4'
+os.environ['GST_DEBUG'] = '*:3,queue:5,appsink:5'
 
 import re
 import time
@@ -80,11 +80,27 @@ class BufferedCapture(Process):
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.9/config.fps
 
-        # Capture timestamp latency
-        # if timstamp is late, increase latency. If ts is early, decrease latency.
-        # start_timestamp = time.time() - total_latency
-        self.device_buffer = 1 # Experimentally established for imx291 buffer size (does not set the buffer)
-        self.system_latency = 0.02 # Experimentally established network + machine latency
+        # TIMESTAMP LATENCY
+        #
+        # Experimentally establish device_buffer and device_latency
+        #
+        # For example:
+        #
+        # RPi5, GStream, IMX291, 1080p @ 25 FPS, CBR, Bit Rate 4096
+        #     self.device_buffer = 1
+        #     self.system_latency = 0.0685
+        #
+        # RPi4, openCV, IMX291, 720p @ 20 FPS, VBR, quality 6
+        #     self.device_buffer = 4
+        #     self.system_latency = 0.105
+        #
+        # If timestamp is late, increase latency. If it is early, decrease latency.
+        # Formula is: timestamp = time.time() - total_latency
+
+        # TODO: Incorporate variables in .config
+
+        self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
+        self.system_latency = 0.0685 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + self.system_latency
 
         self.dropped_frames = 0
@@ -146,17 +162,60 @@ class BufferedCapture(Process):
                         timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
                 
         return ret, frame, timestamp
+    
 
 
     def create_gstream_device(self, video_format):
+        """
+        Creates a GStreamer pipeline for capturing video from an RTSP source and 
+        initializes playback with specific configurations.
+
+        The method also sets an initial timestamp for the pipeline's operation.
+
+        Parameters:
+        - video_format (str): The desired video format for the conversion, 
+        e.g., 'BGR', 'GRAY8', etc.
+
+        Returns:
+        - Gst.Element: The appsink element of the created GStreamer pipeline, 
+        which can be used for further processing of the captured video frames.
+        """
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
-        pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=udp ! "
-                        f"rtph264depay ! avdec_h264 ! {conversion} ! "
-                        "queue ! "
-                        "appsink name=appsink drop=true sync=false max-buffers=10")
+        pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=tcpp ! "
+                        f"rtph264depay ! h264parse ! avdec_h264 ! {conversion} ! "
+                        "appsink name=appsink")
         self.pipeline = Gst.parse_launch(pipeline_str)
-        self.start_timestamp = time.time() - self.total_latency
+
+        # Get the bus and set up the callback
+        bus = self.pipeline.get_bus()
+        bus.add_signal_watch()
+
+        # Define a callback function for the 'message' signal
+        def on_message(bus, message, loop):
+            if message.type == Gst.MessageType.ASYNC_DONE:
+                # The pipeline has prerolled, grab the timestamp
+                self.start_timestamp = time.time() - self.total_latency
+                print("Pipeline is prerolled, timestamp captured.")
+                loop.quit()
+            elif message.type == Gst.MessageType.ERROR:
+                err, debug = message.parse_error()
+                print(f"Error: {err}, {debug}")
+                loop.quit()
+
+        # Create a GLib Mainloop and set the callback
+        loop = GLib.MainLoop()
+        signal_id = bus.connect("message", on_message, loop)
+
         self.pipeline.set_state(Gst.State.PLAYING)
+
+        # Start the loop and wait for the message
+        try:
+            loop.run()
+        except:
+            pass
+        finally:
+            # Disconnect the signal handler when it's no longer needed
+            bus.disconnect(signal_id)
 
         return self.pipeline.get_by_name("appsink")
     
