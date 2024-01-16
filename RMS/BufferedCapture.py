@@ -85,7 +85,7 @@ class BufferedCapture(Process):
         # start_timestamp = time.time() - total_latency
         self.device_buffer = 1 # Experimentally established for imx291 buffer size (does not set the buffer)
         self.system_latency = 0.02 # Experimentally established network + machine latency
-        self.total_latency = self.device_buffer / self.fps + self.system_latency
+        self.total_latency = self.device_buffer / self.config.fps + self.system_latency
 
         self.dropped_frames = 0
 
