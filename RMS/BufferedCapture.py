@@ -80,6 +80,13 @@ class BufferedCapture(Process):
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.9/config.fps
 
+        # Capture timestamp latency
+        # if timstamp is late, increase latency. If ts is early, decrease latency.
+        # start_timestamp = time.time() - total_latency
+        self.device_buffer = 1 # Experimentally established for imx291 buffer size (does not set the buffer)
+        self.system_latency = 0.02 # Experimentally established network + machine latency
+        self.total_latency = self.device_buffer / self.fps + self.system_latency
+
         self.dropped_frames = 0
 
         self.pipeline = None
@@ -148,7 +155,7 @@ class BufferedCapture(Process):
                         "queue ! "
                         "appsink name=appsink drop=true sync=false max-buffers=10")
         self.pipeline = Gst.parse_launch(pipeline_str)
-        self.start_timestamp = time.time()
+        self.start_timestamp = time.time() - self.total_latency
         self.pipeline.set_state(Gst.State.PLAYING)
 
         return self.pipeline.get_by_name("appsink")
