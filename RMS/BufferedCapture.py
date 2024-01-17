@@ -36,7 +36,7 @@ import numpy as np
 
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst
+from gi.repository import Gst, GLib
 
 from RMS.Misc import ping
 
