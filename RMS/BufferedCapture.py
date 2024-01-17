@@ -109,12 +109,12 @@ class BufferedCapture(Process):
         self.start_timestamp = 0
         self.frame_shape = None
 
-    def save_image_and_log_time(self, filename, img_path, img, i):
+    def save_image_to_disk(self, filename, img_path, img, i):
         try:
             cv2.imwrite(img_path, img)
             log.info(f"Saving completed: i={i}: {filename}")
         except Exception as e:
-            log.info(f"Error in save_image_and_log_time: {e}")
+            log.info(f"Error, could not save image to disk: {e}")
 
 
     def startCapture(self, cameraID=0):
@@ -162,7 +162,6 @@ class BufferedCapture(Process):
                         timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
                 
         return ret, frame, timestamp
-    
 
 
     def create_gstream_device(self, video_format):
@@ -180,42 +179,29 @@ class BufferedCapture(Process):
         - Gst.Element: The appsink element of the created GStreamer pipeline, 
         which can be used for further processing of the captured video frames.
         """
+        device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
+                     f"location=\"{self.config.deviceID}\" latency=1000 ! rtpjitterbuffer ! "
+                     "rtph264depay ! h264parse ! v4l2h264dec ! appsink max-buffers=25 drop=true sync=1")
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
-        pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=tcp ! "
-                        f"rtph264depay ! h264parse ! avdec_h264 ! {conversion} ! "
-                        "appsink name=appsink")
+        pipeline_str = (f"{device_str} ! {conversion} ! appsink name=appsink")
         self.pipeline = Gst.parse_launch(pipeline_str)
 
-        # Get the bus and set up the callback
-        bus = self.pipeline.get_bus()
-        bus.add_signal_watch()
-
-        # Define a callback function for the 'message' signal
-        def on_message(bus, message, loop):
-            if message.type == Gst.MessageType.ASYNC_DONE:
-                # The pipeline has prerolled, grab the timestamp
+        ret = self.pipeline.set_state(Gst.State.PLAYING)
+        if ret == Gst.StateChangeReturn.ASYNC:
+            # Pipeline state change will happen asynchronously
+            state_change_ret, state, pending_state = self.pipeline.get_state(Gst.CLOCK_TIME_NONE)
+            if state_change_ret == Gst.StateChangeReturn.SUCCESS:
+                # The state change completed successfully
                 self.start_timestamp = time.time() - self.total_latency
-                print("Pipeline is prerolled, timestamp captured.")
-                loop.quit()
-            elif message.type == Gst.MessageType.ERROR:
-                err, debug = message.parse_error()
-                print(f"Error: {err}, {debug}")
-                loop.quit()
+                log.info("Pipeline is in PLAYING state, timestamp captured.")
+            elif state_change_ret == Gst.StateChangeReturn.FAILURE:
+                # The state change failed
+                log.error("Failed to change the pipeline state to PLAYING.")
+        else:
+            # The state change happened instantly (synchronous)
+            self.start_timestamp = time.time() - self.total_latency
+            log.info("Pipeline is in PLAYING state, timestamp captured.")
 
-        # Create a GLib Mainloop and set the callback
-        loop = GLib.MainLoop()
-        signal_id = bus.connect("message", on_message, loop)
-
-        self.pipeline.set_state(Gst.State.PLAYING)
-
-        # Start the loop and wait for the message
-        try:
-            loop.run()
-        except:
-            pass
-        finally:
-            # Disconnect the signal handler when it's no longer needed
-            bus.disconnect(signal_id)
 
         return self.pipeline.get_by_name("appsink")
     
@@ -559,7 +545,7 @@ class BufferedCapture(Process):
 
                         # Save the image to disk
                         try:
-                            self.save_image_and_log_time(filename, img_path, frame,i)
+                            self.save_image_to_disk(filename, img_path, frame,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
                     t_contrail = time.time() - t1_contrail
