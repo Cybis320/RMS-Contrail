@@ -180,10 +180,12 @@ class BufferedCapture(Process):
         which can be used for further processing of the captured video frames.
         """
         device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
-                     f"location=\"{self.config.deviceID}\" latency=1000 ! rtpjitterbuffer ! "
-                     "rtph264depay ! h264parse ! v4l2h264dec ! appsink max-buffers=25 drop=true sync=1")
+                    f"location=\"{self.config.deviceID}\" latency=1000 ! rtpjitterbuffer ! "
+                    "rtph264depay ! h264parse ! v4l2h264dec")
+
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
-        pipeline_str = (f"{device_str} ! {conversion} ! appsink name=appsink")
+        pipeline_str = (f"{device_str} ! {conversion} ! "
+                        "appsink max-buffers=25 drop=true sync=1 name=appsink")
         self.pipeline = Gst.parse_launch(pipeline_str)
 
         ret = self.pipeline.set_state(Gst.State.PLAYING)
