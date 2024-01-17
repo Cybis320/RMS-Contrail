@@ -181,7 +181,7 @@ class BufferedCapture(Process):
         which can be used for further processing of the captured video frames.
         """
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
-        pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=tcpp ! "
+        pipeline_str = (f"rtspsrc location={self.config.deviceID} protocols=tcp ! "
                         f"rtph264depay ! h264parse ! avdec_h264 ! {conversion} ! "
                         "appsink name=appsink")
         self.pipeline = Gst.parse_launch(pipeline_str)
