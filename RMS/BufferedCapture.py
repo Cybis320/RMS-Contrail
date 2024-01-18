@@ -101,7 +101,8 @@ class BufferedCapture(Process):
 
         self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
         self.system_latency = 0.0 # seconds. Experimentally measured latency
-        self.total_latency = self.device_buffer / self.config.fps + self.system_latency
+        # self.total_latency = self.device_buffer / self.config.fps + self.system_latency
+        self.total_latency = 0.07
 
         self.dropped_frames = 0
 
@@ -186,24 +187,11 @@ class BufferedCapture(Process):
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
         pipeline_str = (f"{device_str} ! {conversion} ! "
                         "appsink max-buffers=25 drop=true sync=1 name=appsink")
+        self.start_timestamp = time.time() - self.total_latency
         self.pipeline = Gst.parse_launch(pipeline_str)
 
-        ret = self.pipeline.set_state(Gst.State.PLAYING)
-        if ret == Gst.StateChangeReturn.ASYNC:
-            # Pipeline state change will happen asynchronously
-            state_change_ret, state, pending_state = self.pipeline.get_state(Gst.CLOCK_TIME_NONE)
-            if state_change_ret == Gst.StateChangeReturn.SUCCESS:
-                # The state change completed successfully
-                self.start_timestamp = time.time() - self.total_latency
-                log.info("Pipeline is in PLAYING state, timestamp captured.")
-            elif state_change_ret == Gst.StateChangeReturn.FAILURE:
-                # The state change failed
-                log.error("Failed to change the pipeline state to PLAYING.")
-        else:
-            # The state change happened instantly (synchronous)
-            self.start_timestamp = time.time() - self.total_latency
-            log.info("Pipeline is in PLAYING state, timestamp captured.")
-
+        log.info(f"Start time is {datetime.datetime.fromtimestamp(self.start_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')}")
+        self.pipeline.set_state(Gst.State.PLAYING)
 
         return self.pipeline.get_by_name("appsink")
     
