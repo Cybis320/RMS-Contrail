@@ -100,7 +100,7 @@ class BufferedCapture(Process):
         # TODO: Incorporate variables in .config
 
         self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
-        self.system_latency = 0.0685 # seconds. Experimentally measured latency
+        self.system_latency = 0.0 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + self.system_latency
 
         self.dropped_frames = 0
@@ -180,8 +180,8 @@ class BufferedCapture(Process):
         which can be used for further processing of the captured video frames.
         """
         device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
-                    f"location=\"{self.config.deviceID}\" latency=1000 ! rtpjitterbuffer ! "
-                    "rtph264depay ! h264parse ! v4l2h264dec")
+                    f"location=\"{self.config.deviceID}\" !"
+                    "rtph264depay ! h264parse ! avdec_h264")
 
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
         pipeline_str = (f"{device_str} ! {conversion} ! "
@@ -571,7 +571,7 @@ class BufferedCapture(Process):
 
                     # Calculate elapsed time since frame capture to assess sink fill level
                     frame_age_seconds = time.time() - frame_timestamp
-                    log.info(f"Frame is {frame_age_seconds:.3f} s old. Total dropped frames: {self.dropped_frames}")
+                    log.info(f"Frame is {frame_age_seconds:.3f} seconds old. Total dropped frames: {self.dropped_frames}")
 
 
                 # If the end of the video file was reached, stop the capture
