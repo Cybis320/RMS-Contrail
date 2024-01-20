@@ -14,7 +14,7 @@ import argparse
 # GPIO setup
 signal_pin_A = 16
 signal_pin_B = 20
-pulse_duration = 0.0001
+pulse_duration = 0.0002
 
 def setup_gpio():
     GPIO.setmode(GPIO.BCM)
@@ -70,11 +70,8 @@ def main():
 
                 print("Waiting to send next start signal...")
 
-                # Continiously update start signal time
                 while time.perf_counter() < signal_time:
-                    signal_time = time.perf_counter() + (next_minute_signal - datetime.now()).total_seconds()
-                    print(f"\r{signal_time:.6f}", end="", flush=True)
-
+                    pass
                 # Send start signal. Pulse duration is not critical 
                 send_signal(signal_pin=signal_pin_A, pulse_duration=10*pulse_duration)
                 print("\nSignal A!")
@@ -88,10 +85,9 @@ def main():
                 # Initialize stop signal time
                 signal_time = time.perf_counter() + (next_minute_signal - datetime.now()).total_seconds()
 
-                # Continiously update stop signal time
+                # Wait for stop signal time
                 while time.perf_counter() < signal_time:
-                    signal_time = time.perf_counter() + (next_minute_signal - datetime.now()).total_seconds()
-                    print(f"\r{signal_time:.6f}", end="", flush=True)
+                    pass
 
                 # Send stop signal. Pulse duration should has short as possible
                 send_signal(signal_pin=signal_pin_B, pulse_duration=pulse_duration)
