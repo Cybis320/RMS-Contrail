@@ -18,7 +18,7 @@ from __future__ import print_function, division, absolute_import
 
 import os
 # Set GStreamer debug level. Use '2' for warnings in production environments.
-os.environ['GST_DEBUG'] = '*:3,queue:3,appsink:3'
+os.environ['GST_DEBUG'] = '3'
 
 import re
 import time
@@ -36,7 +36,7 @@ import numpy as np
 
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import Gst, GLib
+from gi.repository import Gst
 
 from RMS.Misc import ping
 
@@ -86,13 +86,9 @@ class BufferedCapture(Process):
         #
         # For example:
         #
-        # RPi5, GStream, IMX291, 1080p @ 25 FPS, CBR, Bit Rate 4096
+        # RPi4, GStream, IMX291, 720p @ 25 FPS, VBR
         #     self.device_buffer = 1
-        #     self.system_latency = 0.0685
-        #
-        # RPi4, openCV, IMX291, 720p @ 20 FPS, VBR, quality 6
-        #     self.device_buffer = 4
-        #     self.system_latency = 0.105
+        #     self.system_latency = 0.01
         #
         # If timestamp is late, increase latency. If it is early, decrease latency.
         # Formula is: timestamp = time.time() - total_latency
@@ -100,9 +96,11 @@ class BufferedCapture(Process):
         # TODO: Incorporate variables in .config
 
         self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
-        self.system_latency = 0.0 # seconds. Experimentally measured latency
-        # self.total_latency = self.device_buffer / self.config.fps + self.system_latency
-        self.total_latency = 0.07
+        if self.config.height == 1080:
+            self.system_latency = 0.02 # seconds. Experimentally measured latency
+        else:
+            self.system_latency = 0.01 # seconds. Experimentally measured latency
+        self.total_latency = self.device_buffer / self.config.fps + self.system_latency
 
         self.dropped_frames = 0
 
@@ -130,6 +128,45 @@ class BufferedCapture(Process):
         self.exit = Event()
         self.start()
     
+
+    def stopCapture(self):
+        """ Stop capture.
+        """
+        
+        self.exit.set()
+
+        time.sleep(1)
+
+        log.info("Joining capture...")
+
+        # Wait for the capture to join for 60 seconds, then terminate
+        for i in range(60):
+            if self.is_alive():
+                time.sleep(1)
+            else:
+                break
+
+        if self.is_alive():
+            log.info('Terminating capture...')
+            self.terminate()
+
+
+    def device_isOpened(self, device):
+        if device is None:
+            return False
+        try:
+            if isinstance(device, cv2.VideoCapture):
+                return device.isOpened()
+            else:
+                state = device.get_state(Gst.CLOCK_TIME_NONE).state
+                if state == Gst.State.PLAYING:
+                    return True
+                else:
+                    return False
+        except Exception as e:
+            log.error(f'Error checking device status: {e}')
+            return False
+
 
     def read(self, device):
         '''
@@ -165,6 +202,31 @@ class BufferedCapture(Process):
         return ret, frame, timestamp
 
 
+    def extract_rtsp_url(self, input_string):
+        # Define the regular expression pattern
+        pattern = r'(rtsp://.*?\.sdp)/?'
+
+        # Search for the pattern in the input string
+        match = re.search(pattern, input_string)
+
+        # Extract and format the RTSP URL
+        if match:
+            rtsp_url = match.group(1)  # Extract the matched URL
+            if not rtsp_url.endswith('/'):
+                rtsp_url += '/'  # Add '/' if it's missing
+            return rtsp_url
+        else:
+            return None  # Return None if no RTSP URL is found
+            
+
+    def is_grayscale(self, frame):
+        # Check if the R, G, and B channels are equal
+        b, g, r = cv2.split(frame)
+        if np.array_equal(r, g) and np.array_equal(g, b):
+            return True
+        return False
+
+
     def create_gstream_device(self, video_format):
         """
         Creates a GStreamer pipeline for capturing video from an RTSP source and 
@@ -180,67 +242,22 @@ class BufferedCapture(Process):
         - Gst.Element: The appsink element of the created GStreamer pipeline, 
         which can be used for further processing of the captured video frames.
         """
+        device_url = self.extract_rtsp_url(self.config.deviceID)
         device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
-                    f"location=\"{self.config.deviceID}\" !"
+                    f"location=\"{device_url}\" !"
                     "rtph264depay ! h264parse ! avdec_h264")
 
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
         pipeline_str = (f"{device_str} ! {conversion} ! "
                         "appsink max-buffers=25 drop=true sync=1 name=appsink")
-        self.start_timestamp = time.time() - self.total_latency
+        
         self.pipeline = Gst.parse_launch(pipeline_str)
 
-        log.info(f"Start time is {datetime.datetime.fromtimestamp(self.start_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')}")
         self.pipeline.set_state(Gst.State.PLAYING)
+        self.start_timestamp = time.time() - self.total_latency
+        log.info(f"Start time is {datetime.datetime.fromtimestamp(self.start_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')}")
 
         return self.pipeline.get_by_name("appsink")
-    
-
-    def device_isOpened(self, device):
-        if device is None:
-            return False
-        try:
-            if isinstance(device, cv2.VideoCapture):
-                return device.isOpened()
-            else:
-                state = device.get_state(Gst.CLOCK_TIME_NONE).state
-                if state == Gst.State.PLAYING:
-                    return True
-                else:
-                    return False
-        except Exception as e:
-            log.error(f'Error checking device status: {e}')
-            return False
-            
-
-    def is_grayscale(self, frame):
-        # Check if the R, G, and B channels are equal
-        b, g, r = cv2.split(frame)
-        if np.array_equal(r, g) and np.array_equal(g, b):
-            return True
-        return False
-
-
-    def stopCapture(self):
-        """ Stop capture.
-        """
-        
-        self.exit.set()
-
-        time.sleep(1)
-
-        log.info("Joining capture...")
-
-        # Wait for the capture to join for 60 seconds, then terminate
-        for i in range(60):
-            if self.is_alive():
-                time.sleep(1)
-            else:
-                break
-
-        if self.is_alive():
-            log.info('Terminating capture...')
-            self.terminate()
 
 
     def initVideoDevice(self):
