@@ -100,13 +100,14 @@ class BufferedCapture(Process):
             self.system_latency = 0.02 # seconds. Experimentally measured latency
         else:
             self.system_latency = 0.01 # seconds. Experimentally measured latency
-        self.total_latency = self.device_buffer / self.config.fps + self.system_latency
+        self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
         self.dropped_frames = 0
 
         self.pipeline = None
         self.start_timestamp = 0
         self.frame_shape = None
+
 
     def save_image_to_disk(self, filename, img_path, img, i):
         try:
@@ -180,7 +181,7 @@ class BufferedCapture(Process):
         if self.video_file is not None:
             ret, frame = device.read()
             if ret:
-                timestamp = time.time()
+                timestamp = None # assigned later
         
         else:
             if self.config.force_v4l2:
@@ -413,7 +414,17 @@ class BufferedCapture(Process):
 
 
         # Keep track of the total number of frames
-        total_frames = 0            
+        total_frames = 0
+
+        # For video devices only (not files), throw away the first 10 frames
+        if self.video_file is None and isinstance(device, cv2.VideoCapture):
+
+            first_skipped_frames = 10
+            for i in range(first_skipped_frames):
+                self.read(device)
+
+            total_frames = first_skipped_frames
+
 
         # If a video file was used, set the time of the first frame to the time read from the file name
         if self.video_file is not None:
