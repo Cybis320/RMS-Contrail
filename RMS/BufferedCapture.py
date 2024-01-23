@@ -380,11 +380,11 @@ class BufferedCapture(Process):
 
         # For video devices only (not files)
 
-        # Create dir to save uncompressed images (for Contrails)
+        # Create dir to save jpg files
         stationID = str(self.config.stationID)
         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
         dirname = f"UC_{stationID}_"+ date_string
-        dirname = os.path.join(self.config.data_dir, self.config.contrails_dir, dirname)
+        dirname = os.path.join(self.config.data_dir, self.config.jpg_dir, dirname)
 
         # Create the directory
         os.makedirs(dirname, exist_ok=True)
@@ -516,7 +516,7 @@ class BufferedCapture(Process):
             t_frame = 0
             t_assignment = 0
             t_convert = 0
-            t_contrail = 0
+            t_jpg = 0
             t_block = time.time()
 
             # Capture a block of 256 frames
@@ -545,11 +545,11 @@ class BufferedCapture(Process):
                 # If a video device is used, get the current time
                 if self.video_file is None:
 
-                    # If a video device is used, save a uncompressed frame every nth frames (for Contrails)
+                    # If a video device is used, save a jpg every nth frames
                     # if i % 64 == 0:   > img every 2.56s, 3.7GB per day @ 25 fps
                     # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
                     # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
-                    t1_contrail = time.time()
+                    t1_jpg = time.time()
                     if i % 128 == 0:
 
                         # Generate the name for the file
@@ -568,7 +568,7 @@ class BufferedCapture(Process):
                             self.save_image_to_disk(filename, img_path, frame,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
-                    t_contrail = time.time() - t1_contrail
+                    t_jpg = time.time() - t1_jpg
 
                 # If a video file is used, compute the time using the time from the file timestamp
                 else:
@@ -614,7 +614,7 @@ class BufferedCapture(Process):
                     self.dropped_frames += n_dropped
 
                     if self.config.report_dropped_frames:
-                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames)} frames dropped! Time for frame: {t_frame:.3f}, contrail: {t_contrail:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
+                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames)} frames dropped! Time for frame: {t_frame:.3f}, jpg: {t_jpg:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
 
                 last_frame_timestamp = frame_timestamp
                 
