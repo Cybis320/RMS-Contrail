@@ -790,7 +790,7 @@ def parseCapture(config, parser):
         config.archived_dir = parser.get(section, "archived_dir")
     
     if parser.has_option(section, "jpg_dir"):
-        config.contrails_dir = parser.get(section, "jpg_dir")
+        config.jpg_dir = parser.get(section, "jpg_dir")
     
     if parser.has_option(section, "width"):
         config.width = parser.getint(section, "width")
