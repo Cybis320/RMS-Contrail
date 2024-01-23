@@ -383,7 +383,7 @@ class BufferedCapture(Process):
         # Create dir to save jpg files
         stationID = str(self.config.stationID)
         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
-        dirname = f"UC_{stationID}_"+ date_string
+        dirname = f"JPG_{stationID}_"+ date_string
         dirname = os.path.join(self.config.data_dir, self.config.jpg_dir, dirname)
 
         # Create the directory
@@ -559,7 +559,7 @@ class BufferedCapture(Process):
                         millis = int((frame_timestamp - floor(frame_timestamp))*1000)
                         
                         # Create the filename
-                        filename = f"UC_{stationID}_"+ date_string + "_" + str(millis).zfill(3) + ".jpg"
+                        filename = f"JPG_{stationID}_"+ date_string + "_" + str(millis).zfill(3) + ".jpg"
 
                         img_path = os.path.join(dirname, filename)
 
