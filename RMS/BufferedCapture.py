@@ -150,6 +150,8 @@ class BufferedCapture(Process):
         if self.is_alive():
             log.info('Terminating capture...')
             self.terminate()
+        
+        return self.dropped_frames
 
 
     def device_isOpened(self, device):
