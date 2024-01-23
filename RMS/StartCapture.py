@@ -87,7 +87,7 @@ def resetSIGINT():
 
 def setDayorNight(latitude, longitude, elevation):
     """ Calcualtes the start time and the duration of capturing, for the given geographical coordinates. 
-        AND set camera parameters for day or night capture (for Contrails)
+        AND set camera parameters for day or night capture
 
     Arguments:
         lat: [float] latitude +N in degrees
@@ -794,7 +794,7 @@ if __name__ == "__main__":
     mkdirP(root_dir)
     mkdirP(os.path.join(root_dir, config.captured_dir))
     mkdirP(os.path.join(root_dir, config.archived_dir))
-    mkdirP(os.path.join(root_dir, config.contrails_dir))
+    mkdirP(os.path.join(root_dir, config.jpg_dir))
 
     # If the duration of capture was given, capture right away for a specified time
     if cml_args.duration:

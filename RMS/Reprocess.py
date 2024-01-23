@@ -395,13 +395,12 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
             log.debug('Generating a timelapse failed with message:\n' + repr(e))
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
     
-    # TODO: have contrail specific settings
-    # Generate an ADSB timelapse (for Contrails)
+    # Generate an ADSB timelapse
     if config.timelapse_generate_captured:
         
         log.info('Generating ADS-B timelapse...')
         try:
-            contrails_dir = os.path.join(config.data_dir, config.contrails_dir)
+            jpg_dir = os.path.join(config.data_dir, config.jpg_dir)
 
             # Construct the paths for archived_dir and captured_dir
             archived_dir = os.path.join(config.data_dir, config.archived_dir)
@@ -414,33 +413,33 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
             # Combine the lists
             combined_dirs = archived_subdirs + captured_subdirs 
 
-            # Loop through each directory in the contrails dir
-            for contrails_subdir in os.listdir(contrails_dir):
-                full_contrails_subdir = os.path.join(contrails_dir, contrails_subdir)
+            # Loop through each directory in the jpg dir
+            for jpg_subdir in os.listdir(jpg_dir):
+                full_jpg_subdir = os.path.join(jpg_dir, jpg_subdir)
                 
                 # If it's not a directory, skip
-                if not os.path.isdir(full_contrails_subdir):
+                if not os.path.isdir(full_jpg_subdir):
                     continue
                 
                 # Search for JPG files
-                jpg_search_pattern = os.path.join(full_contrails_subdir, '*.jpg')
+                jpg_search_pattern = os.path.join(full_jpg_subdir, '*.jpg')
                 jpg_files = glob.glob(jpg_search_pattern)
                 if len(jpg_files) < 2:
                     # Skip this directory if fewer than 2 JPG files are found
                     continue
 
                 # Search for *_adsb_timelapse.mp4
-                search_pattern = os.path.join(full_contrails_subdir, '*_adsb_timelapse.mp4')
+                search_pattern = os.path.join(full_jpg_subdir, '*_adsb_timelapse.mp4')
                 found_files = glob.glob(search_pattern)
                 
                 # If not found, generate timelapse
                 if not found_files:
-                    log.info(f"No ADS-B timelapse found in {contrails_subdir}, generating new timelapse...")
+                    log.info(f"No ADS-B timelapse found in {jpg_subdir}, generating new timelapse...")
 
                     # Find best recalibrated all platepars json
                     try:
-                        contrails_subdir_timestamp = extract_timestamp_from_name(contrails_subdir)
-                        print(f"contrails_subdir_timestamp: {contrails_subdir_timestamp}")
+                        jpg_subdir_timestamp = extract_timestamp_from_name(jpg_subdir)
+                        print(f"jpg_subdir_timestamp: {jpg_subdir_timestamp}")
                         recalibrated_platepars_dict = {}
                         for subdir_path in combined_dirs:
                             recalibrated_all_platepars_path = os.path.join(subdir_path, config.platepars_recalibrated_name)
@@ -469,7 +468,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                             overlay_platepar = platepar
                         
                         else:
-                            overlay_platepar = find_closest_entry(recalibrated_platepars_dict, contrails_subdir_timestamp)
+                            overlay_platepar = find_closest_entry(recalibrated_platepars_dict, jpg_subdir_timestamp)
                             log.info(f"Using closest recalibrated platepar: {overlay_platepar}")
 
                     
@@ -477,18 +476,18 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                         log.debug('Finding recalibrated platepar failed with message:\n' + repr(e))
                         overlay_platepar = platepar
                     
-                    temp_dir = run_overlay_on_images(full_contrails_subdir, overlay_platepar)
+                    temp_dir = run_overlay_on_images(full_jpg_subdir, overlay_platepar)
 
                     # Make the name of the timelapse file
-                    timelapse_file_name = contrails_subdir + "_adsb_timelapse.mp4"
-                    timelapse_path = os.path.join(full_contrails_subdir, timelapse_file_name)
+                    timelapse_file_name = jpg_subdir + "_adsb_timelapse.mp4"
+                    timelapse_path = os.path.join(full_jpg_subdir, timelapse_file_name)
 
                     # Generate the timelapse
                     create_video_from_images(temp_dir, timelapse_path, delete_images=True)
                     
                     # Generate the interval plot
-                    log.info(f"Generating timestamp plot in {contrails_subdir}...")
-                    analyze_timestamps(full_contrails_subdir, config.fps)
+                    log.info(f"Generating timestamp plot in {jpg_subdir}...")
+                    analyze_timestamps(full_jpg_subdir, config.fps)
 
                     # Add the timelapse to the extra files
                     # extra_files.append(timelapse_path)
