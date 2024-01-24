@@ -22,6 +22,7 @@ os.environ['GST_DEBUG'] = '3'
 
 import re
 import time
+import argparse
 import logging
 import datetime
 import os.path
@@ -39,6 +40,7 @@ gi.require_version('Gst', '1.0')
 from gi.repository import Gst
 
 from RMS.Misc import ping
+import RMS.ConfigReader as cr
 
 # Get the logger from the main module
 log = logging.getLogger("logger")
@@ -584,30 +586,7 @@ class BufferedCapture(Process):
             # Keep track of all captured frames
             total_frames += 1
 
-
-
-
-        if self.exit.is_set():
-            wait_for_reconnect = False
-            log.info('Capture exited!')
-            break
-
-
-        if not wait_for_reconnect:
-
-            # Set the starting value of the frame block, which indicates to the compression that the
-            # block is ready for processing
-            if buffer_one:
-                self.startTime1.value = first_frame_timestamp
-
-            else:
-                self.startTime2.value = first_frame_timestamp
-
-            log.info('New block of raw frames available for compression with starting time: {:s}'.format(str(first_frame_timestamp)))
-
         
-        # Switch the frame block buffer flags
-        buffer_one = not buffer_one
         if self.config.report_dropped_frames:
             log.info('Estimated FPS: {:.3f}'.format(block_frames/(time.time() - t_block)))
     
@@ -633,33 +612,24 @@ class BufferedCapture(Process):
 
 
 if __name__ == "__main__":
-    # Save current trigger
-    with open(f"{led}/trigger", 'r') as f:
-        current_trigger = f.read().strip()
-    
+
+    ### COMMAND LINE ARGUMENTS
+
+    # Init the command line arguments parser
+    arg_parser = argparse.ArgumentParser(description=""" Starting capture.
+        """)
+
+    arg_parser.add_argument('-c', '--config', nargs=1, metavar='CONFIG_PATH', type=str, \
+        help="Path to a config file which will be used instead of the default one.")
+
+
+    # Parse the command line arguments
+    cml_args = arg_parser.parse_args()
+    # Load the config file
+    config = cr.loadConfigFromDirectory(cml_args.config, os.path.abspath('.'))
+
     # Initialize buffered capture
-    bc = BufferedCapture(sharedArray, startTime, sharedArray2, startTime2, config, video_file=video_file)
-
-
+    bc = BufferedCapture(config)
 
     # Start buffered capture
     bc.startCapture()
-
-
-    # If capture was manually stopped, end capture
-    if STOP_CAPTURE:
-        log.info('Ending capture...')
-
-
-    # Stop the capture
-    log.debug('Stopping capture...')
-    dropped_frames = bc.dropped_frames
-    bc.stopCapture()
-    log.debug('Capture stopped')
-
-    log.info('Total number of late or dropped frames: ' + str(dropped_frames))
-
-
-    # Stop the compressor
-    log.debug('Stopping compression...')
-    detector = compressor.stop()
