@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# Usage: (sudo privilege and vRMS modules needed)
+# sudo /home/pi/vRMS/bin/python /home/pi/source/RMS/Utils/CalibrateCameraLatency.py -c /home/pi/source/RMS/.config
+
 from __future__ import print_function, division, absolute_import
 
 import os
@@ -95,16 +98,17 @@ class BufferedCapture(Process):
             self.system_latency = 0.01 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
-        self.dropped_frames = 0
 
         self.pipeline = None
         self.start_timestamp = 0
+        self.pulse_timestamp = 0
         self.frame_shape = None
+        self.records = []
+
         # Define the LED
         self.led = "/sys/class/leds/PWR"
         self.current_trigger = None
         
-
 
     def write_to_file(self, path, value):
         with open(path, 'w') as f:
@@ -114,7 +118,7 @@ class BufferedCapture(Process):
     def save_image_to_disk(self, filename, img_path, img, i):
         try:
             cv2.imwrite(img_path, img)
-            print(f"Saving completed: i={i}: {filename}")
+            # print(f"Saving completed: i={i}: {filename}")
         except Exception as e:
             print(f"Error, could not save image to disk: {e}")
 
@@ -133,7 +137,9 @@ class BufferedCapture(Process):
         # Save current trigger
         with open(f"{self.led}/trigger", 'r') as f:
             self.current_trigger = f.read().strip()
-
+        
+        self.write_to_file(f"{self.led}/brightness", "0")
+        
         self.start()
     
 
@@ -146,16 +152,9 @@ class BufferedCapture(Process):
         time.sleep(1)
 
         # Restore the LED trigger
+        self.write_to_file(f"{self.led}/brightness", "1")
+
         self.write_to_file(f"{self.led}/trigger", self.current_trigger)
-
-        print("Joining capture...")
-
-        # Wait for the capture to join for 60 seconds, then terminate
-        for i in range(60):
-            if self.is_alive():
-                time.sleep(1)
-            else:
-                break
 
         if self.is_alive():
             print('Terminating capture...')
@@ -280,7 +279,9 @@ class BufferedCapture(Process):
 
         # use a file as the video source
         if self.video_file is not None:
-            device = cv2.VideoCapture(self.video_file)
+            print('The video source could not be opened!')
+            self.exit.set()
+            return False
 
         # Use a device as the video source
         else:
@@ -332,7 +333,6 @@ class BufferedCapture(Process):
                 device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
             else:
                 print("Initialize GStreamer Device: ")
-                #device = cv2.VideoCapture(self.config.deviceID)
                 # Initialize GStreamer
                 Gst.init(None)
 
@@ -391,14 +391,13 @@ class BufferedCapture(Process):
         # Create dir to save jpg images
         stationID = str(self.config.stationID)
         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
-        dirname = f"UC_{stationID}_"+ date_string
+        dirname = f"JPG_{stationID}_"+ date_string
         dirname = os.path.join(self.config.data_dir, self.config.jpg_dir, dirname)
 
         # Create the directory
         os.makedirs(dirname, exist_ok=True)
 
         if device is None:
-
             print('The video source could not be opened!')
             self.exit.set()
             return False
@@ -425,105 +424,66 @@ class BufferedCapture(Process):
 
 
         # For video devices only (not files), throw away the first 10 frames
-        if self.video_file is None and isinstance(device, cv2.VideoCapture):
+        first_skipped_frames = 100
+        for i in range(first_skipped_frames):
+            self.read(device)
 
-            first_skipped_frames = 100
-            for i in range(first_skipped_frames):
-                self.read(device)
-
-
-
-        wait_for_reconnect = False
-
-        last_frame_timestamp = False
-        
-        # If the video device was disconnected, wait 5s for reconnection
-        if wait_for_reconnect:
-
-            print('Reconnecting...')
-
-            while not self.exit.is_set():
-
-                print('Waiting for the video device to be reconnected...')
-
-                time.sleep(5)
-
-                # Reinit the video device
-                device = self.initVideoDevice()
-
-
-                if device is None:
-                    print("The video device couldn't be connected! Retrying...")
-                    continue
-
-
-                if self.exit.is_set():
-                    break
-
-                # Read the frame
-                print("Reading frame...")
-                ret, _, _, _ = self.read(device)
-                print("Frame read!")
-
-                # If the connection was made and the frame was retrieved, continue with the capture
-                if ret:
-                    print('Video device reconnected successfully!')
-                    wait_for_reconnect = False
-                    break
-
-
-            wait_for_reconnect = False
-
-
-        t_frame = 0
-        t_assignment = 0
-        t_convert = 0
-        t_jpg = 0
-        t_block = time.time()
 
         # Capture a block of frames
         block_frames = frame_batch
-        
-        print('Grabbing a new block of {:d} frames...'.format(block_frames))
+        pulse_duration = 0.01
+        pulse_on_frame = 5
 
+
+        print('Grabbing a new block of {:d} frames...'.format(block_frames))
 
         for i in range(block_frames):
 
             ret, frame, frame_timestamp, pts_ns = self.read(device)
-
-            if i == 5:
-
-                led_time_0 = time.time()
-                # Turn the LED on
-                self.write_to_file(f"{self.led}/brightness", "1")
-
-                # Wait for the duration you want the LED to be on
-                start_time = time.perf_counter()
-    
-                while time.perf_counter() - start_time < 0.01:
-                     pass  # Busy waiting for the duration of the pulse
-                
-                # Turn the LED off
-                self.write_to_file(f"{self.led}/brightness", "0")
-                led_time = led_time_0 + 0.01 / 2
-
-            # Generate the name for the file
-            date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
-
-            # Calculate miliseconds
-            millis = int((frame_timestamp - floor(frame_timestamp))*1000)
             
-            # Create the filename
-            filename = f"{stationID}_"+ date_string + "_" + str(millis).zfill(3) + "_i:" + i + ".jpg"
+            if ret:
+                # Wait a few frames before pulsing the LED
+                if i == pulse_on_frame:
+                    led_time_0 = time.time()
+                    # Turn the LED on
+                    self.write_to_file(f"{self.led}/brightness", "1")
 
-            img_path = os.path.join(dirname, filename)
+                    # Wait for the duration of the LED pulse
+                    start_time = time.perf_counter()
+        
+                    while time.perf_counter() - start_time < pulse_duration:
+                        pass  # Busy waiting for the duration of the pulse
+                    
+                    # Turn the LED off
+                    self.write_to_file(f"{self.led}/brightness", "0")
+                    self.pulse_timestamp = led_time_0 + pulse_duration / 2
 
-            # Save the image to disk
-            try:
-                self.save_image_to_disk(filename, img_path, frame, i)
-            except:
-                print("Could not save {:s} to disk!".format(filename))
+                # Generate the name for the file
+                date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
 
+                # Calculate miliseconds
+                millis = int((frame_timestamp - floor(frame_timestamp))*1000)
+                
+                # Create the filename
+                filename = f"{stationID}_"+ date_string + "_" + str(millis).zfill(3) + "_i:" + i + ".jpg"
+
+                img_path = os.path.join(dirname, filename)
+
+                # Save the image to disk
+                try:
+                    self.save_image_to_disk(filename, img_path, frame, i)
+                except:
+                    print("Could not save {:s} to disk!".format(filename))
+                
+                # Store the iteration data in a dictionary
+                record = {
+                    'iteration': i,
+                    'timestamp': frame_timestamp,
+                    'filename': filename,
+                    'pts_ns': pts_ns
+                }
+                
+                self.records.append(record)
 
         self.write_to_file(f"{self.led}/trigger", self.current_trigger)
 
@@ -545,6 +505,78 @@ class BufferedCapture(Process):
                     print('OpenCV Video device released!')
             except Exception as e:
                 print(f'Error releasing OpenCV device: {e}')
+        
+
+    def select_roi(self, initial_img_path):
+        # Load the image
+        img = cv2.imread(initial_img_path)
+        if img is None:
+            print(f"Could not open or find the image: {initial_img_path}")
+            return None
+
+        # Select ROI
+        r = cv2.selectROI("Image", img, fromCenter=False, showCrosshair=True)
+
+        # Close the window
+        cv2.destroyAllWindows()
+        return r
+
+
+    def is_led_on(self, img, roi, threshold=200):
+        # Crop the ROI from the image
+        roi_cropped = img[int(roi[1]):int(roi[1]+roi[3]), int(roi[0]):int(roi[0]+roi[2])]
+        
+        # Check if the average brightness in the ROI is above a certain threshold
+        return np.mean(roi_cropped) > threshold
+
+
+    def find_led_on_images(self, dirname, records):
+        # Open the first image and select ROI
+        initial_img_path = os.path.join(dirname, records[0]['filename'])
+        roi = self.select_roi(initial_img_path)
+        if roi is None:
+            return []
+
+        led_on_images = []
+        for record in records:
+            img_path = os.path.join(dirname, record['filename'])
+            img = cv2.imread(img_path)
+            if img is None:
+                print(f"Could not open or find the image: {img_path}")
+                continue
+            
+            if self.is_led_on(img, roi):
+                led_on_images.append(record)
+        
+        # If only one image has the LED on, retrieve the record for that image
+        if len(led_on_images) == 1:
+            return led_on_images[0]
+        
+        return led_on_images
+    
+
+    def calculate_1d_position(self, roi, image_width, image_height):
+        # Calculate the center of the ROI
+        center_x = roi[0] + roi[2] / 2
+        center_y = roi[1] + roi[3] / 2
+        
+        # Calculate the 1D position as if the image is a linear array
+        # scanned row by row from left to right
+        position_1d = center_y * image_width + center_x
+        
+        # Calculate the relative position in the 1D array
+        total_pixels = image_width * image_height
+        rp_1d = position_1d / total_pixels
+        
+        return rp_1d
+
+
+# Usage
+camera_recorder = CameraRecorder()
+dirname = 'path_to_your_images_directory'
+records = 'your_records_list'
+led_on_image = camera_recorder.find_led_on_images(dirname, records)
+
 
 
 if __name__ == "__main__":
