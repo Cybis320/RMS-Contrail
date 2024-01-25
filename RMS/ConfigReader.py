@@ -805,6 +805,8 @@ def parseCapture(config, parser):
         # Save original input image size
         config.height_device = config.height
 
+    if parser.has_option(section, "delta_t"):
+        config.delta_t = parser.getfloat(section, "delta_t")
 
     if parser.has_option(section, "report_dropped_frames"):
         config.report_dropped_frames = parser.getboolean(section, "report_dropped_frames")
@@ -875,6 +877,9 @@ def parseCapture(config, parser):
 
     if parser.has_option(section, "force_v4l2"):
         config.force_v4l2 = parser.getboolean(section, "force_v4l2")
+
+    if parser.has_option(section, "force_cv2"):
+        config.force_cv2 = parser.getboolean(section, "force_cv2")
 
     if parser.has_option(section, "uyvy_pixelformat"):
         config.uyvy_pixelformat = parser.getboolean(section, "uyvy_pixelformat")
