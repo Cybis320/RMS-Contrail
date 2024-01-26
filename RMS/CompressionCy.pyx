@@ -81,6 +81,7 @@ def compressFrames(np.ndarray[INT8_TYPE_t, ndim=3] frames, int deinterlace_order
             max_val_3 = 0
             max_val_4 = 0
             num_equal = 0
+            max_frame = 0
             
             # Calculate mean, stddev, max_val, and max_val frame
             for n in range(frames_num):
