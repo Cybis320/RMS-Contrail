@@ -670,7 +670,7 @@ class BufferedCapture(Process):
                 # Keep track of all captured frames
                 total_frames += 1
                 t6 = time.time()
-                if i == 256:
+                if i == 255:
                     # Calculate intervals
                     intervals = [t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5]
                     normalized_intervals = [interval * self.config.fps for interval in intervals]
