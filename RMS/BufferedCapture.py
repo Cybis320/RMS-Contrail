@@ -528,9 +528,9 @@ class BufferedCapture(Process):
             for i in range(block_frames):
 
                 # Read the frame (keep track how long it took to grab it)
-                t1_frame = time.time()
+                t0 = time.time()
                 ret, frame, frame_timestamp = self.read(device)
-                t_frame = time.time() - t1_frame
+                t1 = time.time()
 
 
                 # If the video device was disconnected, wait for reconnection
@@ -541,7 +541,7 @@ class BufferedCapture(Process):
                     wait_for_reconnect = True
                     break
 
-
+                t2 = time.time()
                 # If a video device is used, get the current time
                 if self.video_file is None:
 
@@ -549,7 +549,6 @@ class BufferedCapture(Process):
                     # if i % 64 == 0:   > img every 2.56s, 3.7GB per day @ 25 fps
                     # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
                     # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
-                    t1_jpg = time.time()
                     if i % 128 == 0:
 
                         # Generate the name for the file
@@ -568,7 +567,8 @@ class BufferedCapture(Process):
                             self.save_image_to_disk(filename, img_path, frame,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
-                    t_jpg = time.time() - t1_jpg
+
+                    t3 = time.time()
 
                 # If a video file is used, compute the time using the time from the file timestamp
                 else:
@@ -614,13 +614,13 @@ class BufferedCapture(Process):
                     self.dropped_frames += n_dropped
 
                     if self.config.report_dropped_frames:
-                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames)} frames dropped! Time for frame: {t_frame:.3f}, jpg: {t_jpg:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
+                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames)} frames dropped!")
 
                 last_frame_timestamp = frame_timestamp
                 
                 ### Convert the frame to grayscale ###
 
-                t1_convert = time.time()
+                t4 = time.time()
 
                 # Convert the frame to grayscale
                 #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -650,7 +650,7 @@ class BufferedCapture(Process):
                     self.config.roi_left:self.config.roi_right]
 
                 # Track time for frame conversion
-                t_convert = time.time() - t1_convert
+                t5 = time.time()
 
 
                 ### ###
@@ -659,18 +659,27 @@ class BufferedCapture(Process):
 
 
                 # Assign the frame to shared memory (track time to do so)
-                t1_assign = time.time()
                 if buffer_one:
                     self.array1[i, :gray.shape[0], :gray.shape[1]] = gray
                 else:
                     self.array2[i, :gray.shape[0], :gray.shape[1]] = gray
 
-                t_assignment = time.time() - t1_assign
 
 
 
                 # Keep track of all captured frames
                 total_frames += 1
+                t6 = time.time()
+                # Calculate intervals
+                intervals = [t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5]
+                normalized_intervals = [interval * self.fps for interval in intervals]
+                total_time = sum(intervals) * self.fps
+
+                # Print intervals and total time, normalized to 1/self.fps
+                for idx, interval in enumerate(normalized_intervals):
+                    print(f"Interval {idx} to {idx+1}: {interval:.4f} (normalized)")
+
+                print(f"Total time: {total_time:.4f} (normalized)")
 
 
 
