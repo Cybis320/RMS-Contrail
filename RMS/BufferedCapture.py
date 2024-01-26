@@ -672,8 +672,8 @@ class BufferedCapture(Process):
                 t6 = time.time()
                 # Calculate intervals
                 intervals = [t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5]
-                normalized_intervals = [interval * self.fps for interval in intervals]
-                total_time = sum(intervals) * self.fps
+                normalized_intervals = [interval * self.config.fps for interval in intervals]
+                total_time = sum(intervals) * self.config.fps
 
                 # Print intervals and total time, normalized to 1/self.fps
                 for idx, interval in enumerate(normalized_intervals):
