@@ -80,6 +80,13 @@ class BufferedCapture(Process):
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.9/config.fps
 
+        self.dropped_frames = Value('i', 0)
+        self.pipeline = None
+        self.start_timestamp = 0
+        self.frame_shape = None
+        self.convert_to_gray = False
+
+
         # TIMESTAMP LATENCY
         #
         # Experimentally establish device_buffer and device_latency
@@ -102,11 +109,6 @@ class BufferedCapture(Process):
             self.system_latency = 0.01 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
-        self.dropped_frames = 0
-
-        self.pipeline = None
-        self.start_timestamp = 0
-        self.frame_shape = None
 
 
     def save_image_to_disk(self, filename, img_path, img, i):
@@ -151,7 +153,7 @@ class BufferedCapture(Process):
             log.info('Terminating capture...')
             self.terminate()
         
-        return self.dropped_frames
+        return self.dropped_frames.value
 
 
     def device_isOpened(self, device):
@@ -186,7 +188,7 @@ class BufferedCapture(Process):
                 timestamp = None # assigned later
         
         else:
-            if self.config.force_v4l2:
+            if self.config.force_v4l2 or self.config.force_cv2:
                 ret, frame = device.read()
                 if ret:
                     timestamp = time.time()
@@ -198,7 +200,19 @@ class BufferedCapture(Process):
 
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
                     if ret:
-                        frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+                        # If all channels contains colors, or there is only one channel, keep channel(s) 
+                        if not self.convert_to_gray:
+                            frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+
+                        # If channels contains no colors, discard two channels
+                        else:
+                            bgr_frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+                            
+                            # select a specific channel
+                            gray_frame = bgr_frame[:, :, 0]
+                                                        
+                            frame = gray_frame
+
                         buffer.unmap(map_info)
                         timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
                 
@@ -318,11 +332,16 @@ class BufferedCapture(Process):
             log.info("Initializing the video device...")
             log.info("Device: " + str(self.config.deviceID))
             if self.config.force_v4l2:
+                log.info("Initialize v4l2 Device.")
                 device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
                 device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
+
+            elif self.config.force_cv2 and not self.config.force_v4l2:
+                log.info("Initialize OpenCV Device.")
+                device = cv2.VideoCapture(self.config.deviceID)
+
             else:
-                log.info("Initialize GStreamer Device: ")
-                #device = cv2.VideoCapture(self.config.deviceID)
+                log.info("Initialize GStreamer Device.")
                 # Initialize GStreamer
                 Gst.init(None)
 
@@ -352,14 +371,12 @@ class BufferedCapture(Process):
 
                             # If frame is grayscale, stop and restart the pipeline in GRAY8 format
                             if self.is_grayscale(frame):
-                                # Stop, Create and restart a GStreamer pipeline
-                                self.pipeline.set_state(Gst.State.NULL)
-                                device = self.create_gstream_device('GRAY8')
-
-                                self.frame_shape = (height, width)
+                                self.convert_to_gray = True
+                            log.info(f"Video format: {video_format}, {height}P, color: {not self.convert_to_gray}")
                         
                         elif video_format == 'GRAY8':
                             self.frame_shape = (height, width)  # Grayscale
+                            log.info(f"Video format: {video_format}, {height}P")
                             
                         else:
                             log.error(f"Unsupported video format: {video_format}.")
@@ -377,8 +394,6 @@ class BufferedCapture(Process):
         
         # Init the video device
         device = self.initVideoDevice()
-
-        # For video devices only (not files)
 
         # Create dir to save jpg files
         stationID = str(self.config.stationID)
@@ -418,6 +433,7 @@ class BufferedCapture(Process):
         # Keep track of the total number of frames
         total_frames = 0
 
+
         # For video devices only (not files), throw away the first 10 frames
         if self.video_file is None and isinstance(device, cv2.VideoCapture):
 
@@ -451,6 +467,7 @@ class BufferedCapture(Process):
         # Run until stopped from the outside
         while not self.exit.is_set():
 
+
             # Wait until the compression is done (only when a video file is used)
             if self.video_file is not None:
                 
@@ -469,6 +486,8 @@ class BufferedCapture(Process):
                     continue
 
 
+
+            
             if buffer_one:
                 self.startTime1.value = 0
             else:
@@ -516,21 +535,22 @@ class BufferedCapture(Process):
             t_frame = 0
             t_assignment = 0
             t_convert = 0
-            t_jpg = 0
             t_block = time.time()
+            max_frame_interval_normalized = 0.0
+            max_frame_age_seconds = 0.0
+
 
             # Capture a block of 256 frames
             block_frames = 256
-            
+
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
-
-
             for i in range(block_frames):
 
+
                 # Read the frame (keep track how long it took to grab it)
-                t0 = time.time()
+                t1_frame = time.time()
                 ret, frame, frame_timestamp = self.read(device)
-                t1 = time.time()
+                t_frame = time.time() - t1_frame
 
 
                 # If the video device was disconnected, wait for reconnection
@@ -541,8 +561,25 @@ class BufferedCapture(Process):
                     wait_for_reconnect = True
                     break
 
-                t2 = time.time()
-                # If a video device is used, get the current time
+
+                # If a video file is used, compute the time using the time from the file timestamp
+                if self.video_file is not None:
+                
+                    frame_timestamp = video_first_timestamp + total_frames/self.config.fps
+
+                    # print("tot={:6d}, i={:3d}, fps={:.2f}, t={:.8f}".format(total_frames, i, self.config.fps, frame_timestamp))
+
+                    
+                # Set the time of the first frame
+                if i == 0: 
+
+                    # Initialize last frame timestamp if it's not set
+                    if not last_frame_timestamp:
+                        last_frame_timestamp = frame_timestamp
+                    
+                    # Always set first frame timestamp in the beginning of the block
+                    first_frame_timestamp = frame_timestamp
+
                 if self.video_file is None:
 
                     # If a video device is used, save a jpg every nth frames
@@ -567,31 +604,7 @@ class BufferedCapture(Process):
                             self.save_image_to_disk(filename, img_path, frame,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
-
-                    t3 = time.time()
-
-                # If a video file is used, compute the time using the time from the file timestamp
-                else:
-                    frame_timestamp = video_first_timestamp + total_frames/self.config.fps
-
-                    # print("tot={:6d}, i={:3d}, fps={:.2f}, t={:.8f}".format(total_frames, i, self.config.fps, frame_timestamp))
-
-                    
-                # Set the time of the first frame
-                if i == 0:
-
-                    # Initialize last frame timestamp if it's not set
-                    if not last_frame_timestamp:
-                        last_frame_timestamp = frame_timestamp
-                    
-                    # Always set first frame timestamp in the beginning of the block
-                    first_frame_timestamp = frame_timestamp
-
-                    # Calculate elapsed time since frame capture to assess sink fill level
-                    frame_age_seconds = time.time() - frame_timestamp
-                    log.info(f"Frame is {frame_age_seconds:.3f} seconds old. Total dropped frames: {self.dropped_frames}")
-
-
+                            
                 # If the end of the video file was reached, stop the capture
                 if self.video_file is not None: 
                     if (frame is None) or (not device.isOpened()):
@@ -611,16 +624,44 @@ class BufferedCapture(Process):
                     
                     # Calculate the number of dropped frames
                     n_dropped = int((frame_timestamp - last_frame_timestamp)*self.config.fps)
-                    self.dropped_frames += n_dropped
+
+                    self.dropped_frames.value += n_dropped
 
                     if self.config.report_dropped_frames:
-                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames)} frames dropped!")
+                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames.value)} frames dropped or late! Time for frame: {t_frame:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
+
+                # If cv2:
+                if self.config.force_v4l2 or self.config.force_cv2:
+                    # Calculate the normalized frame interval between the current and last frame read, normalized by frames per second (fps)
+                    frame_interval_normalized = (frame_timestamp - last_frame_timestamp) / (1 / self.config.fps)
+                    # Update max_frame_interval_normalized for this cycle
+                    max_frame_interval_normalized = max(max_frame_interval_normalized, frame_interval_normalized)
+
+                # If GStreamer:
+                else:
+                    # Calculate the time difference between the current time and the frame's timestamp
+                    frame_age_seconds = time.time() - frame_timestamp
+                    # Update max_frame_age_seconds for this cycles
+                    max_frame_age_seconds = max(max_frame_age_seconds, frame_age_seconds)
+
+                # On the last loop, report late or dropped frames
+                if i == block_frames - 1:
+                    # For cv2, show elapsed time since frame read to assess loop performance
+                    if self.config.force_v4l2 or self.config.force_cv2:
+                        log.info(f"Cycle max frame interval: {max_frame_interval_normalized:.3f} (normalized). Run late frames: {self.dropped_frames.value}")
+                    
+                    # For GStreamer, show elapsed time since frame capture to assess sink fill level
+                    else:
+                        log.info(f"Cycle max frame age: {max_frame_age_seconds:.3f} seconds. Run dropped frames: {self.dropped_frames.value}")
 
                 last_frame_timestamp = frame_timestamp
                 
+
+
+
                 ### Convert the frame to grayscale ###
 
-                t4 = time.time()
+                t1_convert = time.time()
 
                 # Convert the frame to grayscale
                 #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -650,7 +691,7 @@ class BufferedCapture(Process):
                     self.config.roi_left:self.config.roi_right]
 
                 # Track time for frame conversion
-                t5 = time.time()
+                t_convert = time.time() - t1_convert
 
 
                 ### ###
@@ -659,28 +700,18 @@ class BufferedCapture(Process):
 
 
                 # Assign the frame to shared memory (track time to do so)
+                t1_assign = time.time()
                 if buffer_one:
                     self.array1[i, :gray.shape[0], :gray.shape[1]] = gray
                 else:
                     self.array2[i, :gray.shape[0], :gray.shape[1]] = gray
 
+                t_assignment = time.time() - t1_assign
 
 
 
                 # Keep track of all captured frames
                 total_frames += 1
-                t6 = time.time()
-                if i == 255:
-                    # Calculate intervals
-                    intervals = [t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t6 - t5]
-                    normalized_intervals = [interval * self.config.fps for interval in intervals]
-                    total_time = sum(intervals) * self.config.fps
-
-                    # Print intervals and total time, normalized to 1/self.fps
-                    for idx, interval in enumerate(normalized_intervals):
-                        print(f"Interval {idx} to {idx+1}: {interval:.4f} (normalized)")
-
-                    print(f"Total time: {total_time:.4f} (normalized)")
 
 
 
@@ -727,7 +758,7 @@ class BufferedCapture(Process):
                     device.release()
                     log.info('OpenCV Video device released!')
             except Exception as e:
-                log.error(f'Error releasing OpenCV device: {e}')
+                log.error(f'Error releasing OpenCV device: {e}')    
 
 
     
