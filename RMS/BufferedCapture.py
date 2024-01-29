@@ -25,7 +25,7 @@ import time
 import logging
 import datetime
 import os.path
-from multiprocessing import Process, Event
+from multiprocessing import Process, Event, Value
 
 from math import floor
 
