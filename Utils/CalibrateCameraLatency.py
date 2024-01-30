@@ -187,7 +187,7 @@ class BufferedCapture(Process):
         :return: tuple (ret, frame, timestamp) where ret is a boolean indicating success,
                  frame is the captured frame, and timestamp is the frame timestamp.
         '''
-        ret, frame, timestamp, gst_timestamp_ns = False, None, None, None
+        ret, frame, timestamp = False, None, None
 
         if self.video_file is not None:
             ret, frame = device.read()
@@ -207,11 +207,23 @@ class BufferedCapture(Process):
 
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
                     if ret:
-                        frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+                        # If all channels contains colors, or there is only one channel, keep channel(s) 
+                        if not self.convert_to_gray:
+                            frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+
+                        # If channels contains no colors, discard two channels
+                        else:
+                            bgr_frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+                            
+                            # select a specific channel
+                            gray_frame = bgr_frame[:, :, 0]
+                                                        
+                            frame = gray_frame
+
                         buffer.unmap(map_info)
                         timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
                 
-        return ret, frame, timestamp, gst_timestamp_ns
+        return ret, frame, timestamp
 
 
     def extract_rtsp_url(self, input_string):
@@ -256,7 +268,7 @@ class BufferedCapture(Process):
         """
         device_url = self.extract_rtsp_url(self.config.deviceID)
         device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
-                    f"location=\"{device_url}\" !"
+                    f"location=\"{device_url}\" ! "
                     "rtph264depay ! h264parse ! avdec_h264")
 
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
@@ -272,6 +284,7 @@ class BufferedCapture(Process):
         return self.pipeline.get_by_name("appsink")
 
 
+
     def initVideoDevice(self):
         """ Initialize the video device. """
 
@@ -279,9 +292,7 @@ class BufferedCapture(Process):
 
         # use a file as the video source
         if self.video_file is not None:
-            print('The video source could not be opened!')
-            self.exit.set()
-            return False
+            device = cv2.VideoCapture(self.video_file)
 
         # Use a device as the video source
         else:
@@ -312,13 +323,13 @@ class BufferedCapture(Process):
                         ping_success = ping(ip)
 
                         if ping_success:
-                            print("Camera IP ping successful!")
+                            log.info("Camera IP ping successful!")
                             break
 
                         time.sleep(5)
 
                     if not ping_success:
-                        print("Can't ping the camera IP!")
+                        log.error("Can't ping the camera IP!")
                         return None
 
                 else:
@@ -326,17 +337,19 @@ class BufferedCapture(Process):
 
 
             # Init the video device
-            print("Initializing the video device...")
-            print("Device: " + str(self.config.deviceID))
+            log.info("Initializing the video device...")
+            log.info("Device: " + str(self.config.deviceID))
             if self.config.force_v4l2:
+                log.info("Initialize v4l2 Device.")
                 device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
                 device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
-            
-            elif not self.config.force_v4l2 and self.config.force_cv2:
+
+            elif self.config.force_cv2 and not self.config.force_v4l2:
+                log.info("Initialize OpenCV Device.")
                 device = cv2.VideoCapture(self.config.deviceID)
 
             else:
-                print("Initialize GStreamer Device: ")
+                log.info("Initialize GStreamer Device.")
                 # Initialize GStreamer
                 Gst.init(None)
 
@@ -362,30 +375,28 @@ class BufferedCapture(Process):
                         # Determine the shape based on format
                         if video_format in ['RGB', 'BGR']:
                             self.frame_shape = (height, width, 3)  # RGB or BGR
-                            ret, frame, _, _ = self.read(device)
+                            ret, frame, _ = self.read(device)
 
                             # If frame is grayscale, stop and restart the pipeline in GRAY8 format
                             if self.is_grayscale(frame):
-                                # Stop, Create and restart a GStreamer pipeline
-                                self.pipeline.set_state(Gst.State.NULL)
-                                device = self.create_gstream_device('GRAY8')
-
-                                self.frame_shape = (height, width)
+                                self.convert_to_gray = True
+                            log.info(f"Video format: {video_format}, {height}P, color: {not self.convert_to_gray}")
                         
                         elif video_format == 'GRAY8':
                             self.frame_shape = (height, width)  # Grayscale
+                            log.info(f"Video format: {video_format}, {height}P")
                             
                         else:
-                            print(f"Unsupported video format: {video_format}.")
+                            log.error(f"Unsupported video format: {video_format}.")
                     else:
-                        print("Could not determine frame shape.")
+                        log.error("Could not determine frame shape.")
                 else:
-                    print("Could not obtain frame.")
+                    log.error("Could not obtain frame.")
 
         return device
+    
 
-
-    def run(self, frame_batch=256):
+    def run(self, block_frames=256):
         """ Capture frames.
         """
         
@@ -434,7 +445,6 @@ class BufferedCapture(Process):
 
 
         # Capture a block of frames
-        block_frames = frame_batch
         pulse_duration = 0.01
         pulse_on_frame = 5
 
@@ -473,6 +483,9 @@ class BufferedCapture(Process):
 
                 img_path = os.path.join(dirname, filename)
 
+                if i == 0:
+                    initial_img_path = img_path
+
                 # Save the image to disk
                 try:
                     self.save_image_to_disk(filename, img_path, frame, i)
@@ -489,7 +502,6 @@ class BufferedCapture(Process):
                 
                 self.records.append(record)
         
-        roi = self.select_roi(img_path)
 
         self.write_to_file(f"{self.led}/trigger", self.current_trigger)
 
@@ -511,6 +523,9 @@ class BufferedCapture(Process):
                     print('OpenCV Video device released!')
             except Exception as e:
                 print(f'Error releasing OpenCV device: {e}')
+        
+        self.led_on_image = self.find_led_on_images(dirname, records)
+        print(self.led_on_image)
         
 
     def select_roi(self, initial_img_path):
@@ -607,3 +622,5 @@ if __name__ == "__main__":
 
     # Start buffered capture
     bc.startCapture()
+    
+    
