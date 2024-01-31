@@ -107,7 +107,6 @@ class BufferedCapture(Process):
         self.frame_shape = None
         self.convert_to_gray = False
         self.records = []
-        self.convert_to_gray = False
 
         # Define the LED
         self.led = "/sys/class/leds/PWR"
@@ -410,7 +409,6 @@ class BufferedCapture(Process):
                         if video_format in ['RGB', 'BGR']:
                             self.frame_shape = (height, width, 3)  # RGB or BGR
                             ret, frame, _, _ = self.read(device)
-                            ret, frame, _, _ = self.read(device)
 
                             # If frame is grayscale, stop and restart the pipeline in GRAY8 format
                             if self.is_grayscale(frame):
@@ -521,7 +519,6 @@ class BufferedCapture(Process):
                 millis = int((frame_timestamp - floor(frame_timestamp))*1000)
                 
                 # Create the filename
-                filename = f"{stationID}_"+ date_string + "_" + str(millis).zfill(3) + "_i:" + str(i) + ".jpg"
                 filename = f"{stationID}_"+ date_string + "_" + str(millis).zfill(3) + "_i:" + str(i) + ".jpg"
 
                 img_path = os.path.join(dirname, filename)
