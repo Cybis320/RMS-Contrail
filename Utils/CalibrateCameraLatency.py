@@ -93,26 +93,33 @@ class BufferedCapture(Process):
 
         self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
         if self.config.height == 1080:
-            self.system_latency = 0.02 # seconds. Experimentally measured latency
+            self.system_latency = 0.056 # seconds. Experimentally measured latency
         else:
             self.system_latency = 0.01 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
+
+
 
 
         self.pipeline = None
         self.start_timestamp = 0
         self.pulse_timestamp = 0
         self.frame_shape = None
+        self.convert_to_gray = False
         self.records = []
 
         # Define the LED
         self.led = "/sys/class/leds/PWR"
+        self.led2 = "/sys/class/leds/ACT"
         self.current_trigger = None
-        
+        self.current_trigger2 = None
 
     def write_to_file(self, path, value):
-        with open(path, 'w') as f:
-            f.write(value)
+        try:
+            with open(path, 'w') as f:
+                f.write(value + "\n")
+        except OSError as e:
+            print(f"Error writing to {path}: {e}")
 
 
     def save_image_to_disk(self, filename, img_path, img, i):
@@ -130,15 +137,40 @@ class BufferedCapture(Process):
             cameraID: ID of video capturing device (ie. ID for /dev/video3 is 3). Default is 0.
             
         """
-        
         self.cameraID = cameraID
         self.exit = Event()
-
+        
         # Save current trigger
         with open(f"{self.led}/trigger", 'r') as f:
-            self.current_trigger = f.read().strip()
+            trigger_data = f.read()
+            # Extract the current trigger name, which is enclosed in square brackets
+            start = trigger_data.find('[')
+            end = trigger_data.find(']', start)
+            if start != -1 and end != -1:
+                self.current_trigger = trigger_data[start + 1:end]  # +1 and end without +1 to exclude the brackets
+            else:
+                self.current_trigger = None
+                print("No current trigger found.")
+
+            print(self.current_trigger)  # To verify you're getting the correct current trigger
+            
+        with open(f"{self.led2}/trigger", 'r') as f:
+            trigger_data = f.read()
+            # Extract the current trigger name, which is enclosed in square brackets
+            start = trigger_data.find('[')
+            end = trigger_data.find(']', start)
+            if start != -1 and end != -1:
+                self.current_trigger2 = trigger_data[start + 1:end]  # +1 and end without +1 to exclude the brackets
+            else:
+                self.current_trigger2 = None
+                print("No current trigger found.")
+
+            print(self.current_trigger2)  # To verify you're getting the correct current trigger
+
         
         self.write_to_file(f"{self.led}/brightness", "0")
+        self.write_to_file(f"{self.led2}/brightness", "0")
+
         
         self.start()
     
@@ -155,7 +187,8 @@ class BufferedCapture(Process):
         self.write_to_file(f"{self.led}/brightness", "1")
 
         self.write_to_file(f"{self.led}/trigger", self.current_trigger)
-
+        self.write_to_file(f"{self.led2}/trigger", self.current_trigger2)
+        
         if self.is_alive():
             print('Terminating capture...')
             self.terminate()
@@ -223,7 +256,7 @@ class BufferedCapture(Process):
                         buffer.unmap(map_info)
                         timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
                 
-        return ret, frame, timestamp
+        return ret, frame, timestamp, gst_timestamp_ns / 1e9
 
 
     def extract_rtsp_url(self, input_string):
@@ -323,13 +356,13 @@ class BufferedCapture(Process):
                         ping_success = ping(ip)
 
                         if ping_success:
-                            log.info("Camera IP ping successful!")
+                            print("Camera IP ping successful!")
                             break
 
                         time.sleep(5)
 
                     if not ping_success:
-                        log.error("Can't ping the camera IP!")
+                        print("Can't ping the camera IP!")
                         return None
 
                 else:
@@ -337,19 +370,19 @@ class BufferedCapture(Process):
 
 
             # Init the video device
-            log.info("Initializing the video device...")
-            log.info("Device: " + str(self.config.deviceID))
+            print("Initializing the video device...")
+            print("Device: " + str(self.config.deviceID))
             if self.config.force_v4l2:
-                log.info("Initialize v4l2 Device.")
+                print("Initialize v4l2 Device.")
                 device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
                 device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
 
             elif self.config.force_cv2 and not self.config.force_v4l2:
-                log.info("Initialize OpenCV Device.")
+                print("Initialize OpenCV Device.")
                 device = cv2.VideoCapture(self.config.deviceID)
 
             else:
-                log.info("Initialize GStreamer Device.")
+                print("Initialize GStreamer Device.")
                 # Initialize GStreamer
                 Gst.init(None)
 
@@ -375,23 +408,23 @@ class BufferedCapture(Process):
                         # Determine the shape based on format
                         if video_format in ['RGB', 'BGR']:
                             self.frame_shape = (height, width, 3)  # RGB or BGR
-                            ret, frame, _ = self.read(device)
+                            ret, frame, _, _ = self.read(device)
 
                             # If frame is grayscale, stop and restart the pipeline in GRAY8 format
                             if self.is_grayscale(frame):
                                 self.convert_to_gray = True
-                            log.info(f"Video format: {video_format}, {height}P, color: {not self.convert_to_gray}")
+                            print(f"Video format: {video_format}, {height}P, color: {not self.convert_to_gray}")
                         
                         elif video_format == 'GRAY8':
                             self.frame_shape = (height, width)  # Grayscale
-                            log.info(f"Video format: {video_format}, {height}P")
+                            print(f"Video format: {video_format}, {height}P")
                             
                         else:
-                            log.error(f"Unsupported video format: {video_format}.")
+                            print(f"Unsupported video format: {video_format}.")
                     else:
-                        log.error("Could not determine frame shape.")
+                        print("Could not determine frame shape.")
                 else:
-                    log.error("Could not obtain frame.")
+                    print("Could not obtain frame.")
 
         return device
     
@@ -445,10 +478,13 @@ class BufferedCapture(Process):
 
 
         # Capture a block of frames
-        pulse_duration = 0.01
-        pulse_on_frame = 5
-
-
+        pulse_duration = 0.0625 / self.config.fps
+        pulse_on_frame = 128.7
+        pulse_on_frame_int = floor(pulse_on_frame)
+        pulse_on_frame_delay = (pulse_on_frame - pulse_on_frame_int) * (1 / self.config.fps)
+        print(f"pulse duration: {pulse_duration:.3f}")
+        print(f"pulse offset: {pulse_on_frame_delay:.3f}")
+        
         print('Grabbing a new block of {:d} frames...'.format(block_frames))
 
         for i in range(block_frames):
@@ -457,7 +493,11 @@ class BufferedCapture(Process):
             
             if ret:
                 # Wait a few frames before pulsing the LED
-                if i == pulse_on_frame:
+                if i == pulse_on_frame_int:
+                    start_time = time.perf_counter()
+                    while time.perf_counter() - start_time < pulse_on_frame_delay:
+                        pass # Busy waiting for the duration of the offset
+                        
                     led_time_0 = time.time()
                     # Turn the LED on
                     self.write_to_file(f"{self.led}/brightness", "1")
@@ -479,7 +519,7 @@ class BufferedCapture(Process):
                 millis = int((frame_timestamp - floor(frame_timestamp))*1000)
                 
                 # Create the filename
-                filename = f"{stationID}_"+ date_string + "_" + str(millis).zfill(3) + "_i:" + i + ".jpg"
+                filename = f"{stationID}_"+ date_string + "_" + str(millis).zfill(3) + "_i:" + str(i) + ".jpg"
 
                 img_path = os.path.join(dirname, filename)
 
@@ -524,8 +564,21 @@ class BufferedCapture(Process):
             except Exception as e:
                 print(f'Error releasing OpenCV device: {e}')
         
-        self.led_on_image = self.find_led_on_images(dirname, records)
+        self.led_on_image = self.find_led_on_images(dirname, self.records)
         print(self.led_on_image)
+
+        # Extract timestamps and calculate the average
+        timestamps = [entry['timestamp'] for entry in self.led_on_image]
+        average_timestamp = sum(timestamps) / len(timestamps)
+        
+        # Extract frame offdet and calculate the average
+        frame_nbr = [entry['iteration'] for entry in self.led_on_image]
+        average_offset = (sum(frame_nbr) / len(frame_nbr)) - pulse_on_frame
+        delta_t = self.pulse_timestamp - average_timestamp
+        
+        print(average_offset)
+        print(self.pulse_timestamp)
+        print(f"\033[7m{delta_t:.3f}\033[0m")
         
 
     def select_roi(self, initial_img_path):
@@ -536,25 +589,31 @@ class BufferedCapture(Process):
             return None
 
         # Select ROI
-        r = cv2.selectROI("Image", img, fromCenter=False, showCrosshair=True)
+        roi = cv2.selectROI("Image", img, fromCenter=False, showCrosshair=True)
 
         # Close the window
         cv2.destroyAllWindows()
-        return r
-
-
-    def is_led_on(self, img, roi, threshold=200):
+        
         # Crop the ROI from the image
         roi_cropped = img[int(roi[1]):int(roi[1]+roi[3]), int(roi[0]):int(roi[0]+roi[2])]
         
         # Check if the average brightness in the ROI is above a certain threshold
-        return np.mean(roi_cropped) > threshold
+        off_level = np.mean(roi_cropped)
+        return roi, off_level
+
+
+    def is_led_on(self, img, roi, off_level, threshold=10):
+        # Crop the ROI from the image
+        roi_cropped = img[int(roi[1]):int(roi[1]+roi[3]), int(roi[0]):int(roi[0]+roi[2])]
+        
+        # Check if the average brightness in the ROI is above a certain threshold
+        return np.mean(roi_cropped) > off_level + threshold
 
 
     def find_led_on_images(self, dirname, records):
         # Open the first image and select ROI
         initial_img_path = os.path.join(dirname, records[0]['filename'])
-        roi = self.select_roi(initial_img_path)
+        roi, off_level = self.select_roi(initial_img_path)
         if roi is None:
             return []
 
@@ -566,12 +625,9 @@ class BufferedCapture(Process):
                 print(f"Could not open or find the image: {img_path}")
                 continue
             
-            if self.is_led_on(img, roi):
+            if self.is_led_on(img, roi, off_level):
                 led_on_images.append(record)
         
-        # If only one image has the LED on, retrieve the record for that image
-        if len(led_on_images) == 1:
-            return led_on_images[0]
         
         return led_on_images
     
@@ -591,12 +647,6 @@ class BufferedCapture(Process):
         
         return rp_1d
 
-
-# Usage
-camera_recorder = CameraRecorder()
-dirname = 'path_to_your_images_directory'
-records = 'your_records_list'
-led_on_image = camera_recorder.find_led_on_images(dirname, records)
 
 
 
