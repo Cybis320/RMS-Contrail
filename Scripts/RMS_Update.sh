@@ -47,18 +47,11 @@ rm -r build
 # Set the flag indicating that the RMS dir is reset
 echo "1" > $UPDATEINPROGRESSFILE
 
-# Stash the changes
+# Stash the cahnges
 git stash
 
-########## TODO: get branch/fork from .config file #########
-
-# Check if 'fork' remote exists and add if it doesn't
-if ! git remote | grep -q 'fork'; then
-  git remote add fork 'https://github.com/Cybis320/RMS-Contrail'
-fi
-
-# Pull new code from the forked repository
-git pull fork
+# Pull new code from github
+git pull
 
 # Activate the virtual environment
 source ~/vRMS/bin/activate
