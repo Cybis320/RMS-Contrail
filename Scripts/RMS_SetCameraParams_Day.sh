@@ -37,7 +37,7 @@ python -m Utils.CameraControl SetParam Encode Video FPS 25
 # python -m Utils.CameraControl SetParam Encode SecondStream 0
 
 # camera parameters
-# python -m Utils.CameraControl SetParam Camera Style type1
+python -m Utils.CameraControl SetParam Camera Style typedefault
 # python -m Utils.CameraControl SetParam Camera AeSensitivity 1
 # python -m Utils.CameraControl SetParam Camera ApertureMode 0
 # python -m Utils.CameraControl SetParam Camera BLCMode 0
