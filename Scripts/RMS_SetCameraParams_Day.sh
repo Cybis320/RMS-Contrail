@@ -62,8 +62,8 @@ python -m Utils.CameraControl SetParam Camera WhiteBalance 1
 # network parameters
 # python -m Utils.CameraControl SetParam Network TransferPlan Fluency
 
-# echo "Rebooting Camera"
-# python -m Utils.CameraControl reboot
-# echo "Waiting for camera to reconnect."
-# # Sleep for 60 seconds
-#     time.sleep(60)
+echo "Rebooting Camera"
+python -m Utils.CameraControl reboot
+echo "Waiting for camera to reconnect."
+# Sleep for 40 seconds
+sleep 40

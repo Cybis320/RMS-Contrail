@@ -28,7 +28,7 @@ python -m Utils.CameraControl CloudConnection off
 
 # set the Video Encoder parameters
 python -m Utils.CameraControl SetParam Encode Video Compression H.264
-python -m Utils.CameraControl SetParam Encode Video Resolution 720P
+python -m Utils.CameraControl SetParam Encode Video Resolution 1080P
 python -m Utils.CameraControl SetParam Encode Video BitRateControl VBR
 python -m Utils.CameraControl SetParam Encode Video FPS 25
 python -m Utils.CameraControl SetParam Encode Video Quality 6
@@ -62,3 +62,8 @@ python -m Utils.CameraControl SetParam Camera PictureMirror 0
 # network parameters
 python -m Utils.CameraControl SetParam Network TransferPlan Fluency
 
+echo "Rebooting Camera"
+python -m Utils.CameraControl reboot
+echo "Waiting for camera to reconnect."
+# Sleep for 40 seconds
+sleep 40
