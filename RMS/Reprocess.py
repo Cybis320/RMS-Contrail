@@ -394,7 +394,21 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
         except Exception as e:
             log.debug('Generating a timelapse failed with message:\n' + repr(e))
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
-    
+
+
+    # Generate a timestamp intervals plot
+    log.info('Plotting timestamp intervals...')
+    try:
+        score, intervals_path =  analyze_timestamps(night_data_dir, fps=config.fps)
+        log.info(f'Timestamp Intervals Score: {score}')
+        # Add the timelapse to the extra files
+        extra_files.append(intervals_path)
+
+    except Exception as e:
+        log.debug('Plotting timestamp interval failed with message:\n' + repr(e))
+        log.debug(repr(traceback.format_exception(*sys.exc_info())))
+
+
     # Generate an ADSB timelapse
     if config.timelapse_generate_captured:
         
@@ -485,10 +499,6 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     # Generate the timelapse
                     create_video_from_images(temp_dir, timelapse_path, delete_images=True)
                     
-                    # Generate the interval plot
-                    log.info(f"Generating timestamp plot in {jpg_subdir}...")
-                    analyze_timestamps(full_jpg_subdir, config.fps)
-
                     # Add the timelapse to the extra files
                     # extra_files.append(timelapse_path)
 

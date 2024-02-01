@@ -1,4 +1,18 @@
+""" Plot the intervals between timestamps from FF file and scores the variability.
+Usage:
+  python -m Utils.PlotTimeIntervals "$input_path" "$fps"
+
+Arguments:
+  <folder_path>  The path to the folder containing the files to analyze.
+  [fps]          Frames per second. Optional argument. Default is 25.
+
+This script analyzes the timestamps in the files located in the specified folder.
+The optional fps argument allows specifying the frames per second for the analysis.
+If fps is not provided, the default value of 25 is used.
+
+ """
 import os
+import tarfile
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,25 +37,47 @@ def calculate_score(differences, alpha=1.5):
 
 
 def analyze_timestamps(folder_path, fps=25):
-    timestamps = []
 
     # Extract the subdir_name from folder_path
     subdir_name = os.path.basename(folder_path.rstrip('/\\'))
 
+    # Find the FS*.tar.bz2 file in the specified directory
+    tar_file_path = None
     for file in os.listdir(folder_path):
-        if file.endswith('.jpg'):
-            try:
-                timestamp_str = file.split('_')[2] + file.split('_')[3] + file.split('_')[4].split('.')[0]
-                timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S%f')
-                timestamps.append(timestamp)
-            except ValueError:
-                print(f"Skipping file with incorrect format: {file}")
+        if file.endswith('.tar.bz2') and file.startswith('FS'):
+            tar_file_path = os.path.join(folder_path, file)
+            break
+
+    if not tar_file_path:
+        print("Tar file not found.")
+    else:
+        # Open the tar file
+        with tarfile.open(tar_file_path, 'r:bz2') as tar:
+            timestamps = []
+            # Iterate through its members
+            for member in tar.getmembers():
+                # Check if the current member is a .bin file
+                if member.isfile() and member.name.endswith('.bin'):
+                    try:
+                        # Extract timestamp from the file name
+                        file_name_parts = member.name.split('_')
+                        timestamp_str = file_name_parts[2] + file_name_parts[3] + file_name_parts[4].split('.')[0]
+                        timestamp = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S%f')
+                        timestamps.append(timestamp)
+                    except ValueError:
+                        print(f"Skipping file with incorrect format: {member.name}")
 
     timestamps.sort()
-    differences = [(timestamps[i+1] - timestamps[i]).total_seconds() for i in range(len(timestamps) - 1)]
-    df = pd.DataFrame({'Timestamp': timestamps[:-1], 'Difference': differences})
+    # Calculate differences, starting from the second timestamp as the first is unreliable
+    differences = [(timestamps[i+1] - timestamps[i]).total_seconds() for i in range(1, len(timestamps) - 1)]
+    
+    # Create a DataFrame, starting from the second timestamp for the 'Timestamp' column
+    df = pd.DataFrame({'Timestamp': timestamps[1:-1], 'Difference': differences})
 
-    score = calculate_score(differences)
+    if len(differences) > 10:
+        score = calculate_score(differences)
+    else:
+        score = None
 
     # Calculate mean and standard deviation
     mean_diff = df['Difference'].mean()
@@ -60,7 +96,9 @@ def analyze_timestamps(folder_path, fps=25):
     average_difference = df[~df['Outlier']]['Difference'].mean()
 
     # Calculate average fps
-    average_fps = 128 / average_difference
+    block_size = 256
+    average_fps = block_size / average_difference
+    expected_interval = block_size / fps
 
     # Plotting
     plt.figure(figsize=(12, 6))
@@ -73,8 +111,8 @@ def analyze_timestamps(folder_path, fps=25):
     plt.scatter(outlier_points['Timestamp'], outlier_points['Difference'], label='Outliers', c='red', s=10, alpha=0.5)
 
     # Expected and Average lines
-    # plt.axhline(y=1/fps, color='green', linestyle='-', label='Expected Interval (5.12s)')
-    plt.axhline(y=average_difference, color='blue', linestyle='--', label=f'Average Interval ({average_difference:.4f}s), Average ({average_fps:.1f} fps)')
+    plt.axhline(y=expected_interval, color='green', linestyle='-',  label=f'Expected Interval ({expected_interval:.3f}s), ({fps:.1f} fps)')
+    plt.axhline(y=average_difference, color='blue', linestyle='--', label=f'Average Interval   ({average_difference:.3f}s), ({average_fps:.1f} fps)')
 
     # Find the minimum difference and round down to nearest 0.1
     min_difference = df['Difference'].min()
@@ -132,17 +170,19 @@ def analyze_timestamps(folder_path, fps=25):
     plt.savefig(plot_filename, format='png', dpi=300)
     #plt.show()
 
-    return df
+    return score, plot_filename
 
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <folder_path>")
+    if len(sys.argv) not in [2, 3]:
+        print("Usage: python script.py <folder_path> [fps]")
         sys.exit(1)
 
     folder_path = sys.argv[1]
-    analyze_timestamps(folder_path)
+    fps = int(sys.argv[2]) if len(sys.argv) == 3 else 25
+
+    analyze_timestamps(folder_path, fps)
 
 if __name__ == "__main__":
     main()
