@@ -801,7 +801,7 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
     """
 
     cdef int i, j, index_offset
-    cdef double x0, y0, xy=0.0, a1=0.0, a2=0.0, k1=0.0, k2=0.0, k3=0.0, k4=0.0
+    cdef double x0, y0, xy, a1, a2, k1, k2, k3, k4
     cdef double r, r1, r2, dx, dy, lens_dist, x_corr, y_corr, x_corr1, y_corr1
     cdef double x_img, y_img, x_img1, y_img1, x_img2, y_img2
     cdef double x_img1_est, y_img1_est, x_img2_est, y_img2_est
@@ -977,7 +977,7 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
 
 
         # Apply a radial distortion
-        else:
+        elif dist_type.startswith("radial"):
 
             # Initialize the reverse radial iteration loop
             delta_r = 1
@@ -1146,7 +1146,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
         (x, y): [tuple of ndarrays] Image X and Y coordinates.    """
 
     cdef int i, j, index_offset
-    cdef double x0, y0, xy=0.0, a1=0.0, a2=0.0, k1=0.0, k2=0.0, k3=0.0, k4=0.0
+    cdef double x0, y0, xy, a1, a2, k1, k2, k3, k4
     cdef double r, r1, r2, dx, dy, lens_dist, x_corr, y_corr, x_corr1, y_corr1
     cdef double x_img, y_img, x_img1, y_img1, x_img2, y_img2
     cdef double x_img1_est, y_img1_est, x_img2_est, y_img2_est
@@ -1317,7 +1317,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
 
 
         # Apply a radial distortion
-        else:
+        elif dist_type.startswith("radial"):
 
             # Initialize the reverse radial iteration loop
             delta_r = 1
@@ -1493,7 +1493,7 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
 
     cdef int i, index_offset
     cdef double jd
-    cdef double x0, y0, xy=0.0, a1=0.0, a2=0.0, k1=0.0, k2=0.0, k3=0.0, k4=0.0
+    cdef double x0, y0, xy, a1, a2, k1, k2, k3, k4
     cdef double r, r1, r2, dx, dy, lens_dist, x_corr, y_corr, x_corr1, y_corr1
     cdef double x_img, y_img, x_img1, y_img1, x_img2, y_img2
     cdef double radius, theta, sin_t, cos_t
@@ -1636,7 +1636,7 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
 
 
         # Apply a radial distortion
-        else:
+        elif dist_type.startswith("radial"):
 
             # Apply fwd aspect ratio correction 
             x_img1 = x_img
@@ -1648,7 +1648,10 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
             # Compute the fwd asymmetry correction
             r2 = r1 + a1*y_img1*cos(a2) - a1*x_img1*sin(a2)
 
-            # Aplly the forward assymetry correction            
+            # Aplly the forward assymetry correction
+            # x_img2 = x_img1 * r2/r1
+            # y_img2 = y_img1 * r2/r1
+            
             if abs(r1) < 1e-10:
                 x_img2 = x_img1
                 y_img2 = y_img1
@@ -1656,6 +1659,10 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
             else:
                 x_img2 = x_img1 * r2/r1
                 y_img2 = y_img1 * r2/r1
+
+            # Compute the new radius
+            # r2_verify = sqrt(x_img2**2 + y_img2**2)
+            # print(f"should be zero: {r2-r2_verify}")
 
             # Apply the 3rd order radial distortion, all powers
             lens_dist = 1
@@ -1797,7 +1804,7 @@ def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
     """
 
     cdef int i, index_offset
-    cdef double x0, y0, xy=0.0, a1=0.0, a2=0.0, k1=0.0, k2=0.0, k3=0.0, k4=0.0
+    cdef double x0, y0, xy, a1, a2, k1, k2, k3, k4
     cdef double r, r1, r2, dx, dy, lens_dist, x_corr, y_corr, x_corr1, y_corr1
     cdef double x_img, y_img, x_img1, y_img1, x_img2, y_img2
     cdef double radius, theta, sin_t, cos_t
@@ -1941,7 +1948,7 @@ def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
             y_corr1 = y_img + dy
 
         # Apply a radial distortion
-        else:
+        elif dist_type.startswith("radial"):
 
             # Apply fwd aspect ratio correction 
             x_img1 = x_img
