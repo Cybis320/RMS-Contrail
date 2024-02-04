@@ -1,5 +1,6 @@
 #!python
-#cython: language_level=3
+#cython: language_level=2
+
 
 import numpy as np
 # import cv2
@@ -316,9 +317,9 @@ cpdef (double, double) equatorialCoordPrecession(double start_epoch, double fina
     t = (final_epoch - start_epoch)/36525.0
 
     # Calculate correction parameters in degrees
-    zeta  = ((2306.2181 + 1.39656*T - 0.000139*T**2)*t + (0.30188 - 0.000344*T)*t**2 + 0.017998*t**3)/3600
-    z     = ((2306.2181 + 1.39656*T - 0.000139*T**2)*t + (1.09468 + 0.000066*T)*t**2 + 0.018203*t**3)/3600
-    theta = ((2004.3109 - 0.85330*T - 0.000217*T**2)*t - (0.42665 + 0.000217*T)*t**2 - 0.041833*t**3)/3600
+    zeta  = ((2306.2181 + 1.39656*T - 0.000139*T**2)*t + (0.30188 - 0.000344*T)*t**2 + 0.017998*t**3)/3600.0
+    z     = ((2306.2181 + 1.39656*T - 0.000139*T**2)*t + (1.09468 + 0.000066*T)*t**2 + 0.018203*t**3)/3600.0
+    theta = ((2004.3109 - 0.85330*T - 0.000217*T**2)*t - (0.42665 + 0.000217*T)*t**2 - 0.041833*t**3)/3600.0
 
     # Convert parameters to radians
     zeta  = radians(zeta)
@@ -832,8 +833,8 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
 
         # Force the distortion centre to the image centre
         if force_distortion_centre:
-            x0 = 0
-            y0 = 0
+            x0 = 0.0
+            y0 = 0.0
             index_offset += 2
         else:
             # Read distortion offsets
@@ -904,7 +905,7 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
         # cos_ang = (sin(dec) - sin(dec_centre)*cos(radius))/(cos(dec_centre)*sin(radius))
         # theta   = -atan2(sin_ang, cos_ang) + radians(pos_angle_ref) - pi/2.0
 
-        if abs(radius) < 1e-10:
+        if fabs(radius) < 1e-5:
             theta = 0.0
         else:
             sin_ang = cos(dec)*sin(ra - ra_centre)/sin(radius)
@@ -917,13 +918,13 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
         y_corr = degrees(radius) * sin(theta) * pix_scale
 
         # Normalize coordinates to horiizontal dimension
-        x_corr1 = x_corr / (x_res/2)
-        y_corr1 = y_corr / (x_res/2)
+        x_corr1 = x_corr / (x_res/2.0)
+        y_corr1 = y_corr / (x_res/2.0)
         ### ###
 
         # Set initial distorsion values
-        dx = 0
-        dy = 0
+        dx = 0.0
+        dy = 0.0
 
         # Apply 3rd order polynomial + one radial term distortion
         if dist_type.startswith("poly3+radial"):
@@ -980,15 +981,15 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
         elif dist_type.startswith("radial"):
 
             # Initialize the reverse radial iteration loop
-            delta_r = 1
+            delta_r = 1.0
             j = 0
-            lens_dist = 1
+            lens_dist = 1.0
 
             # Set initial guess
             x_img2 = x_corr1
             y_img2 = y_corr1
 
-            while delta_r > .1 / (x_res/2) and j < 100:
+            while delta_r > 0.1 / (x_res/2.0) and j < 100:
                 j += 1
 
                 # Compute the radius
@@ -1036,7 +1037,7 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
                     # Compute lens distortion
                     lens_dist = 1 + k1*r2**2 + k2*r2**4 + k3*r2**6 + k4*r2**8
                 
-                if lens_dist == 1 or abs(lens_dist) > 1.7 or (x == 0 and y == 0):
+                if lens_dist == 1 or fabs(lens_dist) > 1.7 or (x == 0 and y == 0):
                     break
                 
                 # Apply the reverse radial distortion
@@ -1052,14 +1053,14 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
                 y_img2 = y_img2_est
                         
             # Initialize the reverse assymetry itiration loop
-            delta_r = 1
+            delta_r = 1.0
             j = 0
 
             # Set initial guess
             x_img1 = x_img2
             y_img1 = y_img2
 
-            while delta_r > .1 / (x_res/2) and j < 100:
+            while delta_r > 0.1 / (x_res/2.0) and j < 100:
                 j += 1
 
                 # Compute the radius
@@ -1067,13 +1068,13 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
 
                 # Compute the reverse assymetry
                 r1 = r2 - a1*y_img1*cos(a2) + a1*x_img1*sin(a2)
-
+                
                 # Apply the reverse assymetry
                 # x_img1_est = x_img2 * r1/r2
                 # y_img1_est = y_img2 * r1/r2
 
                 ## This causes problems    
-                if abs(r2) < 1e-10:
+                if abs(r2) < 1e-5:
                     x_img1_est = x_img2
                     y_img1_est = y_img2
 
@@ -1094,8 +1095,8 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
             y_img = y_img1 / (1.0 + xy)
             
         # De-normalize for horizontal pixel size
-        x_img = x_img * (x_res/2)
-        y_img = y_img * (x_res/2)
+        x_img = x_img * (x_res/2.0)
+        y_img = y_img * (x_res/2.0)
 
         # Set origin to top left corner
         x_img = x_img + x0 + x_res/2.0
@@ -1173,8 +1174,8 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
 
         # Force the distortion centre to the image centre
         if force_distortion_centre:
-            x0 = 0
-            y0 = 0
+            x0 = 0.0
+            y0 = 0.0
             index_offset += 2
         else:
             # Read distortion offsets
@@ -1244,26 +1245,26 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
         # cos_ang = (sin(alt) - sin(alt_ref) * cos(radius)) / (cos(alt_ref) * sin(radius))
         # theta = -atan2(sin_ang, cos_ang) + radians(rotation_from_horiz) - pi/2.0
 
-        if radius < 1e-10:
+        if radius < 1e-5:
             theta = 0.0
         else:
             sin_ang = cos(alt) * sin(az_ref - az) / sin(radius)
             cos_ang = (sin(alt) - sin(alt_ref) * cos(radius)) / (cos(alt_ref) * sin(radius))
-            theta = -atan2(sin_ang, cos_ang) + radians(rotation_from_horiz) - pi/2.0
+            theta = -atan2(sin_ang, cos_ang) + radians(rotation_from_horiz) - pi/2
 
         # Calculate the standard coordinates
         x_corr = degrees(radius) * cos(theta) * pix_scale
         y_corr = degrees(radius) * sin(theta) * pix_scale
 
         # Normalize coordinates to horiizontal dimension
-        x_corr1 = x_corr / (x_res/2)
-        y_corr1 = y_corr / (x_res/2)
+        x_corr1 = x_corr / (x_res/2.0)
+        y_corr1 = y_corr / (x_res/2.0)
 
         ### ###
 
         # Set initial distorsion values
-        dx = 0
-        dy = 0
+        dx = 0.0
+        dy = 0.0
 
         # Apply 3rd order polynomial + one radial term distortion
         if dist_type.startswith("poly3+radial"):
@@ -1320,15 +1321,15 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
         elif dist_type.startswith("radial"):
 
             # Initialize the reverse radial iteration loop
-            delta_r = 1
+            delta_r = 1.0
             j = 0
-            lens_dist = 1
+            lens_dist = 1.0
 
             # Set initial guess
             x_img2 = x_corr1
             y_img2 = y_corr1
 
-            while delta_r > .1 / (x_res/2) and j < 100:
+            while delta_r > 0.1 / (x_res/2.0) and j < 100:
                 j += 1
 
                 # Compute the radius
@@ -1376,7 +1377,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
                     # Compute lens distortion
                     lens_dist = 1 + k1*r2**2 + k2*r2**4 + k3*r2**6 + k4*r2**8
                 
-                if lens_dist == 1 or abs(lens_dist) > 1.7 or (x == 0 and y == 0):
+                if lens_dist == 1 or fabs(lens_dist) > 1.7 or (x == 0 and y == 0):
                     break
                 
                 # Apply the reverse radial distortion
@@ -1391,14 +1392,14 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
                 y_img2 = y_img2_est
             
             # Initialize the reverse assymetry itiration loop
-            delta_r = 1
+            delta_r = 1.0
             j = 0
 
             # Set initial guess
             x_img1 = x_img2
             y_img1 = y_img2
 
-            while delta_r > .1 / (x_res/2) and j < 100:
+            while delta_r > 0.1 / (x_res/2.0) and j < 100:
                 j += 1
 
                 # Compute the radius
@@ -1411,7 +1412,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
                 # x_img1_est = x_img2 * r1/r2
                 # y_img1_est = y_img2 * r1/r2
 
-                if abs(r2) < 1e-10:
+                if fabs(r2) < 1e-5:
                     x_img1_est = x_img2
                     y_img1_est = y_img2
 
@@ -1432,8 +1433,8 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
             y_img = y_img1 / (1.0 + xy)
 
         # De-normalize for horizontal pixel size
-        x_img = x_img * (x_res/2)
-        y_img = y_img * (x_res/2)
+        x_img = x_img * (x_res/2.0)
+        y_img = y_img * (x_res/2.0)
 
         # Set origin to top left corner
         x_img = x_img + x0 + x_res/2.0
@@ -1515,8 +1516,8 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
 
         # Force the distortion centre to the image centre
         if force_distortion_centre:
-            x0 = 0
-            y0 = 0
+            x0 = 0.0
+            y0 = 0.0
             index_offset += 2
         else:
             # Read distortion offsets
@@ -1585,8 +1586,8 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
         y_img = y_img - y0 - y_res/2.0
 
         # Normalize radius to horizontal size
-        x_img = x_img / (x_res/2)
-        y_img = y_img / (x_res/2)
+        x_img = x_img / (x_res/2.0)
+        y_img = y_img / (x_res/2.0)
 
         # Apply 3rd order polynomial + one radial term distortion
         if dist_type.startswith("poly3+radial"):
@@ -1652,7 +1653,7 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
             # x_img2 = x_img1 * r2/r1
             # y_img2 = y_img1 * r2/r1
             
-            if abs(r1) < 1e-10:
+            if fabs(r1) < 1e-5:
                 x_img2 = x_img1
                 y_img2 = y_img1
 
@@ -1665,7 +1666,7 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
             # print(f"should be zero: {r2-r2_verify}")
 
             # Apply the 3rd order radial distortion, all powers
-            lens_dist = 1
+            lens_dist = 1.0
 
             if dist_type == "radial3-all":
 
@@ -1713,8 +1714,8 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
             y_corr1 = y_img2 * lens_dist
 
         # Gnomonize coordinates
-        x_corr = x_corr1 * (x_res/2) / pix_scale
-        y_corr = y_corr1 * (x_res/2) / pix_scale
+        x_corr = x_corr1 * (x_res/2.0) / pix_scale
+        y_corr = y_corr1 * (x_res/2.0) / pix_scale
 
         ### ###
 
@@ -1828,8 +1829,8 @@ def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
 
         # Force the distortion centre to the image centre
         if force_distortion_centre:
-            x0 = 0
-            y0 = 0
+            x0 = 0.0
+            y0 = 0.0
             index_offset += 2
         else:
             # Read distortion offsets
@@ -1898,8 +1899,8 @@ def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
         y_img = y_img - y0 - y_res/2.0
 
         # Normalize radius to horizontal size
-        x_img = x_img / (x_res/2)
-        y_img = y_img / (x_res/2)
+        x_img = x_img / (x_res/2.0)
+        y_img = y_img / (x_res/2.0)
 
         # Apply 3rd order polynomial + one radial term distortion
         if dist_type.startswith("poly3+radial"):
@@ -1964,7 +1965,7 @@ def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
             # x_img2 = x_img1 * r2/r1
             # y_img2 = y_img1 * r2/r1
 
-            if abs(r1) < 1e-10:
+            if fabs(r1) < 1e-5:
                 x_img2 = x_img1
                 y_img2 = y_img1
 
@@ -1977,7 +1978,7 @@ def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
             # print(f"should be zero: {r2-r2_verify}")
 
             # Apply the 3rd order radial distortion, all powers
-            lens_dist = 1
+            lens_dist = 1.0
 
             if dist_type == "radial3-all":
 
@@ -2025,8 +2026,8 @@ def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
             y_corr1 = y_img2 * lens_dist
 
         # Gnomonize coordinates
-        x_corr = x_corr1 * (x_res/2) / pix_scale
-        y_corr = y_corr1 * (x_res/2) / pix_scale
+        x_corr = x_corr1 * (x_res/2.0) / pix_scale
+        y_corr = y_corr1 * (x_res/2.0) / pix_scale
         
 
         ### ###
