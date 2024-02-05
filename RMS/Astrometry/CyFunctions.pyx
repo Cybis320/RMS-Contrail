@@ -1,5 +1,5 @@
 #!python
-#cython: language_level=2
+#cython: language_level=3
 
 
 import numpy as np
@@ -978,7 +978,7 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
 
 
         # Apply a radial distortion
-        elif dist_type.startswith("radial"):
+        else:
 
             # Initialize the reverse radial iteration loop
             delta_r = 1.0
@@ -1037,7 +1037,8 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
                     # Compute lens distortion
                     lens_dist = 1 + k1*r2**2 + k2*r2**4 + k3*r2**6 + k4*r2**8
                 
-                if lens_dist == 1 or fabs(lens_dist) > 1.7 or (x == 0 and y == 0):
+                # Stop itterating if point is at center of distortion or outside the lens FOV.
+                if lens_dist == 1 or fabs(lens_dist) > 1.7 or (fabs(x_img2) < 1e-5 and fabs(y_img2) < 1e-5):
                     break
                 
                 # Apply the reverse radial distortion
@@ -1068,12 +1069,12 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
 
                 # Compute the reverse assymetry
                 r1 = r2 - a1*y_img1*cos(a2) + a1*x_img1*sin(a2)
-                
+
                 # Apply the reverse assymetry
                 # x_img1_est = x_img2 * r1/r2
                 # y_img1_est = y_img2 * r1/r2
 
-                ## This causes problems    
+                ## avoid division by zero    
                 if abs(r2) < 1e-5:
                     x_img1_est = x_img2
                     y_img1_est = y_img2
@@ -1245,6 +1246,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
         # cos_ang = (sin(alt) - sin(alt_ref) * cos(radius)) / (cos(alt_ref) * sin(radius))
         # theta = -atan2(sin_ang, cos_ang) + radians(rotation_from_horiz) - pi/2.0
 
+        # Avoid division by zerp
         if radius < 1e-5:
             theta = 0.0
         else:
@@ -1256,7 +1258,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
         x_corr = degrees(radius) * cos(theta) * pix_scale
         y_corr = degrees(radius) * sin(theta) * pix_scale
 
-        # Normalize coordinates to horiizontal dimension
+        # Normalize coordinates to horizontal dimension
         x_corr1 = x_corr / (x_res/2.0)
         y_corr1 = y_corr / (x_res/2.0)
 
@@ -1318,7 +1320,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
 
 
         # Apply a radial distortion
-        elif dist_type.startswith("radial"):
+        else:
 
             # Initialize the reverse radial iteration loop
             delta_r = 1.0
@@ -1377,7 +1379,8 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
                     # Compute lens distortion
                     lens_dist = 1 + k1*r2**2 + k2*r2**4 + k3*r2**6 + k4*r2**8
                 
-                if lens_dist == 1 or fabs(lens_dist) > 1.7 or (x == 0 and y == 0):
+                # Stop itterating if point is at center of distortion or outside the lens FOV.
+                if lens_dist == 1 or fabs(lens_dist) > 1.7 or (fabs(x_img2) < 1e-5 and fabs(y_img2) < 1e-5):
                     break
                 
                 # Apply the reverse radial distortion
@@ -1412,6 +1415,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
                 # x_img1_est = x_img2 * r1/r2
                 # y_img1_est = y_img2 * r1/r2
 
+                # Avoid division by zero
                 if fabs(r2) < 1e-5:
                     x_img1_est = x_img2
                     y_img1_est = y_img2
@@ -1637,7 +1641,7 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
 
 
         # Apply a radial distortion
-        elif dist_type.startswith("radial"):
+        else:
 
             # Apply fwd aspect ratio correction 
             x_img1 = x_img
@@ -1650,9 +1654,8 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
             r2 = r1 + a1*y_img1*cos(a2) - a1*x_img1*sin(a2)
 
             # Aplly the forward assymetry correction
-            # x_img2 = x_img1 * r2/r1
-            # y_img2 = y_img1 * r2/r1
-            
+
+            # Avoid division by zero            
             if fabs(r1) < 1e-5:
                 x_img2 = x_img1
                 y_img2 = y_img1

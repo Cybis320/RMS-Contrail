@@ -301,7 +301,7 @@ def get_points_for_batch(grouped_points, batch_start_time, batch_end_time, time_
 
 
 
-def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=timedelta(seconds=5), adsb_latency=timedelta(milliseconds=50)):
+def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=timedelta(seconds=5), adsb_latency=timedelta(milliseconds=0)):
     """Interpolates aircraft positions for a given timestamp.
 
     Args:
