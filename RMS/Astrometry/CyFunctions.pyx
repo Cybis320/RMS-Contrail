@@ -39,7 +39,7 @@ cdef extern from "math.h":
     double sqrt(double)
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cdef double radians(double deg):
     """Converts degrees to radians.
     """
@@ -48,7 +48,7 @@ cdef double radians(double deg):
 
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cdef double degrees(double deg):
     """Converts radians to degrees.
     """
@@ -66,7 +66,7 @@ cdef double sign(double x):
 
 @cython.boundscheck(False)
 @cython.wraparound(False) 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cpdef double angularSeparation(double ra1, double dec1, double ra2, double dec2):
     """ Calculate the angular separation between 2 stars in equatorial celestial coordinates. 
 
@@ -265,7 +265,7 @@ def matchStars(np.ndarray[FLOAT_TYPE_t, ndim=2] stars_list, np.ndarray[FLOAT_TYP
 
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cpdef double cyjd2LST(double jd, double lon):
     """ Convert Julian date to apparent Local Sidereal Time. The times is apparent, not mean!
 
@@ -293,7 +293,7 @@ cpdef double cyjd2LST(double jd, double lon):
 
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cpdef (double, double) equatorialCoordPrecession(double start_epoch, double final_epoch, double ra, \
     double dec):
     """ Corrects Right Ascension and Declination from one epoch to another, taking only precession into 
@@ -344,7 +344,7 @@ cpdef (double, double) equatorialCoordPrecession(double start_epoch, double fina
 
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cpdef double refractionApparentToTrue(double elev):
     """ Correct the apparent elevation of a star for refraction to true elevation. The temperature and air
         pressure are assumed to be unknown. 
@@ -430,7 +430,7 @@ cpdef (double, double) eqRefractionApparentToTrue(double ra, double dec, double 
 
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cpdef double refractionTrueToApparent(double elev):
     """ Correct the true elevation of a star for refraction to apparent elevation. The temperature and air
         pressure are assumed to be unknown. 
@@ -516,7 +516,7 @@ cpdef (double, double) eqRefractionTrueToApparent(double ra, double dec, double 
 
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cpdef (double, double) cyraDec2AltAz(double ra, double dec, double jd, double lat, double lon):
     """ Convert right ascension and declination to azimuth (+East of due North) and altitude. Same epoch is
         assumed, no correction for refraction is done.
@@ -646,7 +646,7 @@ def cyTrueRaDec2ApparentAltAz_vect(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_arr, \
 
 
 
-@cython.cdivision(False)
+@cython.cdivision(True)
 cpdef (double, double) cyaltAz2RADec(double azim, double elev, double jd, double lat, double lon):
     """ Convert azimuth and altitude in a given time and position on Earth to right ascension and 
         declination. 
@@ -763,7 +763,7 @@ def cyApparentAltAz2TrueRADec_vect(np.ndarray[FLOAT_TYPE_t, ndim=1] azim_arr, np
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-@cython.cdivision(False)
+@cython.cdivision(True)
 def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
     np.ndarray[FLOAT_TYPE_t, ndim=1] dec_data, double jd, double lat, double lon, double x_res, \
     double y_res, double h0, double ra_ref, double dec_ref, double pos_angle_ref, double pix_scale, \
@@ -1113,7 +1113,7 @@ def cyraDecToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] ra_data, \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-@cython.cdivision(False)
+@cython.cdivision(True)
 def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
     np.ndarray[FLOAT_TYPE_t, ndim=1] alt_data, double x_res, \
     double y_res, double az_ref, double alt_ref, double rotation_from_horiz, double pix_scale, \
@@ -1455,7 +1455,7 @@ def cyAzAltToXY(np.ndarray[FLOAT_TYPE_t, ndim=1] az_data, \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-@cython.cdivision(False)
+@cython.cdivision(True)
 def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
     np.ndarray[FLOAT_TYPE_t, ndim=1] y_data, double lat, double lon, double x_res, double y_res, \
     double h0, double ra_ref, double dec_ref, double pos_angle_ref, double pix_scale, \
@@ -1771,7 +1771,7 @@ def cyXYToRADec(np.ndarray[FLOAT_TYPE_t, ndim=1] jd_data, np.ndarray[FLOAT_TYPE_
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-@cython.cdivision(False)
+@cython.cdivision(True)
 def cyXYToAltAz(np.ndarray[FLOAT_TYPE_t, ndim=1] x_data, \
     np.ndarray[FLOAT_TYPE_t, ndim=1] y_data, double x_res, double y_res, \
     double az_centre, double alt_centre, double rotation_from_horiz, double pix_scale, \
