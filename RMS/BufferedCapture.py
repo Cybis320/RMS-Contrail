@@ -388,24 +388,6 @@ class BufferedCapture(Process):
         return device
 
 
-    def releaseVideoDevice (self)
-        if hasattr(self, 'pipeline') and self.pipeline:
-                    try:
-                        self.pipeline.set_state(Gst.State.NULL)
-                        log.info('GStreamer Video device released!')
-                    except Exception as e:
-                        log.error(f'Error releasing GStreamer pipeline: {e}')
-
-                # Check if using OpenCV and release resources
-                if 'device' in locals() and device:
-                    try:
-                        if isinstance(device, cv2.VideoCapture):
-                            device.release()
-                            log.info('OpenCV Video device released!')
-                    except Exception as e:
-                        log.error(f'Error releasing OpenCV device: {e}')
-
-
 
     def run(self):
         """ Capture frames.
@@ -520,8 +502,7 @@ class BufferedCapture(Process):
 
                 while not self.exit.is_set():
 
-                    log.info('Releasing then waiting for the video device to be reconnected...')
-                    self.releaseVideoDevice()
+                    log.info('Waiting for the video device to be reconnected...')
 
                     time.sleep(5)
 
@@ -577,6 +558,22 @@ class BufferedCapture(Process):
                 if (self.video_file is None) and (not ret):
 
                     log.info('Frame grabbing failed, video device is probably disconnected!')
+                    # Check if using GStreamer and release resources
+                    if hasattr(self, 'pipeline') and self.pipeline:
+                        try:
+                            self.pipeline.set_state(Gst.State.NULL)
+                            log.info('GStreamer Video device released!')
+                        except Exception as e:
+                            log.error(f'Error releasing GStreamer pipeline: {e}')
+
+                    # Check if using OpenCV and release resources
+                    if 'device' in locals() and device:
+                        try:
+                            if isinstance(device, cv2.VideoCapture):
+                                device.release()
+                                log.info('OpenCV Video device released!')
+                        except Exception as e:
+                            log.error(f'Error releasing OpenCV device: {e}')
 
                     wait_for_reconnect = True
                     break
@@ -763,7 +760,22 @@ class BufferedCapture(Process):
 
         log.info('Releasing video device...')
 
-        self.releaseVideoDevice()
+        # Check if using GStreamer and release resources
+        if hasattr(self, 'pipeline') and self.pipeline:
+            try:
+                self.pipeline.set_state(Gst.State.NULL)
+                log.info('GStreamer Video device released!')
+            except Exception as e:
+                log.error(f'Error releasing GStreamer pipeline: {e}')
+
+        # Check if using OpenCV and release resources
+        if 'device' in locals() and device:
+            try:
+                if isinstance(device, cv2.VideoCapture):
+                    device.release()
+                    log.info('OpenCV Video device released!')
+            except Exception as e:
+                log.error(f'Error releasing OpenCV device: {e}')    
 
 
     
