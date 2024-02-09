@@ -388,6 +388,25 @@ class BufferedCapture(Process):
         return device
 
 
+    def releaseVideoDevice (self)
+        if hasattr(self, 'pipeline') and self.pipeline:
+                    try:
+                        self.pipeline.set_state(Gst.State.NULL)
+                        log.info('GStreamer Video device released!')
+                    except Exception as e:
+                        log.error(f'Error releasing GStreamer pipeline: {e}')
+
+                # Check if using OpenCV and release resources
+                if 'device' in locals() and device:
+                    try:
+                        if isinstance(device, cv2.VideoCapture):
+                            device.release()
+                            log.info('OpenCV Video device released!')
+                    except Exception as e:
+                        log.error(f'Error releasing OpenCV device: {e}')
+
+
+
     def run(self):
         """ Capture frames.
         """
@@ -501,7 +520,8 @@ class BufferedCapture(Process):
 
                 while not self.exit.is_set():
 
-                    log.info('Waiting for the video device to be reconnected...')
+                    log.info('Releasing and Waiting for the video device to be reconnected...')
+                    self.releaseVideoDevice()
 
                     time.sleep(5)
 
@@ -743,22 +763,7 @@ class BufferedCapture(Process):
 
         log.info('Releasing video device...')
 
-        # Check if using GStreamer and release resources
-        if hasattr(self, 'pipeline') and self.pipeline:
-            try:
-                self.pipeline.set_state(Gst.State.NULL)
-                log.info('GStreamer Video device released!')
-            except Exception as e:
-                log.error(f'Error releasing GStreamer pipeline: {e}')
-
-        # Check if using OpenCV and release resources
-        if 'device' in locals() and device:
-            try:
-                if isinstance(device, cv2.VideoCapture):
-                    device.release()
-                    log.info('OpenCV Video device released!')
-            except Exception as e:
-                log.error(f'Error releasing OpenCV device: {e}')    
+        self.releaseVideoDevice()
 
 
     
