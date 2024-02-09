@@ -594,7 +594,7 @@ def run_overlay_on_images(input_path, platepar):
         kml_dir = os.path.dirname(input_path)
     else:
         print("Invalid input path.")
-        return
+        return None
 
     # Ensure output directory exists
     if not os.path.exists(output_dir):
@@ -604,16 +604,17 @@ def run_overlay_on_images(input_path, platepar):
     # Extract, filter, and sort timestamps
     image_timestamps = {img_file: extract_timestamp_from_name(img_file) for img_file in image_files}
     image_timestamps = {img: ts for img, ts in image_timestamps.items() if ts is not None}
-    image_timestamps = sorted(image_timestamps.items(), key=lambda item: item[1])
+    sorted_timestamps = sorted(image_timestamps.items(), key=lambda item: item[1])
 
-    # Check if image_timestamps is empty
-    if not image_timestamps:
-        print("No valid images with timestamps found.")
-        return
-
-    # Query aircraft positions
-    min_timestamp = image_timestamps[0][1]
-    max_timestamp = image_timestamps[-1][1]
+    if sorted_timestamps:
+        min_timestamp = sorted_timestamps[0][1]
+        max_timestamp = sorted_timestamps[-1][1]
+        if max_timestamp - min_timestamp > timedelta(days=1):
+            print("Timestamps exceed a 24-hour period.")
+            return None
+    else:
+        print("No valid timestamps found.")
+        return None
 
     find_platepar = False
 
@@ -667,9 +668,9 @@ def run_overlay_on_images(input_path, platepar):
 
     # Divide grouped_points into batches
     batch_size = 10 # 75 gave best perf on a macbook
-    batches = create_image_batches(image_timestamps, batch_size)
+    batches = create_image_batches(sorted_timestamps, batch_size)
     image_count = 0
-    total_images = len(image_timestamps)
+    total_images = len(sorted_timestamps)
 
     print("Preparing files for the ADS-B timelapse...")
 
