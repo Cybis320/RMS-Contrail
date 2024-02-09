@@ -520,7 +520,7 @@ class BufferedCapture(Process):
 
                 while not self.exit.is_set():
 
-                    log.info('Releasing and Waiting for the video device to be reconnected...')
+                    log.info('Releasing then waiting for the video device to be reconnected...')
                     self.releaseVideoDevice()
 
                     time.sleep(5)
