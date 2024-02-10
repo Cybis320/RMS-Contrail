@@ -260,14 +260,15 @@ class BufferedCapture(Process):
         - Gst.Element: The appsink element of the created GStreamer pipeline, 
         which can be used for further processing of the captured video frames.
         """
+        
         device_url = self.extract_rtsp_url(self.config.deviceID)
         device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
                     f"location=\"{device_url}\" ! "
-                    "rtph264depay ! h264parse ! avdec_h264")
+                    "rtph264depay ! h264parse ! ! queue leaky=downstream max-size-buffers=250 ! avdec_h264")
 
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
         pipeline_str = (f"{device_str} ! {conversion} ! "
-                        "appsink max-buffers=25 drop=true sync=1 name=appsink")
+                        "appsink max-buffers=250 drop=true sync=1 name=appsink")
         
         self.pipeline = Gst.parse_launch(pipeline_str)
 
