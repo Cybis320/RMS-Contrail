@@ -441,13 +441,36 @@ def overlay_data_on_image(image, point, az_center):
     aircraft_track = point['track'] if point['track'] is not None else az_center
     diff_angle = (aircraft_track - az_center) % 360
 
-    rectangle_size = 20
-    
+    radius = 10
+    outline_color = (0, 0, 0)
     color = (50, 255, 50)
+    center = (x, y)
 
-    cv2.rectangle(image, (int(x - rectangle_size / 2), int(y - rectangle_size / 2)), (int(x + rectangle_size / 2), int(y + rectangle_size / 2)), (0, 0, 0), 2)
-    cv2.rectangle(image, (int(x - rectangle_size / 2), int(y - rectangle_size / 2)), (int(x + rectangle_size / 2), int(y + rectangle_size / 2)), color, 1)
-    cv2.rectangle(image, (int(x - 2), int(y - 2)), (int(x + 2), int(y + 2)), color, 1)
+    # Length of the bars inside the circle
+    bar_length = radius // 2
+
+    # Thickness of the bars
+    inner_thickness = 1  
+    outline_thickness = 2 
+
+    # Draw crosshairs with an outline
+    cv2.circle(image, center, radius, outline_color, outline_thickness, lineType=cv2.LINE_AA)
+    cv2.circle(image, center, radius, color, inner_thickness, lineType=cv2.LINE_AA)
+
+    # Draw each bar with an outline
+    # 0 o'clock
+    cv2.line(image, (x, y - radius + bar_length), (x, y - radius + outline_thickness), outline_color, outline_thickness, lineType=cv2.LINE_AA)
+    cv2.line(image, (x, y - radius + bar_length), (x, y - radius), color, inner_thickness, lineType=cv2.LINE_AA)
+    # 3 o'clock
+    cv2.line(image, (x + radius - bar_length, y), (x + radius - outline_thickness, y), outline_color, outline_thickness, lineType=cv2.LINE_AA)
+    cv2.line(image, (x + radius - bar_length, y), (x + radius, y), color, inner_thickness, lineType=cv2.LINE_AA)
+    # 6 o'clock
+    cv2.line(image, (x, y + radius - bar_length), (x, y + radius - outline_thickness), outline_color, outline_thickness, lineType=cv2.LINE_AA)
+    cv2.line(image, (x, y + radius - bar_length), (x, y + radius), color, inner_thickness, lineType=cv2.LINE_AA)
+    # 9 o'clock
+    cv2.line(image, (x - radius + outline_thickness, y), (x - radius + bar_length, y), outline_color, outline_thickness, lineType=cv2.LINE_AA)
+    cv2.line(image, (x - radius, y), (x - radius + bar_length, y), color, inner_thickness, lineType=cv2.LINE_AA)
+
     # Adjust color as a function of an altitude threshold and set alt to N/A if None
     if isinstance(alt_baro, int):
         text = f"{alt_baro:,} ft\n{aircraft_type}\n{aircraft_reg}"
@@ -472,7 +495,7 @@ def overlay_data_on_image(image, point, az_center):
             max_width = text_width
 
     # Position text as a function of aircraft track away from potential contrail
-    offset = center_distance_two_rectangles(rectangle_size + 5, rectangle_size + 5, max_width, total_text_height, diff_angle)
+    offset = center_distance_two_rectangles(2 * radius + 5, 2 * radius + 5, max_width, total_text_height, diff_angle)
     x_offset = offset * np.cos(np.radians(diff_angle))
     y_offset = offset * np.sin(np.radians(diff_angle))
 
@@ -487,6 +510,7 @@ def overlay_data_on_image(image, point, az_center):
         y_line = y_new + text_height * (i+1 - number_of_lines / 2)
         cv2.putText(image, line, (int(x_line), int(y_line)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2, lineType=cv2.LINE_AA)
         cv2.putText(image, line, (int(x_line), int(y_line)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, lineType=cv2.LINE_AA)
+
 
 
 
