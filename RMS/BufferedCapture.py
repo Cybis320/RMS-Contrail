@@ -199,6 +199,14 @@ class BufferedCapture(Process):
                     buffer = sample.get_buffer()
                     gst_timestamp_ns = buffer.pts  # GStreamer timestamp in nanoseconds
 
+                    # Validate gst_timestamp_ns to be within a reasonable range 
+                    max_expected_ns = 24 * 60 * 60 * 1e9
+                    if gst_timestamp_ns > max_expected_ns or gst_timestamp_ns <= 0:
+                        # Log this event, handle error, or take corrective action
+                        log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
+                    else:
+                        return False, None, None
+                    
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
                     if ret:
                         # If all channels contains colors, or there is only one channel, keep channel(s) 
