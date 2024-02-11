@@ -204,7 +204,6 @@ class BufferedCapture(Process):
                     if gst_timestamp_ns > max_expected_ns or gst_timestamp_ns <= 0:
                         # Log this event, handle error, or take corrective action
                         log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
-                    else:
                         return False, None, None
                     
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
