@@ -22,26 +22,25 @@ os.environ['GST_DEBUG'] = '3'
 
 import re
 import time
+import numpy as np
+from math import floor
 import logging
 import datetime
 import os.path
 from multiprocessing import Process, Event, Value
 
-from math import floor
-
-# pylint: disable=E1101
 import cv2
-
-import numpy as np
-
-import gi
-gi.require_version('Gst', '1.0')
-from gi.repository import Gst
-
 from RMS.Misc import ping
 
 # Get the logger from the main module
 log = logging.getLogger("logger")
+
+try:
+    import gi
+    gi.require_version('Gst', '1.0')
+    from gi.repository import Gst
+except ImportError as e:
+    log.info('Could not import gi: {}. Using OpenCV.'.format(e))
 
 
 class BufferedCapture(Process):
@@ -78,7 +77,7 @@ class BufferedCapture(Process):
         self.video_file = video_file
 
         # A frame will be considered dropped if it was late more then half a frame
-        self.time_for_drop = 1.9/config.fps
+        self.time_for_drop = 1.5*(1.0/config.fps)
 
         self.dropped_frames = Value('i', 0)
         self.device = None
@@ -153,7 +152,7 @@ class BufferedCapture(Process):
         if self.is_alive():
             log.info('Terminating capture...')
             self.terminate()
-        
+
         return self.dropped_frames.value
 
 
@@ -170,7 +169,7 @@ class BufferedCapture(Process):
                 else:
                     return False
         except Exception as e:
-            log.error(f'Error checking device status: {e}')
+            log.error('Error checking device status: {}'.format(e))
             return False
 
 
@@ -267,22 +266,24 @@ class BufferedCapture(Process):
         - Gst.Element: The appsink element of the created GStreamer pipeline, 
         which can be used for further processing of the captured video frames.
         """
-        
+
         device_url = self.extract_rtsp_url(self.config.deviceID)
         device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
-                    f"location=\"{device_url}\" ! "
-                    "rtph264depay ! h264parse ! avdec_h264")
+                      "location=\"{}\" ! "
+                      "rtph264depay ! h264parse ! avdec_h264").format(device_url)
 
-        conversion = f"videoconvert ! video/x-raw,format={video_format}"
-        pipeline_str = (f"{device_str} ! queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                        f"{conversion} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                         "appsink max-buffers=100 drop=true sync=0 name=appsink")
+        conversion = "videoconvert ! video/x-raw,format={}".format(video_format)
+        pipeline_str = ("{} ! queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
+                        "{} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
+                        "appsink max-buffers=100 drop=true sync=0 name=appsink").format(device_str, conversion)
+
         
         self.pipeline = Gst.parse_launch(pipeline_str)
 
         self.pipeline.set_state(Gst.State.PLAYING)
         self.start_timestamp = time.time() - self.total_latency
-        log.info(f"Start time is {datetime.datetime.fromtimestamp(self.start_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')}")
+        start_time_str = datetime.datetime.fromtimestamp(self.start_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
+        log.info("Start time is {}".format(start_time_str))
 
         return self.pipeline.get_by_name("appsink")
 
@@ -350,55 +351,61 @@ class BufferedCapture(Process):
                 self.device = cv2.VideoCapture(self.config.deviceID)
 
             else:
-                log.info("Initialize GStreamer Device.")
-                # Initialize GStreamer
-                Gst.init(None)
+                try:
+                    log.info("Initialize GStreamer Device.")
+                    # Initialize GStreamer
+                    Gst.init(None)
 
-                # Create and start a GStreamer pipeline
-                self.device = self.create_gstream_device('BGR')
+                    # Create and start a GStreamer pipeline
+                    self.device = self.create_gstream_device('BGR')
 
-                # Determine the shape of the GStream
-                sample = self.device.emit("pull-sample")
-                buffer = sample.get_buffer()
-                ret, _ = buffer.map(Gst.MapFlags.READ)
-                if ret:
-                    # Get caps and extract video information
-                    caps = sample.get_caps()
-                    structure = caps.get_structure(0) if caps else None
+                    # Determine the shape of the GStream
+                    sample = self.device.emit("pull-sample")
+                    buffer = sample.get_buffer()
+                    ret, _ = buffer.map(Gst.MapFlags.READ)
+                    if ret:
+                        # Get caps and extract video information
+                        caps = sample.get_caps()
+                        structure = caps.get_structure(0) if caps else None
 
-                    if structure:
+                        if structure:
 
-                        # Extract width, height, and format
-                        width = structure.get_value('width')
-                        height = structure.get_value('height')
-                        video_format = structure.get_value('format')
+                            # Extract width, height, and format
+                            width = structure.get_value('width')
+                            height = structure.get_value('height')
+                            video_format = structure.get_value('format')
 
-                        # Determine the shape based on format
-                        if video_format in ['RGB', 'BGR']:
-                            self.frame_shape = (height, width, 3)  # RGB or BGR
-                            ret, frame, _ = self.read()
-                            if ret:
-                                # If frame is grayscale, stop and restart the pipeline in GRAY8 format
-                                if self.is_grayscale(frame):
-                                    self.convert_to_gray = True
-                                log.info(f"Video format: {video_format}, {height}P, color: {not self.convert_to_gray}")
+                            # Determine the shape based on format
+                            if video_format in ['RGB', 'BGR']:
+                                self.frame_shape = (height, width, 3)  # RGB or BGR
+                                ret, frame, _ = self.read()
+
+                                if ret:
+                                    # If frame is grayscale, stop and restart the pipeline in GRAY8 format
+                                    if self.is_grayscale(frame):
+                                        self.convert_to_gray = True
+                                    log.info("Video format: {}, {}P, color: {}".format(video_format, height, not self.convert_to_gray))
+
+                                else:
+                                    log.error("Could not determine BGR frame shape.")
+                                    return False
+
+                            elif video_format == 'GRAY8':
+                                self.frame_shape = (height, width)  # Grayscale
+                                log.info("Video format: {}, {}P".format(video_format, height))
+                                
                             else:
-                                log.error("Could not determine BGR frame shape.")
+                                log.error("Unsupported video format: {}.".format(video_format))
                                 return False
-                        elif video_format == 'GRAY8':
-                            self.frame_shape = (height, width)  # Grayscale
-                            log.info(f"Video format: {video_format}, {height}P")
-                            
                         else:
-                            log.error(f"Unsupported video format: {video_format}.")
+                            log.error("Could not determine frame shape.")
                             return False
                     else:
-                        log.error("Could not determine frame shape.")
+                        log.error("Could not obtain frame.")
                         return False
-                else:
-                    log.error("Could not obtain frame.")
-                    return False
-
+                except:
+                    log.info("Could not initialize GStream. Initialize OpenCV Device instead.")
+                    self.device = cv2.VideoCapture(self.config.deviceID)
         return True
 
 
@@ -410,7 +417,7 @@ class BufferedCapture(Process):
                 self.pipeline.set_state(Gst.State.NULL)
                 log.info('GStreamer Video device released!')
             except Exception as e:
-                log.error(f'Error releasing GStreamer pipeline: {e}')
+                log.error('Error releasing GStreamer pipeline: {}'.format(e))
                 
         if self.device:
             try:
@@ -418,7 +425,7 @@ class BufferedCapture(Process):
                     self.device.release()
                     log.info('OpenCV Video device released!')
             except Exception as e:
-                log.error(f'Error releasing OpenCV device: {e}')
+                log.error('Error releasing OpenCV device: {}'.format(e))
             finally:
                 self.device = None  # Reset device to None after releasing
 
@@ -541,7 +548,7 @@ class BufferedCapture(Process):
                     log.info('Waiting for the video device to be reconnected...')
 
                     time.sleep(5)
-                    
+
 
                     if self.device is None:
                         print("The video device couldn't be connected! Retrying...")
@@ -603,7 +610,7 @@ class BufferedCapture(Process):
 
                     # print("tot={:6d}, i={:3d}, fps={:.2f}, t={:.8f}".format(total_frames, i, self.config.fps, frame_timestamp))
 
-                    
+
                 # Set the time of the first frame
                 if i == 0: 
 
@@ -638,7 +645,7 @@ class BufferedCapture(Process):
                             self.save_image_to_disk(filename, img_path, frame,i)
                         except:
                             log.error("Could not save {:s} to disk!".format(filename))
-                            
+
                 # If the end of the video file was reached, stop the capture
                 if self.video_file is not None: 
                     if (frame is None) or (not self.device_is_opened()):
@@ -662,7 +669,8 @@ class BufferedCapture(Process):
                     self.dropped_frames.value += n_dropped
 
                     if self.config.report_dropped_frames:
-                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames.value)} frames dropped or late! Time for frame: {t_frame:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
+                        log.info("{}/{} frames dropped or late! Time for frame: {:.3f}, convert: {:.3f}, assignment: {:.3f}".format(
+                            str(n_dropped), str(self.dropped_frames.value), t_frame, t_convert, t_assignment))
 
                 # If cv2:
                 if self.config.force_v4l2 or self.config.force_cv2:
@@ -682,14 +690,14 @@ class BufferedCapture(Process):
                 if i == block_frames - 1:
                     # For cv2, show elapsed time since frame read to assess loop performance
                     if self.config.force_v4l2 or self.config.force_cv2:
-                        log.info(f"Cycle max frame interval: {max_frame_interval_normalized:.3f} (normalized). Run late frames: {self.dropped_frames.value}")
+                        log.info("Block's max frame interval: {:.3f} (normalized). Run's late frames: {}".format(max_frame_interval_normalized, self.dropped_frames.value))
                     
                     # For GStreamer, show elapsed time since frame capture to assess sink fill level
                     else:
-                        log.info(f"Cycle max frame age: {max_frame_age_seconds:.3f} seconds. Run dropped frames: {self.dropped_frames.value}")
+                        log.info("Block's max frame age: {:.3f} seconds. Run's dropped frames: {}".format(max_frame_age_seconds, self.dropped_frames.value))
 
                 last_frame_timestamp = frame_timestamp
-                
+
 
 
 
