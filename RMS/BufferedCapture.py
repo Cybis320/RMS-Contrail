@@ -274,8 +274,8 @@ class BufferedCapture(Process):
                     "rtph264depay ! h264parse ! avdec_h264")
 
         conversion = f"videoconvert ! video/x-raw,format={video_format}"
-        pipeline_str = (f"{device_str} ! queue leaky=downstream max-size-buffers=250 max-size-bytes=0 max-size-time=0 ! "
-                        f"{conversion} ! queue max-size-buffers=250 max-size-bytes=0 max-size-time=0 ! "
+        pipeline_str = (f"{device_str} ! queue leaky=downstream max-size-buffers=500 max-size-bytes=0 max-size-time=0 ! "
+                        f"{conversion} ! queue max-size-buffers=500 max-size-bytes=0 max-size-time=0 ! "
                          "appsink max-buffers=250 drop=true sync=1 name=appsink")
         
         self.pipeline = Gst.parse_launch(pipeline_str)
@@ -330,10 +330,11 @@ class BufferedCapture(Process):
 
                     if not ping_success:
                         log.error("Can't ping the camera IP!")
-                        return None
+                        return False
 
                 else:
-                    return None
+                    log.error("Can't find the camera IP!")
+                    return False
 
 
             # Init the video device
@@ -376,24 +377,29 @@ class BufferedCapture(Process):
                         if video_format in ['RGB', 'BGR']:
                             self.frame_shape = (height, width, 3)  # RGB or BGR
                             ret, frame, _ = self.read()
-
-                            # If frame is grayscale, stop and restart the pipeline in GRAY8 format
-                            if self.is_grayscale(frame):
-                                self.convert_to_gray = True
-                            log.info(f"Video format: {video_format}, {height}P, color: {not self.convert_to_gray}")
-                        
+                            if ret:
+                                # If frame is grayscale, stop and restart the pipeline in GRAY8 format
+                                if self.is_grayscale(frame):
+                                    self.convert_to_gray = True
+                                log.info(f"Video format: {video_format}, {height}P, color: {not self.convert_to_gray}")
+                            else:
+                                log.error("Could not determine BGR frame shape.")
+                                return False
                         elif video_format == 'GRAY8':
                             self.frame_shape = (height, width)  # Grayscale
                             log.info(f"Video format: {video_format}, {height}P")
                             
                         else:
                             log.error(f"Unsupported video format: {video_format}.")
+                            return False
                     else:
                         log.error("Could not determine frame shape.")
+                        return False
                 else:
                     log.error("Could not obtain frame.")
+                    return False
 
-        return
+        return True
 
 
 
@@ -422,7 +428,9 @@ class BufferedCapture(Process):
         """
         
         # Init the video device
-        self.initVideoDevice()
+        while not self.exit.is_set() and not self.initVideoDevice():
+            log.info('Waiting for the video device to be connect...')
+            time.sleep(5)
 
         # Create dir to save jpg files
         stationID = str(self.config.stationID)
@@ -528,15 +536,12 @@ class BufferedCapture(Process):
 
                 print('Reconnecting...')
 
-                while not self.exit.is_set():
+                while not self.exit.is_set() and not self.initVideoDevice():
 
                     log.info('Waiting for the video device to be reconnected...')
 
                     time.sleep(5)
-
-                    # Reinit the video device
-                    self.initVideoDevice()
-
+                    
 
                     if self.device is None:
                         print("The video device couldn't be connected! Retrying...")
