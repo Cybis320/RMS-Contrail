@@ -18,11 +18,13 @@ from __future__ import print_function, division, absolute_import
 
 import os
 # Set GStreamer debug level. Use '2' for warnings in production environments.
-os.environ['GST_DEBUG'] = '3'
-
+os.environ['GST_DEBUG'] = 'rtspsrc:7'
+os.environ['GST_DEBUG_FILE'] = '/home/pi/RMS_data/gst_debug.log'
+import sys
 import re
 import time
 import numpy as np
+from scipy.signal import butter, filtfilt
 from math import floor
 import logging
 import datetime
@@ -73,8 +75,15 @@ class BufferedCapture(Process):
         self.startTime2.value = 0
         
         self.config = config
-
+        self.timestamps = []
+        self.window_size = 6
+        self.expected_fps2 = 25
+        self.dropped_frames2 = 0
+        self.last_timestamp = None
         self.video_file = video_file
+        self.pts_buffer_size = 500
+        self.pts_buffer = []
+        self.filtered_data = []
 
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.5*(1.0/config.fps)
@@ -106,7 +115,7 @@ class BufferedCapture(Process):
         if self.config.height == 1080:
             self.system_latency = 0.02 # seconds. Experimentally measured latency
         else:
-            self.system_latency = 0.01 # seconds. Experimentally measured latency
+            self.system_latency = 0.027 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
 
@@ -117,6 +126,27 @@ class BufferedCapture(Process):
             log.info(f"Saving completed: i={i}: {filename}")
         except Exception as e:
             log.info(f"Error, could not save image to disk: {e}")
+    
+    def update_fps(self, frame_timestamp):
+        if self.last_timestamp is not None:
+            time_diff = frame_timestamp - self.last_timestamp
+            expected_interval = 1.0 / self.expected_fps2
+            if time_diff > 1.2 * expected_interval:
+                dropped = int(time_diff / expected_interval) - 1
+                self.dropped_frames2 += dropped
+
+        self.last_timestamp = frame_timestamp
+        self.timestamps.append(frame_timestamp)
+        
+        if len(self.timestamps) > self.window_size:
+            self.timestamps.pop(0)
+        
+        if len(self.timestamps) > 1:
+            elapsed_time = self.timestamps[-1] - self.timestamps[0]
+            fps = (len(self.timestamps) - 1) / elapsed_time
+            delta_t = time.time() - frame_timestamp
+            sys.stdout.write(f"\rMoving Average FPS: {fps:.4f} | Delta_t: {delta_t:.4f}, time diff {time_diff:.6f}")
+            sys.stdout.flush()
 
 
     def startCapture(self, cameraID=0):
@@ -173,6 +203,48 @@ class BufferedCapture(Process):
             return False
 
 
+    def butter_lowpass_filter(self, cutoff_frequency, order=5):
+        """
+        Apply a Butterworth low-pass filter to the current pts buffer.
+        
+        :param cutoff_frequency: The cutoff frequency for the filter in Hz.
+        :param order: The order of the filter (higher order = sharper cutoff).
+        :return: The latest filtered pts value.
+        """
+        if len(self.pts_buffer) < self.pts_buffer_size:
+            return None  # Not enough data to filter
+        nyquist_frequency = 24.982 / 2.0
+        normal_cutoff = cutoff_frequency / nyquist_frequency
+        b, a = butter(order, normal_cutoff, btype='low', analog=False)
+        self.filtered_data = filtfilt(b, a, self.pts_buffer)
+        return self.filtered_data
+        
+        
+    def update_and_filter_pts(self, new_pts, cutoff_frequency):
+        """
+        Update the pts buffer with a new value and return the latest filtered pts as a float.
+        
+        :param new_pts: The new pts value to add to the buffer.
+        :param cutoff_frequency: The cutoff frequency for the Butterworth filter.
+        :return: The latest filtered pts value as a float.
+        """
+        self.pts_buffer.append(new_pts)
+        
+        # Ensure the buffer doesn't exceed its maximum size
+        if len(self.pts_buffer) > self.pts_buffer_size:
+            self.pts_buffer.pop(0)  # Remove the oldest pts value
+        
+        # Check if there are enough points to perform filtering
+
+        if len(self.pts_buffer) >= self.pts_buffer_size:
+            self.filtered_data = self.butter_lowpass_filter(cutoff_frequency)
+            return self.filtered_data[-1]
+        else:
+            
+            return self.pts_buffer[-1]
+
+
+
     def read(self):
         '''
         Retrieve frames and timestamp.
@@ -204,6 +276,11 @@ class BufferedCapture(Process):
                         # Log this event, handle error, or take corrective action
                         log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
                         return False, None, None
+                    smoothed_pts = self.update_and_filter_pts(gst_timestamp_ns, 0.01)
+                    if smoothed_pts is None:
+                        smoothed_pts = gst_timestamp_ns
+                        print("No good")
+
                     
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
                     if ret:
@@ -221,7 +298,7 @@ class BufferedCapture(Process):
                             frame = gray_frame
 
                         buffer.unmap(map_info)
-                        timestamp = self.start_timestamp + (gst_timestamp_ns / 1e9)
+                        timestamp = self.start_timestamp + (smoothed_pts / 1e9)
                 
         return ret, frame, timestamp
 
@@ -268,14 +345,14 @@ class BufferedCapture(Process):
         """
 
         device_url = self.extract_rtsp_url(self.config.deviceID)
-        device_str = ("rtspsrc protocols=tcp tcp-timeout=5000000 retry=5 "
-                      "location=\"{}\" ! "
+        device_str = ("rtspsrc  buffer-mode=1 latency=1000 default-rtsp-version=17 protocols=tcp tcp-timeout=5000000 retry=5 "
+                      "location=\"{}\" ! rtpjitterbuffer latency=1000 mode=1 ! "
                       "rtph264depay ! h264parse ! avdec_h264").format(device_url)
 
         conversion = "videoconvert ! video/x-raw,format={}".format(video_format)
         pipeline_str = ("{} ! queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
                         "{} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                        "appsink max-buffers=100 drop=true sync=0 name=appsink").format(device_str, conversion)
+                        "appsink max-buffers=100 drop=true sync=0 ts-offset=1000000000 name=appsink").format(device_str, conversion)
 
         
         self.pipeline = Gst.parse_launch(pipeline_str)
@@ -403,11 +480,10 @@ class BufferedCapture(Process):
                     else:
                         log.error("Could not obtain frame.")
                         return False
-                except:
-                    log.info("Could not initialize GStream. Initialize OpenCV Device instead.")
+                except Exception as e:
+                    log.info("Could not initialize GStreamer. Initialize OpenCV Device instead. Error: {}".format(e))
                     self.device = cv2.VideoCapture(self.config.deviceID)
         return True
-
 
 
     def release_resources(self):
@@ -585,6 +661,12 @@ class BufferedCapture(Process):
             block_frames = 256
 
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
+            while True:
+                ret, frame, frame_timestamp = self.read()
+                if not ret:
+                    break  # Exit the loop if the frame read was unsuccessful
+                self.update_fps(frame_timestamp)
+                
             for i in range(block_frames):
 
 
@@ -627,7 +709,7 @@ class BufferedCapture(Process):
                     # if i % 64 == 0:   > img every 2.56s, 3.7GB per day @ 25 fps
                     # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
                     # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
-                    if i % 128 == 0:
+                    if i % 1 == 0:
 
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
