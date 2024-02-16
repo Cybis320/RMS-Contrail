@@ -82,8 +82,11 @@ class BufferedCapture(Process):
         self.last_timestamp = None
         self.video_file = video_file
         self.pts_buffer_size = 500
+        self.actual_fps = 29.976 * config.fps / 30
+        self.raw_intervals = [1 / self.actual_fps for _ in range(self.pts_buffer_size)]
         self.pts_buffer = []
-        self.filtered_data = []
+        self.last_smoothed_pts = None
+        self.tolerance = 0.05
 
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.5*(1.0/config.fps)
@@ -127,6 +130,7 @@ class BufferedCapture(Process):
         except Exception as e:
             log.info(f"Error, could not save image to disk: {e}")
     
+
     def update_fps(self, frame_timestamp):
         if self.last_timestamp is not None:
             time_diff = frame_timestamp - self.last_timestamp
@@ -203,45 +207,49 @@ class BufferedCapture(Process):
             return False
 
 
-    def butter_lowpass_filter(self, cutoff_frequency, order=5):
-        """
-        Apply a Butterworth low-pass filter to the current pts buffer.
-        
-        :param cutoff_frequency: The cutoff frequency for the filter in Hz.
-        :param order: The order of the filter (higher order = sharper cutoff).
-        :return: The latest filtered pts value.
-        """
-        if len(self.pts_buffer) < self.pts_buffer_size:
-            return None  # Not enough data to filter
-        nyquist_frequency = 24.982 / 2.0
-        normal_cutoff = cutoff_frequency / nyquist_frequency
-        b, a = butter(order, normal_cutoff, btype='low', analog=False)
-        self.filtered_data = filtfilt(b, a, self.pts_buffer)
-        return self.filtered_data
-        
-        
-    def update_and_filter_pts(self, new_pts, cutoff_frequency):
-        """
-        Update the pts buffer with a new value and return the latest filtered pts as a float.
-        
-        :param new_pts: The new pts value to add to the buffer.
-        :param cutoff_frequency: The cutoff frequency for the Butterworth filter.
-        :return: The latest filtered pts value as a float.
-        """
-        self.pts_buffer.append(new_pts)
-        
-        # Ensure the buffer doesn't exceed its maximum size
-        if len(self.pts_buffer) > self.pts_buffer_size:
-            self.pts_buffer.pop(0)  # Remove the oldest pts value
-        
-        # Check if there are enough points to perform filtering
+    def update_and_filter_pts(self, new_pts):
+        # Update raw intervals if there's at least one previous raw pts
+        if self.pts_buffer:
+            new_interval = new_pts - self.pts_buffer[-1]
+            self.raw_intervals.append(new_interval)
+            # Ensure raw_intervals buffer doesn't exceed its maximum size
+            if len(self.raw_intervals) > self.pts_buffer_size:
+                self.raw_intervals.pop(0)
 
-        if len(self.pts_buffer) >= self.pts_buffer_size:
-            self.filtered_data = self.butter_lowpass_filter(cutoff_frequency)
-            return self.filtered_data[-1]
+        # Calculate median interval from raw intervals
+        median_interval = np.median(self.raw_intervals)
+
+        if self.last_smoothed_pts is not None:
+            expected_next_pts = self.last_smoothed_pts + median_interval
+            lower_bound = expected_next_pts - self.tolerance
+            upper_bound = expected_next_pts + self.tolerance
+
+            # Condition 1: Within tolerance
+            if lower_bound <= new_pts <= upper_bound:
+                smoothed_pts = new_pts
+            # Condition 2: More than twice the interval
+            elif new_pts - self.pts_buffer[-1] > 2 * median_interval:
+                smoothed_pts = new_pts
+                print("Detected Dropped Frames")
+            # Condition 3: Below or above but less than 2x, adjust within tolerance
+            else:
+                # Adjust, but not beyond new_pts
+                if new_pts > upper_bound:
+                    smoothed_pts = min(expected_next_pts, expected_next_pts + self.tolerance)
+                else:
+                    smoothed_pts = max(expected_next_pts, expected_next_pts - self.tolerance)
         else:
-            
-            return self.pts_buffer[-1]
+            # First point, no smoothing
+            smoothed_pts = new_pts
+
+        # Update last smoothed pts and pts buffer
+        self.last_smoothed_pts = smoothed_pts
+        self.pts_buffer.append(new_pts)  # Append new raw pts
+        # Ensure pts buffer doesn't exceed its maximum size
+        if len(self.pts_buffer) > self.pts_buffer_size:
+            self.pts_buffer.pop(0)
+
+        return smoothed_pts
 
 
 
@@ -276,11 +284,7 @@ class BufferedCapture(Process):
                         # Log this event, handle error, or take corrective action
                         log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
                         return False, None, None
-                    smoothed_pts = self.update_and_filter_pts(gst_timestamp_ns, 0.01)
-                    if smoothed_pts is None:
-                        smoothed_pts = gst_timestamp_ns
-                        print("No good")
-
+                    smoothed_pts = self.update_and_filter_pts(gst_timestamp_ns)
                     
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
                     if ret:
