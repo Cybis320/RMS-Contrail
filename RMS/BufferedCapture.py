@@ -18,8 +18,8 @@ from __future__ import print_function, division, absolute_import
 
 import os
 # Set GStreamer debug level. Use '2' for warnings in production environments.
-os.environ['GST_DEBUG'] = 'rtspsrc:7'
-os.environ['GST_DEBUG_FILE'] = '/home/pi/RMS_data/gst_debug.log'
+os.environ['GST_DEBUG'] = 'rtspsrc:2'
+#os.environ['GST_DEBUG_FILE'] = '/home/pi/RMS_data/gst_debug.log'
 import sys
 import re
 import time
@@ -75,18 +75,20 @@ class BufferedCapture(Process):
         self.startTime2.value = 0
         
         self.config = config
+
         self.timestamps = []
         self.window_size = 6
         self.expected_fps2 = 25
         self.dropped_frames2 = 0
+        
         self.last_timestamp = None
         self.video_file = video_file
         self.pts_buffer_size = 500
         self.actual_fps = 29.976 * config.fps / 30
-        self.raw_intervals = [1 / self.actual_fps for _ in range(self.pts_buffer_size)]
+        self.raw_intervals = [1e9 / self.actual_fps for _ in range(self.pts_buffer_size)]
         self.pts_buffer = []
         self.last_smoothed_pts = None
-        self.tolerance = 0.05
+        self.tolerance = 100000 # ns
 
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.5*(1.0/config.fps)
@@ -208,48 +210,48 @@ class BufferedCapture(Process):
 
 
     def update_and_filter_pts(self, new_pts):
-        # Update raw intervals if there's at least one previous raw pts
-        if self.pts_buffer:
-            new_interval = new_pts - self.pts_buffer[-1]
-            self.raw_intervals.append(new_interval)
-            # Ensure raw_intervals buffer doesn't exceed its maximum size
-            if len(self.raw_intervals) > self.pts_buffer_size:
-                self.raw_intervals.pop(0)
+        # # Update raw intervals if there's at least one previous raw pts
+        # if self.pts_buffer:
+        #     new_interval = new_pts - self.pts_buffer[-1]
+        #     self.raw_intervals.append(new_interval)
+        #     # Ensure raw_intervals buffer doesn't exceed its maximum size
+        #     if len(self.raw_intervals) > self.pts_buffer_size:
+        #         self.raw_intervals.pop(0)
 
-        # Calculate median interval from raw intervals
-        median_interval = np.median(self.raw_intervals)
+        # # Calculate median interval from raw intervals
+        # median_interval = np.median(self.raw_intervals)
 
-        if self.last_smoothed_pts is not None:
-            expected_next_pts = self.last_smoothed_pts + median_interval
-            lower_bound = expected_next_pts - self.tolerance
-            upper_bound = expected_next_pts + self.tolerance
+        # if self.last_smoothed_pts is not None:
+        #     expected_next_pts = self.last_smoothed_pts + median_interval
+        #     lower_bound = expected_next_pts - self.tolerance
+        #     upper_bound = expected_next_pts + self.tolerance
 
-            # Condition 1: Within tolerance
-            if lower_bound <= new_pts <= upper_bound:
-                smoothed_pts = new_pts
-            # Condition 2: More than twice the interval
-            elif new_pts - self.pts_buffer[-1] > 2 * median_interval:
-                smoothed_pts = new_pts
-                print("Detected Dropped Frames")
-            # Condition 3: Below or above but less than 2x, adjust within tolerance
-            else:
-                # Adjust, but not beyond new_pts
-                if new_pts > upper_bound:
-                    smoothed_pts = min(expected_next_pts, expected_next_pts + self.tolerance)
-                else:
-                    smoothed_pts = max(expected_next_pts, expected_next_pts - self.tolerance)
-        else:
-            # First point, no smoothing
-            smoothed_pts = new_pts
+        #     # Condition 1: Within tolerance
+        #     if lower_bound <= new_pts <= upper_bound:
+        #         smoothed_pts = new_pts
+        #     # Condition 2: More than twice the interval
+        #     elif new_pts - self.pts_buffer[-1] > 2 * median_interval:
+        #         smoothed_pts = new_pts
+        #         print("Detected Dropped Frames")
+        #     # Condition 3: Below or above but less than 2x, adjust within tolerance
+        #     else:
+        #         # Adjust, but not beyond new_pts
+        #         if new_pts > upper_bound:
+        #             smoothed_pts = min(expected_next_pts, expected_next_pts + self.tolerance)
+        #         else:
+        #             smoothed_pts = max(expected_next_pts, expected_next_pts - self.tolerance)
+        # else:
+        #     # First point, no smoothing
+        #     smoothed_pts = new_pts
 
-        # Update last smoothed pts and pts buffer
-        self.last_smoothed_pts = smoothed_pts
-        self.pts_buffer.append(new_pts)  # Append new raw pts
-        # Ensure pts buffer doesn't exceed its maximum size
-        if len(self.pts_buffer) > self.pts_buffer_size:
-            self.pts_buffer.pop(0)
+        # # Update last smoothed pts and pts buffer
+        # self.last_smoothed_pts = smoothed_pts
+        # self.pts_buffer.append(new_pts)  # Append new raw pts
+        # # Ensure pts buffer doesn't exceed its maximum size
+        # if len(self.pts_buffer) > self.pts_buffer_size:
+        #     self.pts_buffer.pop(0)
 
-        return smoothed_pts
+        return new_pts
 
 
 
@@ -665,7 +667,7 @@ class BufferedCapture(Process):
             block_frames = 256
 
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
-            while True:
+            while False:
                 ret, frame, frame_timestamp = self.read()
                 if not ret:
                     break  # Exit the loop if the frame read was unsuccessful
@@ -713,7 +715,7 @@ class BufferedCapture(Process):
                     # if i % 64 == 0:   > img every 2.56s, 3.7GB per day @ 25 fps
                     # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
                     # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
-                    if i % 1 == 0:
+                    if i % 128 == 0:
 
                         # Generate the name for the file
                         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
