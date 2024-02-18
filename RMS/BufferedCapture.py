@@ -88,7 +88,7 @@ class BufferedCapture(Process):
         self.raw_intervals = [1e9 / self.actual_fps for _ in range(self.pts_buffer_size)]
         self.pts_buffer = []
         self.last_smoothed_pts = None
-        self.tolerance = 1000 # ns
+        self.tolerance = 100000 # in ns, =0.1ms
 
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.5*(1.0/config.fps)
@@ -210,16 +210,18 @@ class BufferedCapture(Process):
 
 
     def update_and_filter_pts(self, new_pts):
+        # Calculate median interval from raw intervals
+        average_interval = np.average(self.raw_intervals)
+
         # Update raw intervals if there's at least one previous raw pts
         if self.pts_buffer:
             new_interval = new_pts - self.pts_buffer[-1]
-            self.raw_intervals.append(new_interval)
+            if average_interval / 1.0002 < new_interval < average_interval * 1.0002:
+                self.raw_intervals.append(new_interval)
             # Ensure raw_intervals buffer doesn't exceed its maximum size
             if len(self.raw_intervals) > self.pts_buffer_size:
                 self.raw_intervals.pop(0)
 
-        # Calculate median interval from raw intervals
-        average_interval = np.average(self.raw_intervals)
 
         if self.last_smoothed_pts is not None:
             expected_next_pts = self.last_smoothed_pts + average_interval
