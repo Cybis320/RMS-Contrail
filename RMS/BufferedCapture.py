@@ -83,12 +83,12 @@ class BufferedCapture(Process):
         
         self.last_timestamp = None
         self.video_file = video_file
-        self.pts_buffer_size = 500
+        self.pts_buffer_size = 25*27*4
         self.actual_fps = 29.976 * config.fps / 30
         self.raw_intervals = [1e9 / self.actual_fps for _ in range(self.pts_buffer_size)]
         self.pts_buffer = []
         self.last_smoothed_pts = None
-        self.tolerance = 100000 # ns
+        self.tolerance = 1000 # ns
 
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.5*(1.0/config.fps)
@@ -120,7 +120,7 @@ class BufferedCapture(Process):
         if self.config.height == 1080:
             self.system_latency = 0.02 # seconds. Experimentally measured latency
         else:
-            self.system_latency = 0.027 # seconds. Experimentally measured latency
+            self.system_latency = 0.044 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
 
@@ -219,10 +219,10 @@ class BufferedCapture(Process):
                 self.raw_intervals.pop(0)
 
         # Calculate median interval from raw intervals
-        median_interval = np.median(self.raw_intervals)
+        average_interval = np.average(self.raw_intervals)
 
         if self.last_smoothed_pts is not None:
-            expected_next_pts = self.last_smoothed_pts + median_interval
+            expected_next_pts = self.last_smoothed_pts + average_interval
             lower_bound = expected_next_pts - self.tolerance
             upper_bound = expected_next_pts + self.tolerance
 
@@ -231,7 +231,7 @@ class BufferedCapture(Process):
                 smoothed_pts = new_pts
 
             # Condition 2: More than twice the interval
-            elif new_pts - self.pts_buffer[-1] > 2 * median_interval:
+            elif new_pts - self.pts_buffer[-1] > 2 * average_interval:
                 smoothed_pts = new_pts
                 log.info("Smoothing function detected Dropped Frames")
 
