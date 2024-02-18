@@ -768,7 +768,7 @@ class BufferedCapture(Process):
                             str(n_dropped), str(self.dropped_frames.value), t_frame, t_convert, t_assignment))
 
                 # If cv2:
-                if self.config.force_v4l2 or self.config.force_cv2:
+                if self.config.media_backend != 'gst' and not self.media_backend_override:
                     # Calculate the normalized frame interval between the current and last frame read, normalized by frames per second (fps)
                     frame_interval_normalized = (frame_timestamp - last_frame_timestamp) / (1 / self.config.fps)
                     # Update max_frame_interval_normalized for this cycle
