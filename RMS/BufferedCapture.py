@@ -784,7 +784,7 @@ class BufferedCapture(Process):
                 # On the last loop, report late or dropped frames
                 if i == block_frames - 1:
                     # For cv2, show elapsed time since frame read to assess loop performance
-                    if self.config.force_v4l2 or self.config.force_cv2:
+                    if self.config.media_backend != 'gst' and not self.media_backend_override:
                         log.info("Block's max frame interval: {:.3f} (normalized). Run's late frames: {}".format(max_frame_interval_normalized, self.dropped_frames.value))
                     
                     # For GStreamer, show elapsed time since frame capture to assess sink fill level
