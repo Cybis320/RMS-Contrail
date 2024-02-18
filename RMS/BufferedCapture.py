@@ -234,7 +234,7 @@ class BufferedCapture(Process):
             elif new_pts - self.pts_buffer[-1] > 2 * median_interval:
                 smoothed_pts = new_pts
                 log.info("Smoothing function detected Dropped Frames")
-                
+
             # Condition 3: Below or above but less than 2x, adjust within tolerance
             else:
                 # Adjust, but not beyond new_pts
@@ -446,7 +446,7 @@ class BufferedCapture(Process):
                     buffer = sample.get_buffer()
                     if sample:
                         buffer = sample.get_buffer()
-                        ret, frame = buffer.map(Gst.MapFlags.READ)
+                        ret, map_info = buffer.map(Gst.MapFlags.READ)
 
                         if ret:
 
@@ -460,8 +460,8 @@ class BufferedCapture(Process):
                                 width = structure.get_value('width')
                                 height = structure.get_value('height')
 
-                                self.frame_shape = (height, width, 3)  # RGB or BGR
-                                
+                                self.frame_shape = (height, width, 3)
+                                frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
                                 # If frame is grayscale, set convert_to_gray flag
                                 if self.is_grayscale(frame):
                                     self.convert_to_gray = True
