@@ -471,16 +471,20 @@ class BufferedCapture(Process):
                             else:
                                 log.error("Could not determine frame shape.")
                                 self.media_backend_override = True
+                                self.release_resources()
                         else:
                             log.error("Could not obtain frame.")
                             self.media_backend_override = True
+                            self.release_resources()
                     else:
                         log.error("Could not obtain sample.")
                         self.media_backend_override = True
+                        self.release_resources()
 
                 except Exception as e:
                     log.info("Could not initialize GStreamer. Initialize OpenCV Device instead. Error: {}".format(e))
                     self.media_backend_override = True
+                    self.release_resources()
 
             if self.config.media_backend == 'v4l2':
                 try:
@@ -490,6 +494,7 @@ class BufferedCapture(Process):
                 except Exception as e:
                     log.info("Could not initialize v4l2. Initialize OpenCV Device instead. Error: {}".format(e))
                     self.media_backend_override = True
+                    self.release_resources()
 
 
             elif self.config.media_backend == 'cv2' or self.media_backend_override:
