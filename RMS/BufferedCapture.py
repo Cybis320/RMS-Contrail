@@ -24,7 +24,6 @@ import sys
 import re
 import time
 import numpy as np
-from scipy.signal import butter, filtfilt
 from math import floor
 import logging
 import datetime
@@ -75,6 +74,7 @@ class BufferedCapture(Process):
         self.startTime2.value = 0
         
         self.config = config
+        self.media_backend_override = False
 
         self.timestamps = []
         self.window_size = 6
@@ -210,48 +210,50 @@ class BufferedCapture(Process):
 
 
     def update_and_filter_pts(self, new_pts):
-        # # Update raw intervals if there's at least one previous raw pts
-        # if self.pts_buffer:
-        #     new_interval = new_pts - self.pts_buffer[-1]
-        #     self.raw_intervals.append(new_interval)
-        #     # Ensure raw_intervals buffer doesn't exceed its maximum size
-        #     if len(self.raw_intervals) > self.pts_buffer_size:
-        #         self.raw_intervals.pop(0)
+        # Update raw intervals if there's at least one previous raw pts
+        if self.pts_buffer:
+            new_interval = new_pts - self.pts_buffer[-1]
+            self.raw_intervals.append(new_interval)
+            # Ensure raw_intervals buffer doesn't exceed its maximum size
+            if len(self.raw_intervals) > self.pts_buffer_size:
+                self.raw_intervals.pop(0)
 
-        # # Calculate median interval from raw intervals
-        # median_interval = np.median(self.raw_intervals)
+        # Calculate median interval from raw intervals
+        median_interval = np.median(self.raw_intervals)
 
-        # if self.last_smoothed_pts is not None:
-        #     expected_next_pts = self.last_smoothed_pts + median_interval
-        #     lower_bound = expected_next_pts - self.tolerance
-        #     upper_bound = expected_next_pts + self.tolerance
+        if self.last_smoothed_pts is not None:
+            expected_next_pts = self.last_smoothed_pts + median_interval
+            lower_bound = expected_next_pts - self.tolerance
+            upper_bound = expected_next_pts + self.tolerance
 
-        #     # Condition 1: Within tolerance
-        #     if lower_bound <= new_pts <= upper_bound:
-        #         smoothed_pts = new_pts
-        #     # Condition 2: More than twice the interval
-        #     elif new_pts - self.pts_buffer[-1] > 2 * median_interval:
-        #         smoothed_pts = new_pts
-        #         print("Detected Dropped Frames")
-        #     # Condition 3: Below or above but less than 2x, adjust within tolerance
-        #     else:
-        #         # Adjust, but not beyond new_pts
-        #         if new_pts > upper_bound:
-        #             smoothed_pts = min(expected_next_pts, expected_next_pts + self.tolerance)
-        #         else:
-        #             smoothed_pts = max(expected_next_pts, expected_next_pts - self.tolerance)
-        # else:
-        #     # First point, no smoothing
-        #     smoothed_pts = new_pts
+            # Condition 1: Within tolerance
+            if lower_bound <= new_pts <= upper_bound:
+                smoothed_pts = new_pts
 
-        # # Update last smoothed pts and pts buffer
-        # self.last_smoothed_pts = smoothed_pts
-        # self.pts_buffer.append(new_pts)  # Append new raw pts
-        # # Ensure pts buffer doesn't exceed its maximum size
-        # if len(self.pts_buffer) > self.pts_buffer_size:
-        #     self.pts_buffer.pop(0)
+            # Condition 2: More than twice the interval
+            elif new_pts - self.pts_buffer[-1] > 2 * median_interval:
+                smoothed_pts = new_pts
+                log.info("Smoothing function detected Dropped Frames")
+                
+            # Condition 3: Below or above but less than 2x, adjust within tolerance
+            else:
+                # Adjust, but not beyond new_pts
+                if new_pts > upper_bound:
+                    smoothed_pts = upper_bound
+                else:
+                    smoothed_pts = lower_bound
+        else:
+            # First point, no smoothing
+            smoothed_pts = new_pts
 
-        return new_pts
+        # Update last smoothed pts and pts buffer
+        self.last_smoothed_pts = smoothed_pts
+        self.pts_buffer.append(new_pts)  # Append new raw pts
+        # Ensure pts buffer doesn't exceed its maximum size
+        if len(self.pts_buffer) > self.pts_buffer_size:
+            self.pts_buffer.pop(0)
+
+        return smoothed_pts
 
 
 
@@ -270,11 +272,8 @@ class BufferedCapture(Process):
                 timestamp = None # assigned later
         
         else:
-            if self.config.force_v4l2 or self.config.force_cv2:
-                ret, frame = self.device.read()
-                if ret:
-                    timestamp = time.time()
-            else:
+            # GStreamer
+            if self.config.media_backend == 'gst' and not self.media_backend_override:
                 sample = self.device.emit("pull-sample")
                 if sample:
                     buffer = sample.get_buffer()
@@ -286,6 +285,8 @@ class BufferedCapture(Process):
                         # Log this event, handle error, or take corrective action
                         log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
                         return False, None, None
+                    
+                    # Smooth raw timestamp (necessary for IMX291 type cameras)
                     smoothed_pts = self.update_and_filter_pts(gst_timestamp_ns)
                     
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
@@ -305,6 +306,12 @@ class BufferedCapture(Process):
 
                         buffer.unmap(map_info)
                         timestamp = self.start_timestamp + (smoothed_pts / 1e9)
+
+                # OpenCV
+                else:
+                    ret, frame = self.device.read()
+                    if ret:
+                        timestamp = time.time()
                 
         return ret, frame, timestamp
 
@@ -424,16 +431,8 @@ class BufferedCapture(Process):
             # Init the video device
             log.info("Initializing the video device...")
             log.info("Device: " + str(self.config.deviceID))
-            if self.config.force_v4l2:
-                log.info("Initialize v4l2 Device.")
-                self.device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
-                self.device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
 
-            elif self.config.force_cv2 and not self.config.force_v4l2:
-                log.info("Initialize OpenCV Device.")
-                self.device = cv2.VideoCapture(self.config.deviceID)
-
-            else:
+            if self.config.media_backend == 'gst':
                 try:
                     log.info("Initialize GStreamer Device.")
                     # Initialize GStreamer
@@ -445,50 +444,58 @@ class BufferedCapture(Process):
                     # Determine the shape of the GStream
                     sample = self.device.emit("pull-sample")
                     buffer = sample.get_buffer()
-                    ret, _ = buffer.map(Gst.MapFlags.READ)
-                    if ret:
-                        # Get caps and extract video information
-                        caps = sample.get_caps()
-                        structure = caps.get_structure(0) if caps else None
+                    if sample:
+                        buffer = sample.get_buffer()
+                        ret, frame = buffer.map(Gst.MapFlags.READ)
 
-                        if structure:
+                        if ret:
 
-                            # Extract width, height, and format
-                            width = structure.get_value('width')
-                            height = structure.get_value('height')
-                            video_format = structure.get_value('format')
+                            # Get caps and extract video information
+                            caps = sample.get_caps()
+                            structure = caps.get_structure(0) if caps else None
 
-                            # Determine the shape based on format
-                            if video_format in ['RGB', 'BGR']:
+                            if structure:
+
+                                # Extract width, height, and format
+                                width = structure.get_value('width')
+                                height = structure.get_value('height')
+
                                 self.frame_shape = (height, width, 3)  # RGB or BGR
-                                ret, frame, _ = self.read()
-
-                                if ret:
-                                    # If frame is grayscale, stop and restart the pipeline in GRAY8 format
-                                    if self.is_grayscale(frame):
-                                        self.convert_to_gray = True
-                                    log.info("Video format: {}, {}P, color: {}".format(video_format, height, not self.convert_to_gray))
-
-                                else:
-                                    log.error("Could not determine BGR frame shape.")
-                                    return False
-
-                            elif video_format == 'GRAY8':
-                                self.frame_shape = (height, width)  # Grayscale
-                                log.info("Video format: {}, {}P".format(video_format, height))
                                 
+                                # If frame is grayscale, set convert_to_gray flag
+                                if self.is_grayscale(frame):
+                                    self.convert_to_gray = True
+
+                                log.info("Video format: BGR, {}P, color: {}".format(height, not self.convert_to_gray))
+                                    
                             else:
-                                log.error("Unsupported video format: {}.".format(video_format))
-                                return False
+                                log.error("Could not determine frame shape.")
+                                self.media_backend_override = True
                         else:
-                            log.error("Could not determine frame shape.")
-                            return False
+                            log.error("Could not obtain frame.")
+                            self.media_backend_override = True
                     else:
-                        log.error("Could not obtain frame.")
-                        return False
+                        log.error("Could not obtain sample.")
+                        self.media_backend_override = True
+
                 except Exception as e:
                     log.info("Could not initialize GStreamer. Initialize OpenCV Device instead. Error: {}".format(e))
-                    self.device = cv2.VideoCapture(self.config.deviceID)
+                    self.media_backend_override = True
+
+            if self.config.media_backend == 'v4l2':
+                try:
+                    log.info("Initialize v4l2 Device.")
+                    self.device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
+                    self.device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
+                except Exception as e:
+                    log.info("Could not initialize v4l2. Initialize OpenCV Device instead. Error: {}".format(e))
+                    self.media_backend_override = True
+
+
+            elif self.config.media_backend == 'cv2' or self.media_backend_override:
+                log.info("Initialize OpenCV Device.")
+                self.device = cv2.VideoCapture(self.config.deviceID)
+
         return True
 
 
