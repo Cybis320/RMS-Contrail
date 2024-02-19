@@ -673,7 +673,7 @@ class BufferedCapture(Process):
             block_frames = 256
 
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
-            while True:
+            while False:
                 ret, frame, frame_timestamp = self.read()
                 if not ret:
                     break  # Exit the loop if the frame read was unsuccessful
