@@ -217,7 +217,7 @@ class BufferedCapture(Process):
 
         # Update raw intervals if there's at least one previous raw pts
         if current_buffer_size > 1:
-            new_interval = new_pts - self.pts_buffer[-1]
+            new_interval = new_pts - self.pts_buffer[-2]
 
             # Filter out outlier intervals
             self.raw_intervals.append(new_interval)
