@@ -72,6 +72,9 @@ class BufferedCapture(Process):
         
         self.startTime1.value = 0
         self.startTime2.value = 0
+
+        self.video_file = video_file
+
         
         self.config = config
         self.media_backend_override = False
@@ -80,15 +83,11 @@ class BufferedCapture(Process):
         self.window_size = 6
         self.expected_fps2 = 25
         self.dropped_frames2 = 0
-        
         self.last_timestamp = None
-        self.video_file = video_file
+        
         self.pts_buffer_size = 25*27*4
-        self.actual_fps = 29.976 * config.fps / 30
-        self.raw_intervals = [1e9 / self.actual_fps for _ in range(self.pts_buffer_size)]
+        self.raw_intervals = []
         self.pts_buffer = []
-        self.last_smoothed_pts = None
-        self.tolerance = 100000 # in ns, =0.1ms
 
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.5*(1.0/config.fps)
@@ -136,10 +135,6 @@ class BufferedCapture(Process):
     def update_fps(self, frame_timestamp):
         if self.last_timestamp is not None:
             time_diff = frame_timestamp - self.last_timestamp
-            expected_interval = 1.0 / self.expected_fps2
-            if time_diff > 1.2 * expected_interval:
-                dropped = int(time_diff / expected_interval) - 1
-                self.dropped_frames2 += dropped
 
         self.last_timestamp = frame_timestamp
         self.timestamps.append(frame_timestamp)
@@ -210,50 +205,45 @@ class BufferedCapture(Process):
 
 
     def update_and_filter_pts(self, new_pts):
-        # Calculate median interval from raw intervals
-        average_interval = np.average(self.raw_intervals)
+
+        # Append new raw pts
+        self.pts_buffer.append(new_pts)
+
+        # Ensure pts buffer doesn't exceed its maximum size
+        if len(self.pts_buffer) > self.pts_buffer_size:
+            self.pts_buffer.pop(0)
+        
+        current_buffer_size = len(self.pts_buffer)
 
         # Update raw intervals if there's at least one previous raw pts
-        if self.pts_buffer:
+        if current_buffer_size > 1:
             new_interval = new_pts - self.pts_buffer[-1]
-            if average_interval / 1.0002 < new_interval < average_interval * 1.0002:
-                self.raw_intervals.append(new_interval)
+
+            # Filter out outlier intervals
+            self.raw_intervals.append(new_interval)
+
             # Ensure raw_intervals buffer doesn't exceed its maximum size
             if len(self.raw_intervals) > self.pts_buffer_size:
                 self.raw_intervals.pop(0)
 
+            # Calculate average interval from raw intervals
+            average_interval = np.average(self.raw_intervals)
 
-        if self.last_smoothed_pts is not None:
-            expected_next_pts = self.last_smoothed_pts + average_interval
-            lower_bound = expected_next_pts - self.tolerance
-            upper_bound = expected_next_pts + self.tolerance
+            # Find the least delayed pts       
+            smallest_delay = 0
+            least_delayed_pts = 0
+            for i in range(current_buffer_size):
+                smallest_delay_candidate = self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval
+                if smallest_delay_candidate < smallest_delay:
+                    smallest_delay = smallest_delay_candidate
+                    least_delayed_pts = i
 
-            # Condition 1: Within tolerance
-            if lower_bound <= new_pts <= upper_bound:
-                smoothed_pts = new_pts
-
-            # Condition 2: More than twice the interval
-            elif new_pts - self.pts_buffer[-1] > 2 * average_interval:
-                smoothed_pts = new_pts
-                log.info("Smoothing function detected Dropped Frames")
-
-            # Condition 3: Below or above but less than 2x, adjust within tolerance
-            else:
-                # Adjust, but not beyond new_pts
-                if new_pts > upper_bound:
-                    smoothed_pts = upper_bound
-                else:
-                    smoothed_pts = lower_bound
+            # Calculate expected pts from least delayed pts
+            smoothed_pts = self.pts_buffer[least_delayed_pts] + (current_buffer_size - least_delayed_pts)  * average_interval
+            
         else:
             # First point, no smoothing
             smoothed_pts = new_pts
-
-        # Update last smoothed pts and pts buffer
-        self.last_smoothed_pts = smoothed_pts
-        self.pts_buffer.append(new_pts)  # Append new raw pts
-        # Ensure pts buffer doesn't exceed its maximum size
-        if len(self.pts_buffer) > self.pts_buffer_size:
-            self.pts_buffer.pop(0)
 
         return smoothed_pts
 
@@ -284,12 +274,10 @@ class BufferedCapture(Process):
                     # Validate gst_timestamp_ns to be within a reasonable range 
                     max_expected_ns = 24 * 60 * 60 * 1e9
                     if gst_timestamp_ns > max_expected_ns or gst_timestamp_ns <= 0:
-                        # Log this event, handle error, or take corrective action
+                        # Log this event, and drop frame
                         log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
                         return False, None, None
                     
-                    # Smooth raw timestamp (necessary for IMX291 type cameras)
-                    smoothed_pts = self.update_and_filter_pts(gst_timestamp_ns)
                     
                     ret, map_info = buffer.map(Gst.MapFlags.READ)
                     if ret:
@@ -306,8 +294,12 @@ class BufferedCapture(Process):
                                                         
                             frame = gray_frame
 
-                        buffer.unmap(map_info)
+                        # Smooth raw timestamp (necessary for IMX291 type cameras)
+                        smoothed_pts = self.update_and_filter_pts(gst_timestamp_ns)
                         timestamp = self.start_timestamp + (smoothed_pts / 1e9)
+
+                    buffer.unmap(map_info)
+
 
                 # OpenCV
                 else:
@@ -681,7 +673,7 @@ class BufferedCapture(Process):
             block_frames = 256
 
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
-            while False:
+            while True:
                 ret, frame, frame_timestamp = self.read()
                 if not ret:
                     break  # Exit the loop if the frame read was unsuccessful
