@@ -86,7 +86,6 @@ class BufferedCapture(Process):
         self.last_timestamp = None
         
         self.pts_buffer_size = 25*27*4
-        self.raw_intervals = []
         self.pts_buffer = []
 
         # A frame will be considered dropped if it was late more then half a frame
@@ -217,29 +216,20 @@ class BufferedCapture(Process):
 
         # Update raw intervals if there's at least one previous raw pts
         if current_buffer_size > 1:
-            new_interval = new_pts - self.pts_buffer[-2]
-
-            # Filter out outlier intervals
-            self.raw_intervals.append(new_interval)
-
-            # Ensure raw_intervals buffer doesn't exceed its maximum size
-            if len(self.raw_intervals) > self.pts_buffer_size:
-                self.raw_intervals.pop(0)
 
             # Calculate average interval from raw intervals
-            average_interval = np.average(self.raw_intervals)
+            average_interval = (self.pts_buffer[-1] - self.pts_buffer[0]) / len(self.pts_buffer)
 
             # Find the least delayed pts       
-            smallest_delay = 0
-            least_delayed_pts = 0
+            smallest_delay = None
             for i in range(current_buffer_size):
                 smallest_delay_candidate = self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval
-                if smallest_delay_candidate < smallest_delay:
+                if smallest_delay is None or smallest_delay_candidate < smallest_delay:
                     smallest_delay = smallest_delay_candidate
-                    least_delayed_pts = i
+                    least_delayed_idx = i
 
             # Calculate expected pts from least delayed pts
-            smoothed_pts = self.pts_buffer[least_delayed_pts] + (current_buffer_size - least_delayed_pts)  * average_interval
+            smoothed_pts = self.pts_buffer[least_delayed_idx] + (current_buffer_size - 1 - least_delayed_idx)  * average_interval
             
         else:
             # First point, no smoothing
