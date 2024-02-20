@@ -219,27 +219,45 @@ class BufferedCapture(Process):
         current_buffer_size = len(self.pts_buffer)
 
         if self.frame_count == 1:
-            self.base_pts = new_pts
+            self.base_pts = new_pts        
 
-        # Calculate average interval from raw intervals
-        average_interval = (new_pts - self.base_pts) / (self.frame_count - 1)
-
-        # Update delays if there's at least one previous raw pts
         if current_buffer_size > 1:
+            # Calculate average interval from raw intervals
+            average_interval = (new_pts - self.base_pts) / (self.frame_count - 1)
+
             # Calculate delay for each PTS and store along with index
             delays = [(self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval, i) for i in range(current_buffer_size)]
-            
-            # Sort the delays and select the 10 smallest
-            sorted_delays = sorted(delays, key=lambda x: x[0])[:10]
-            
-            # Calculate smoothed PTS for the 10 least delayed and average them
-            smoothed_pts_values = [self.pts_buffer[idx] + (current_buffer_size - idx - 1) * average_interval for _, idx in sorted_delays]
+
+
+            # Number of segments - aiming for 10, but it could be less if the array is small
+            num_segments = 10
+            segment_size = max(1, current_buffer_size // num_segments)  # Ensure at least 1 per segment
+
+            smoothed_pts_values = []
+
+            for segment in range(num_segments):
+                start_idx = segment * segment_size
+                end_idx = start_idx + segment_size if segment < num_segments - 1 else current_buffer_size
+
+                # Extract the current segment
+                current_segment = delays[start_idx:end_idx]
+
+                if not current_segment:
+                    break  # No more data to process
+
+                # Find the smallest delay in the current segment
+                smallest_delay, idx = min(current_segment, key=lambda x: x[0])
+
+                # Calculate smoothed PTS for this smallest delay
+                smoothed_pts = self.pts_buffer[idx] + (current_buffer_size - idx - 1) * average_interval
+                smoothed_pts_values.append(smoothed_pts)
+
+            # Average the smoothed PTS values from each segment
             smoothed_pts = sum(smoothed_pts_values) / len(smoothed_pts_values) if smoothed_pts_values else 0
-            
+            print(f" average interval: {average_interval/1e6:.3f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
         else:
             # First point, no smoothing
             smoothed_pts = new_pts
-        print(f" average interval: {average_interval}, delta: {(smoothed_pts - new_pts) * 1e6:.3f} ms")
         return smoothed_pts
 
 
