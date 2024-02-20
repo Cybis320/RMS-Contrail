@@ -87,6 +87,9 @@ class BufferedCapture(Process):
         
         self.pts_buffer_size = 25*27*4
         self.pts_buffer = []
+        self.average_interval = 1/25
+        self.base_pts = 0
+        self.frame_count = 0
 
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 1.5*(1.0/config.fps)
@@ -205,6 +208,7 @@ class BufferedCapture(Process):
 
     def update_and_filter_pts(self, new_pts):
 
+        self.frame_count += 1
         # Append new raw pts
         self.pts_buffer.append(new_pts)
 
@@ -214,22 +218,23 @@ class BufferedCapture(Process):
         
         current_buffer_size = len(self.pts_buffer)
 
-        # Update raw intervals if there's at least one previous raw pts
+        if self.frame_count == 1:
+            self.base_pts = new_pts
+
+        # Calculate average interval from raw intervals
+        average_interval = (new_pts - self.base_pts) / (self.frame_count - 1)
+
+        # Update delays if there's at least one previous raw pts
         if current_buffer_size > 1:
-
-            # Calculate average interval from raw intervals
-            average_interval = (self.pts_buffer[-1] - self.pts_buffer[0]) / len(self.pts_buffer)
-
-            # Find the least delayed pts       
-            smallest_delay = None
-            for i in range(current_buffer_size):
-                smallest_delay_candidate = self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval
-                if smallest_delay is None or smallest_delay_candidate < smallest_delay:
-                    smallest_delay = smallest_delay_candidate
-                    least_delayed_idx = i
-
-            # Calculate expected pts from least delayed pts
-            smoothed_pts = self.pts_buffer[least_delayed_idx] + (current_buffer_size - 1 - least_delayed_idx)  * average_interval
+            # Calculate delay for each PTS and store along with index
+            delays = [(self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval, i) for i in range(current_buffer_size)]
+            
+            # Sort the delays and select the 10 smallest
+            sorted_delays = sorted(delays, key=lambda x: x[0])[:10]
+            
+            # Calculate smoothed PTS for the 10 least delayed and average them
+            smoothed_pts_values = [self.pts_buffer[idx] + (current_buffer_size - idx - 1) * average_interval for _, idx in sorted_delays]
+            smoothed_pts = sum(smoothed_pts_values) / len(smoothed_pts_values) if smoothed_pts_values else 0
             
         else:
             # First point, no smoothing
