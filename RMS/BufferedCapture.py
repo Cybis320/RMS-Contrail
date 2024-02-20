@@ -239,7 +239,7 @@ class BufferedCapture(Process):
         else:
             # First point, no smoothing
             smoothed_pts = new_pts
-
+        print(f" average interval: {average_interval}, delta: {(smoothed_pts - new_pts) * 1e6:.3f} ms")
         return smoothed_pts
 
 
