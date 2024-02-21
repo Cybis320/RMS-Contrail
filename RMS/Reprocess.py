@@ -37,7 +37,7 @@ from Utils.PlotFieldsums import plotFieldsums
 from Utils.RMS2UFO import FTPdetectinfo2UFOOrbitInput
 from Utils.ShowerAssociation import showerAssociation
 from Utils.adsb2jpg import run_overlay_on_images, create_video_from_images, extract_timestamp_from_name, find_closest_entry
-from Utils.PlotTimeIntervals import analyze_timestamps
+from Utils.PlotTimeIntervals import plotFFTimeIntervals
 
 # Get the logger from the main module
 log = logging.getLogger("logger")
@@ -399,7 +399,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
     # Generate a timestamp intervals plot
     log.info('Plotting timestamp intervals...')
     try:
-        score, intervals_path =  analyze_timestamps(night_data_dir, fps=config.fps)
+        score, intervals_path =  plotFFTimeIntervals(night_data_dir, fps=config.fps)
         log.info(f'Timestamp Intervals Score: {score}')
         # Add the timelapse to the extra files
         extra_files.append(intervals_path)
