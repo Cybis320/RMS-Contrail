@@ -171,10 +171,10 @@ def plotFFTimeIntervals(dir_path, fps=25.0, ff_block_size=256, ma_window_size=50
 
     # Plot Expected and Median lines
     ax_inter.axhline(y=expected_interval, color='lime', linestyle='-', 
-                label='Expected ({:.3f}s), ({:.2f} fps)'.format(expected_interval, fps), zorder=4)
+                label='Expected ({:.3f}s), ({:.3f} fps)'.format(expected_interval, fps), zorder=4)
     # ax_inter.axhline(y=mean_interval, color='blue', linestyle='--', label='Mean ({:.3f}s), ({:.2f} fps)'.format(mean_interval, average_fps), zorder=4)
     ax_inter.axhline(y=median_interval, color='green', linestyle='--', 
-                label='Median ({:.3f} +/- {:.3f} s), ({:.2f} +/- {:.2f} fps)'.format(
+                label='Median ({:.3f} +/- {:.3f} s), ({:.3f} +/- {:.3f} fps)'.format(
                     median_interval, std_intervals_seconds, median_fps, std_intervals_frames), zorder=4)
 
     # Determine grid interval dynamically
@@ -239,14 +239,14 @@ def plotFFTimeIntervals(dir_path, fps=25.0, ff_block_size=256, ma_window_size=50
 
 
     # Plot the residuals from the expected interval
-    residuals = intervals_np - expected_interval
+    residuals = intervals_np - median_interval
     ax_res.scatter(timestamps, residuals, c='gray', s=1, zorder=3)
 
     # Enable the grid
     ax_res.grid(alpha=0.7, zorder=0)
 
     # Limit the plot to +/- 2 frames in the Y axis
-    ax_res.set_ylim(-2/fps, 2/fps)
+    ax_res.set_ylim(-0.1/fps, 0.1/fps)
 
     # Draw a horizontal line at 0
     ax_res.axhline(y=0, color='lime', linestyle='-', zorder=4)

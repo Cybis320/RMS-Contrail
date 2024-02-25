@@ -118,10 +118,10 @@ class Compressor(multiprocessing.Process):
         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(startTime))
 
         # Calculate miliseconds
-        millis = int((startTime - floor(startTime))*1000)
+        micros = int((startTime - floor(startTime))*1000000)
         
 
-        filename = str(self.config.stationID).zfill(3) +  "_" + date_string + "_" + str(millis).zfill(3) \
+        filename = str(self.config.stationID).zfill(3) +  "_" + date_string + "_" + str(micros).zfill(6) \
             + "_" + str(N).zfill(7)
 
         ff = FFStruct.FFStruct()
