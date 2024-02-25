@@ -254,7 +254,8 @@ class BufferedCapture(Process):
 
             # Average the smoothed PTS values from each segment
             smoothed_pts = sum(smoothed_pts_values) / len(smoothed_pts_values) if smoothed_pts_values else 0
-            print(f" average interval: {average_interval/1e6:.3f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+            sys.stdout.write(f"\raverage interval: {average_interval/1e6:.3f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+            sys.stdout.flush()
         else:
             # First point, no smoothing
             smoothed_pts = new_pts
