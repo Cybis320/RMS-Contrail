@@ -14,7 +14,7 @@ import argparse
 # GPIO setup
 signal_pin_A = 16
 signal_pin_B = 20
-pulse_duration = 0.0002
+pulse_duration = 0.2 / 1000
 
 def setup_gpio():
     GPIO.setmode(GPIO.BCM)
@@ -55,43 +55,49 @@ def main():
         if args.frequency:
             send_signal_at_frequency(args.frequency)
         else:
+            # Initial setup: Get the current real-world time and the corresponding perf_counter value
+            base_real_time = datetime.now()
+            base_perf_counter = time.perf_counter()
+
+            # Calculate the initial delay to the next minute mark, adjusted for the first signal timing
+            next_minute = (base_real_time + timedelta(minutes=1)).replace(second=0, microsecond=0)
+            initial_delay_until_next_signal = (next_minute - base_real_time).total_seconds()
+
+            # Recalculate if too close to next minute
+            if initial_delay_until_next_signal < 1:
+                next_minute = (base_real_time + timedelta(minutes=2)).replace(second=0, microsecond=0)
+
+
             while True:
-                # Get current time
-                now = datetime.now()
-
-                # Round to the next minute
-                next_minute = (now + timedelta(minutes=1)).replace(second=0, microsecond=0)
                 
-                # Calculate next top-of-minute minus 30.1ms for Laurel timer latency  
-                next_minute_signal = next_minute - timedelta(milliseconds=30.1)
-
-                # Initialize start signal time
-                signal_time = time.perf_counter() + (next_minute_signal - datetime.now()).total_seconds()
-
-                print("Waiting to send next start signal...")
-
-                while time.perf_counter() < signal_time:
-                    pass
-                # Send start signal. Pulse duration is not critical 
-                send_signal(signal_pin=signal_pin_A, pulse_duration=10*pulse_duration)
-                print("\nSignal A!")
-
-                # Calculate next stop time leaving enough time for pulse duration and timer recycle
-                # Timer will not display accurate time during that interval
-                next_minute_signal += timedelta(seconds=60 - 100 * pulse_duration)
+                # Calculate the next start and stop signal timings relative to the elapsed time
+                next_start_signal_time = next_minute - timedelta(milliseconds=30.1)  # 30.1 ms before the top of the minute
+                next_stop_signal_time = next_start_signal_time - timedelta(milliseconds=5) # 5 ms before the start signal
                 
+
+                # Wait for the next stop signal time
                 print("Waiting to send next stop signal...")
 
-                # Initialize stop signal time
-                signal_time = time.perf_counter() + (next_minute_signal - datetime.now()).total_seconds()
-
-                # Wait for stop signal time
-                while time.perf_counter() < signal_time:
+                while (base_real_time + timedelta(seconds=time.perf_counter() - base_perf_counter)) < next_stop_signal_time:
                     pass
 
                 # Send stop signal. Pulse duration should has short as possible
                 send_signal(signal_pin=signal_pin_B, pulse_duration=pulse_duration)
                 print("\nSignal B!")
+
+
+                # Wait for the next start signal time
+                print("Waiting to send next start signal...")
+
+                while (base_real_time + timedelta(seconds=time.perf_counter() - base_perf_counter)) < next_start_signal_time:
+                    pass
+
+                # Send start signal. Pulse duration is not critical 
+                send_signal(signal_pin=signal_pin_A, pulse_duration=10*pulse_duration)
+                print("\nSignal A!")
+
+                # Update the delay for the next cycle, ensuring it accounts for a full minute past the initial delay
+                next_minute += timedelta(minutes=1)
     finally:
         GPIO.cleanup()
 
