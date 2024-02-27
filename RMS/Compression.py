@@ -119,9 +119,13 @@ class Compressor(multiprocessing.Process):
 
         # Calculate miliseconds
         micros = int((startTime - floor(startTime))*1000000)
+        millis = int((startTime - floor(startTime))*1000)
         
 
-        filename = str(self.config.stationID).zfill(3) +  "_" + date_string + "_" + str(micros).zfill(6) \
+        filename_millis = str(self.config.stationID).zfill(3) +  "_" + date_string + "_" + str(millis).zfill(3) \
+            + "_" + str(N).zfill(7)
+        
+        filename_micros = str(self.config.stationID).zfill(3) +  "_" + date_string + "_" + str(micros).zfill(6) \
             + "_" + str(N).zfill(7)
 
         ff = FFStruct.FFStruct()
@@ -137,7 +141,7 @@ class Compressor(multiprocessing.Process):
         # Write the FF file
         FFfile.write(ff, self.data_dir, filename, fmt=self.config.ff_format)
         
-        return filename
+        return filename_millis, filename_micros
 
 
     def saveLiveJPG(self, array, startTime):
@@ -296,7 +300,7 @@ class Compressor(multiprocessing.Process):
             t = time.time()
             
             # Save the compressed image
-            filename = self.saveFF(compressed, startTime, n*256)
+            filename_millis, filename_micros = self.saveFF(compressed, startTime, n*256)
             n += 1
             
             log.debug("Saving time: {:.3f} s".format(time.time() - t))
@@ -309,19 +313,19 @@ class Compressor(multiprocessing.Process):
 
 
             # Save the extracted intensitites per every field
-            FieldIntensities.saveFieldIntensitiesBin(field_intensities, self.data_dir, filename)
+            FieldIntensities.saveFieldIntensitiesBin(field_intensities, self.data_dir, filename_micros)
 
             # Run the extractor
             if self.config.enable_fireball_detection:
                 extractor = Extractor(self.config, self.data_dir)
-                extractor.start(frames, compressed, filename)
+                extractor.start(frames, compressed, filename_millis)
 
-                log.debug('Extractor started for: ' + filename)
+                log.debug('Extractor started for: ' + filename_millis)
 
 
             # Fully format the filename (this could not have been done before as the extractor has to add
             # the FR prefix to the given file name)
-            filename = "FF_" + filename + "." + self.config.ff_format
+            filename = "FF_" + filename_millis + "." + self.config.ff_format
 
 
             # Run the detection on the file, if the detector handle was given
