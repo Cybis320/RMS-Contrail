@@ -79,15 +79,17 @@ class BufferedCapture(Process):
         self.config = config
         self.media_backend_override = False
 
+        # Debug section
         self.timestamps = []
         self.window_size = 6
         self.expected_fps2 = 25
         self.dropped_frames2 = 0
         self.last_timestamp = None
         
-        self.pts_buffer_size = 25*27*4
+        # Custom buffer
+        self.pts_buffer_size = 25*30 # 30 sec 
         self.pts_buffer = []
-        self.average_interval = 1/25
+        self.average_interval = 0
         self.base_pts = 0
         self.frame_count = 0
 
@@ -121,7 +123,7 @@ class BufferedCapture(Process):
         if self.config.height == 1080:
             self.system_latency = 0.02 # seconds. Experimentally measured latency
         else:
-            self.system_latency = 0.044 # seconds. Experimentally measured latency
+            self.system_latency = 0.01 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
 
@@ -206,9 +208,10 @@ class BufferedCapture(Process):
             return False
 
 
-    def update_and_filter_pts(self, new_pts):
+    def smooth_pts(self, new_pts):
 
         self.frame_count += 1
+
         # Append new raw pts
         self.pts_buffer.append(new_pts)
 
@@ -218,16 +221,18 @@ class BufferedCapture(Process):
         
         current_buffer_size = len(self.pts_buffer)
 
-        if self.frame_count == 1:
-            self.base_pts = new_pts        
+        # On initial run or after a reset
+        if current_buffer_size == 1:
+            self.base_pts = new_pts
+            self.frame_count = 1
+            smoothed_pts = new_pts
 
-        if current_buffer_size > 1:
+        else:
             # Calculate average interval from raw intervals
             average_interval = (new_pts - self.base_pts) / (self.frame_count - 1)
 
             # Calculate delay for each PTS and store along with index
             delays = [(self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval, i) for i in range(current_buffer_size)]
-
 
             # Number of segments - aiming for 10, but it could be less if the array is small
             num_segments = 10
@@ -246,7 +251,7 @@ class BufferedCapture(Process):
                     break  # No more data to process
 
                 # Find the smallest delay in the current segment
-                smallest_delay, idx = min(current_segment, key=lambda x: x[0])
+                _, idx = min(current_segment, key=lambda x: x[0])
 
                 # Calculate smoothed PTS for this smallest delay
                 smoothed_pts = self.pts_buffer[idx] + (current_buffer_size - idx - 1) * average_interval
@@ -256,9 +261,7 @@ class BufferedCapture(Process):
             smoothed_pts = sum(smoothed_pts_values) / len(smoothed_pts_values) if smoothed_pts_values else 0
             sys.stdout.write(f"\raverage interval: {average_interval/1e6:.3f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
             sys.stdout.flush()
-        else:
-            # First point, no smoothing
-            smoothed_pts = new_pts
+
         return smoothed_pts
 
 
@@ -272,11 +275,13 @@ class BufferedCapture(Process):
         '''
         ret, frame, timestamp = False, None, None
 
+        # Read Video file frame
         if self.video_file is not None:
             ret, frame = self.device.read()
             if ret:
                 timestamp = None # assigned later
         
+        # Read capture device frame
         else:
             # GStreamer
             if self.config.media_backend == 'gst' and not self.media_backend_override:
@@ -285,7 +290,7 @@ class BufferedCapture(Process):
                     buffer = sample.get_buffer()
                     gst_timestamp_ns = buffer.pts  # GStreamer timestamp in nanoseconds
 
-                    # Validate gst_timestamp_ns to be within a reasonable range 
+                    # Sanity Checking pts value
                     max_expected_ns = 24 * 60 * 60 * 1e9
                     if gst_timestamp_ns > max_expected_ns or gst_timestamp_ns <= 0:
                         # Log this event, and drop frame
@@ -308,18 +313,23 @@ class BufferedCapture(Process):
                                                         
                             frame = gray_frame
 
-                        # Smooth raw timestamp (necessary for IMX291 type cameras)
-                        smoothed_pts = self.update_and_filter_pts(gst_timestamp_ns)
+                        # Smooth raw timestamp
+                        smoothed_pts = self.smooth_pts(gst_timestamp_ns)
                         timestamp = self.start_timestamp + (smoothed_pts / 1e9)
-
+                    else:
+                        log.info("Gst Buffer did not contain a frame.")
+                        return False, None, None
+                    
                     buffer.unmap(map_info)
-
-
-                # OpenCV
                 else:
-                    ret, frame = self.device.read()
-                    if ret:
-                        timestamp = time.time()
+                    log.info("Gst device did not emit a sample.")
+                    return False, None, None
+
+            # OpenCV
+            else:
+                ret, frame = self.device.read()
+                if ret:
+                    timestamp = time.time()
                 
         return ret, frame, timestamp
 
@@ -366,8 +376,12 @@ class BufferedCapture(Process):
         """
 
         device_url = self.extract_rtsp_url(self.config.deviceID)
-        device_str = ("rtspsrc  buffer-mode=1 latency=1000 default-rtsp-version=17 protocols=tcp tcp-timeout=5000000 retry=5 "
-                      "location=\"{}\" ! rtpjitterbuffer latency=1000 mode=1 ! "
+        # device_str = ("rtspsrc  buffer-mode=1 latency=1000 default-rtsp-version=17 protocols=tcp tcp-timeout=5000000 retry=5 "
+        #               "location=\"{}\" ! rtpjitterbuffer latency=1000 mode=1 ! "
+        #               "rtph264depay ! h264parse ! avdec_h264").format(device_url)
+
+        device_str = ("rtspsrc  buffer-mode=1 protocols=tcp tcp-timeout=5000000 retry=5 "
+                      "location=\"{}\" ! "
                       "rtph264depay ! h264parse ! avdec_h264").format(device_url)
 
         conversion = "videoconvert ! video/x-raw,format={}".format(video_format)
@@ -448,6 +462,9 @@ class BufferedCapture(Process):
 
                     # Create and start a GStreamer pipeline
                     self.device = self.create_gstream_device('BGR')
+
+                    # Reset pts buffer
+                    self.pts_buffer = []
 
                     # Determine the shape of the GStream
                     sample = self.device.emit("pull-sample")
@@ -687,6 +704,8 @@ class BufferedCapture(Process):
             block_frames = 256
 
             log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
+
+            # Debug code
             while False:
                 ret, frame, frame_timestamp = self.read()
                 if not ret:
@@ -720,7 +739,7 @@ class BufferedCapture(Process):
 
 
                 # Set the time of the first frame
-                if i == 0: 
+                if i == 0:
 
                     # Initialize last frame timestamp if it's not set
                     if not last_frame_timestamp:
@@ -755,7 +774,7 @@ class BufferedCapture(Process):
                             log.error("Could not save {:s} to disk!".format(filename))
 
                 # If the end of the video file was reached, stop the capture
-                if self.video_file is not None: 
+                if self.video_file is not None:
                     if (frame is None) or (not self.device_is_opened()):
 
                         log.info("End of video file!")
