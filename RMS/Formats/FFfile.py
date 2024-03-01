@@ -258,10 +258,10 @@ def filenameToDatetime(file_name):
     minute = int(time[2:4])
     seconds = int(time[4:6])
 
-    ms = int(file_name[i + 3])
+    us = int(file_name[i + 3])
 
 
-    return datetime.datetime(year, month, day, hour, minute, seconds, ms*1000)
+    return datetime.datetime(year, month, day, hour, minute, seconds, us)
 
 
 

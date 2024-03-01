@@ -94,7 +94,7 @@ class BufferedCapture(Process):
         self.frame_count = 0
 
         # A frame will be considered dropped if it was late more then half a frame
-        self.time_for_drop = 1.5*(1.0/config.fps)
+        self.time_for_drop = 2.0*(1.0/config.fps)
 
         self.dropped_frames = Value('i', 0)
         self.device = None
@@ -403,7 +403,7 @@ class BufferedCapture(Process):
     def initVideoDevice(self):
         """ Initialize the video device. """
 
-        # use a file as the video source
+        # Use a file as the video source
         if self.video_file is not None:
             self.device = cv2.VideoCapture(self.video_file)
 
@@ -534,6 +534,7 @@ class BufferedCapture(Process):
         if self.pipeline:
             try:
                 self.pipeline.set_state(Gst.State.NULL)
+                time.sleep(5)
                 log.info('GStreamer Video device released!')
             except Exception as e:
                 log.error('Error releasing GStreamer pipeline: {}'.format(e))
