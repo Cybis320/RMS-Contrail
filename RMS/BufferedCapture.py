@@ -286,45 +286,33 @@ class BufferedCapture(Process):
             # GStreamer
             if self.config.media_backend == 'gst' and not self.media_backend_override:
                 sample = self.device.emit("pull-sample")
-                if sample:
-                    buffer = sample.get_buffer()
-                    gst_timestamp_ns = buffer.pts  # GStreamer timestamp in nanoseconds
-
-                    # Sanity Checking pts value
-                    max_expected_ns = 24 * 60 * 60 * 1e9
-                    if gst_timestamp_ns > max_expected_ns or gst_timestamp_ns <= 0:
-                        # Log this event, and drop frame
-                        log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
-                        return False, None, None
-                    
-                    
-                    ret, map_info = buffer.map(Gst.MapFlags.READ)
-                    if ret:
-                        # If all channels contains colors, or there is only one channel, keep channel(s) 
-                        if not self.convert_to_gray:
-                            frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
-
-                        # If channels contains no colors, discard two channels
-                        else:
-                            bgr_frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
-                            
-                            # select a specific channel
-                            gray_frame = bgr_frame[:, :, 0]
-                                                        
-                            frame = gray_frame
-
-                        # Smooth raw timestamp
-                        smoothed_pts = self.smooth_pts(gst_timestamp_ns)
-                        timestamp = self.start_timestamp + (smoothed_pts / 1e9)
-                    else:
-                        log.info("Gst Buffer did not contain a frame.")
-                        return False, None, None
-                    
-                    buffer.unmap(map_info)
-                else:
+                if not sample:
                     log.info("Gst device did not emit a sample.")
                     return False, None, None
 
+                buffer = sample.get_buffer()
+                gst_timestamp_ns = buffer.pts  # GStreamer timestamp in nanoseconds
+
+                # Sanity check for pts value
+                max_expected_ns = 24 * 60 * 60 * 1e9  # 24 hours in nanoseconds
+                if not (0 < gst_timestamp_ns <= max_expected_ns):
+                    log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
+                    return False, None, None
+
+                ret, map_info = buffer.map(Gst.MapFlags.READ)
+                if not ret:
+                    log.info("Gst Buffer did not contain a frame.")
+                    return False, None, None
+
+                # Handling for grayscale conversion
+                frame = self.handle_grayscale_conversion(map_info)
+
+                # Smooth raw timestamp and calculate actual timestamp
+                smoothed_pts = self.smooth_pts(gst_timestamp_ns)
+                timestamp = self.start_timestamp + (smoothed_pts / 1e9)
+
+                buffer.unmap(map_info)
+        
             # OpenCV
             else:
                 ret, frame = self.device.read()
@@ -357,6 +345,17 @@ class BufferedCapture(Process):
         if np.array_equal(r, g) and np.array_equal(g, b):
             return True
         return False
+    
+
+    def handle_grayscale_conversion(self, map_info):
+        """Handle conversion of frame to grayscale if necessary."""
+        if not self.convert_to_gray:
+            return np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+
+        # Convert to grayscale by selecting a specific channel
+        bgr_frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+        gray_frame = bgr_frame[:, :, 0]  # Assuming the blue channel for grayscale
+        return gray_frame
 
 
     def create_gstream_device(self, video_format):
