@@ -387,7 +387,7 @@ class BufferedCapture(Process):
         conversion = "videoconvert ! video/x-raw,format={}".format(video_format)
         pipeline_str = ("{} ! queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
                         "{} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                        "appsink max-buffers=100 drop=true sync=0 ts-offset=1000000000 name=appsink").format(device_str, conversion)
+                        "appsink max-buffers=100 drop=true sync=0 name=appsink").format(device_str, conversion)
 
         
         self.pipeline = Gst.parse_launch(pipeline_str)
@@ -457,59 +457,46 @@ class BufferedCapture(Process):
             if self.config.media_backend == 'gst':
                 try:
                     log.info("Initialize GStreamer Device.")
-                    # Initialize GStreamer
-                    Gst.init(None)
+                    Gst.init(None)  # Initialize GStreamer
 
                     # Create and start a GStreamer pipeline
                     self.device = self.create_gstream_device('BGR')
+                    self.pts_buffer = []  # Reset pts buffer
 
-                    # Reset pts buffer
-                    self.pts_buffer = []
-
-                    # Determine the shape of the GStream
+                    # Attempt to get a sample and determine the frame shape
                     sample = self.device.emit("pull-sample")
+                    if not sample:
+                        raise ValueError("Could not obtain sample.")
+
                     buffer = sample.get_buffer()
-                    if sample:
-                        buffer = sample.get_buffer()
-                        ret, map_info = buffer.map(Gst.MapFlags.READ)
+                    ret, map_info = buffer.map(Gst.MapFlags.READ)
+                    if not ret:
+                        raise ValueError("Could not obtain frame.")
 
-                        if ret:
-
-                            # Get caps and extract video information
-                            caps = sample.get_caps()
-                            structure = caps.get_structure(0) if caps else None
-
-                            if structure:
-
-                                # Extract width, height, and format
-                                width = structure.get_value('width')
-                                height = structure.get_value('height')
-
-                                self.frame_shape = (height, width, 3)
-                                frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
-                                # If frame is grayscale, set convert_to_gray flag
-                                if self.is_grayscale(frame):
-                                    self.convert_to_gray = True
-
-                                log.info("Video format: BGR, {}P, color: {}".format(height, not self.convert_to_gray))
-                                    
-                            else:
-                                log.error("Could not determine frame shape.")
-                                self.media_backend_override = True
-                                self.release_resources()
-                        else:
-                            log.error("Could not obtain frame.")
-                            self.media_backend_override = True
-                            self.release_resources()
-                    else:
-                        log.error("Could not obtain sample.")
-                        self.media_backend_override = True
-                        self.release_resources()
+                    # Extract video information from caps
+                    caps = sample.get_caps()
+                    if not caps:
+                        raise ValueError("Sample caps are None.")
+                        
+                    structure = caps.get_structure(0)
+                    if not structure:
+                        raise ValueError("Could not determine frame shape.")
+                    
+                    # Extract width, height, and format, and create frame
+                    width = structure.get_value('width')
+                    height = structure.get_value('height')
+                    self.frame_shape = (height, width, 3)
+                    frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
+                    
+                    # Check if frame is grayscale and set flag
+                    self.convert_to_gray = self.is_grayscale(frame)
+                    log.info("Video format: BGR, {}P, color: {}".format(height, not self.convert_to_gray))
 
                 except Exception as e:
-                    log.info("Could not initialize GStreamer. Initialize OpenCV Device instead. Error: {}".format(e))
+                    log.info("Error initializing GStreamer, switching to alternative. Error: {}".format(e))
                     self.media_backend_override = True
                     self.release_resources()
+
 
             if self.config.media_backend == 'v4l2':
                 try:
