@@ -18,7 +18,7 @@ from __future__ import print_function, division, absolute_import
 
 import os
 # Set GStreamer debug level. Use '2' for warnings in production environments.
-os.environ['GST_DEBUG'] = 'rtspsrc:2'
+os.environ['GST_DEBUG'] = '2'
 #os.environ['GST_DEBUG_FILE'] = '/home/pi/RMS_data/gst_debug.log'
 import sys
 import re
@@ -230,6 +230,13 @@ class BufferedCapture(Process):
         else:
             # Calculate average interval from raw intervals
             average_interval = (new_pts - self.base_pts) / (self.frame_count - 1)
+
+            # If dropped frame detected, reset
+            last_interval = new_pts - self.pts_buffer[-2]
+            if last_interval > 2.0 * average_interval:
+                log.info('Detected dropped frame with interval of {:.3f}s. Reseting average interval.'.format(last_interval))
+                self.pts_buffer = []
+                return new_pts
 
             # Calculate delay for each PTS and store along with index
             delays = [(self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval, i) for i in range(current_buffer_size)]
