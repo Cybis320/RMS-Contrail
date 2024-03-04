@@ -103,6 +103,15 @@ class BufferedCapture(Process):
         self.frame_shape = None
         self.convert_to_gray = False
 
+        # Linear regretion
+        self.n = 0
+        self.sum_x = 0
+        self.sum_y = 0
+        self.sum_xx = 0
+        self.sum_xy = 0
+        self.lowest_point = None
+        self.adjusted_b = None
+
 
         # TIMESTAMP LATENCY
         #
@@ -208,65 +217,48 @@ class BufferedCapture(Process):
             return False
 
 
+    def add_point(self, x, y):
+        self.n += 1
+        self.sum_x += x
+        self.sum_y += y
+        self.sum_xx += x * x
+        self.sum_xy += x * y
+
+        # Update regression parameters
+        m, b = self.calculate_parameters()
+
+        # Check if this is the first point or if it's the new lowest point
+        if self.lowest_point is None or y - (m * x + b) < self.lowest_point[2]:
+            self.lowest_point = (x, y, y - (m * x + b))
+            # Adjust b using the lowest point
+            self.adjusted_b = y - m * x
+    
+
+    def calculate_parameters(self):
+        if self.n > 1:
+            m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
+            b = (self.sum_y - m * self.sum_x) / self.n
+        else:
+            m, b = 0, self.sum_y if self.n else 0  # Handle case with <= 1 point
+
+        return m, self.adjusted_b if self.adjusted_b is not None else b
+
+
     def smooth_pts(self, new_pts):
 
         self.frame_count += 1
 
         # Append new raw pts
-        self.pts_buffer.append(new_pts)
-
-        # Ensure pts buffer doesn't exceed its maximum size
-        if len(self.pts_buffer) > self.pts_buffer_size:
-            self.pts_buffer.pop(0)
-        
-        current_buffer_size = len(self.pts_buffer)
+        self.add_point(self.frame_count, new_pts)
 
         # On initial run or after a reset
-        if current_buffer_size == 1:
-            self.base_pts = new_pts
-            self.frame_count = 1
+        if self.frame_count == 1:
             smoothed_pts = new_pts
 
         else:
-            # Calculate average interval from raw intervals
-            average_interval = (new_pts - self.base_pts) / (self.frame_count - 1)
-
-            # If dropped frame detected, reset
-            last_interval = new_pts - self.pts_buffer[-2]
-            if last_interval > 2.0 * average_interval:
-                log.info('Detected dropped frame with interval of {:.3f}s. Reseting average interval.'.format(last_interval))
-                self.pts_buffer = []
-                return new_pts
-
-            # Calculate delay for each PTS and store along with index
-            delays = [(self.pts_buffer[i] - self.pts_buffer[0] - i * average_interval, i) for i in range(current_buffer_size)]
-
-            # Number of segments - aiming for 10, but it could be less if the array is small
-            num_segments = 10
-            segment_size = max(1, current_buffer_size // num_segments)  # Ensure at least 1 per segment
-
-            smoothed_pts_values = []
-
-            for segment in range(num_segments):
-                start_idx = segment * segment_size
-                end_idx = start_idx + segment_size if segment < num_segments - 1 else current_buffer_size
-
-                # Extract the current segment
-                current_segment = delays[start_idx:end_idx]
-
-                if not current_segment:
-                    break  # No more data to process
-
-                # Find the smallest delay in the current segment
-                _, idx = min(current_segment, key=lambda x: x[0])
-
-                # Calculate smoothed PTS for this smallest delay
-                smoothed_pts = self.pts_buffer[idx] + (current_buffer_size - idx - 1) * average_interval
-                smoothed_pts_values.append(smoothed_pts)
-
-            # Average the smoothed PTS values from each segment
-            smoothed_pts = sum(smoothed_pts_values) / len(smoothed_pts_values) if smoothed_pts_values else 0
-            sys.stdout.write(f"\raverage interval: {average_interval/1e6:.3f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+            m, b = self.calculate_parameters()
+            smoothed_pts = m * self.frame_count + b
+            sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
             sys.stdout.flush()
 
         return smoothed_pts

@@ -128,11 +128,11 @@ def main():
                 
                 # Calculate the next timer start and stop signal timings relative to the elapsed time
                 next_timer_start_signal_time = next_minute - timedelta(milliseconds=30.1)  # 30.1 ms before the top of the minute
-                next_timer_stop_signal_time = next_timer_start_signal_time - timedelta(milliseconds=5) # 5 ms before the start signal
+                next_timer_stop_signal_time = next_timer_start_signal_time - timedelta(milliseconds=15) # 5 ms before the start signal
                 
                 # Calculate the next LED start and stop signal timings relative to the elapsed time
                 next_led_on_signal_time = next_second - timedelta(milliseconds=0)
-                next_led_off_signal_time = next_led_on_signal_time + timedelta(milliseconds=10)
+                next_led_off_signal_time = next_led_on_signal_time + timedelta(milliseconds=1)
 
                 if next_timer_stop_signal_time < next_led_on_signal_time:
 
@@ -166,7 +166,7 @@ def main():
                     while (base_real_time + timedelta(seconds=time.perf_counter() - base_perf_counter)) < next_led_off_signal_time:
                         pass
                     turn_led_off(pwr_led)
-                    next_second += timedelta(seconds=1)
+                    next_second += timedelta(seconds=25/24.981)
     finally:
         GPIO.cleanup()
         # Restore the LED trigger
