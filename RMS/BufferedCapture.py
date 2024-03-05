@@ -87,10 +87,6 @@ class BufferedCapture(Process):
         self.last_timestamp = None
         
         # Custom buffer
-        self.pts_buffer_size = 25*30 # 30 sec 
-        self.pts_buffer = []
-        self.average_interval = 0
-        self.base_pts = 0
         self.frame_count = 0
 
         # A frame will be considered dropped if it was late more then half a frame
@@ -103,7 +99,8 @@ class BufferedCapture(Process):
         self.frame_shape = None
         self.convert_to_gray = False
 
-        # Linear regretion
+        # Custom buffer
+        self.frame_count = 0
         self.n = 0
         self.sum_x = 0
         self.sum_y = 0
@@ -255,11 +252,25 @@ class BufferedCapture(Process):
         if self.frame_count == 1:
             smoothed_pts = new_pts
 
+        # Perform linear regration
         else:
             m, b = self.calculate_parameters()
             smoothed_pts = m * self.frame_count + b
-            sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
-            sys.stdout.flush()
+
+        # Reset on dropped frame
+        if new_pts - smoothed_pts > m:
+            self.frame_count = 0
+            self.n = 0
+            self.sum_x = 0
+            self.sum_y = 0
+            self.sum_xx = 0
+            self.sum_xy = 0
+            self.lowest_point = None
+            self.adjusted_b = None
+            return new_pts
+        
+        sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+        sys.stdout.flush()
 
         return smoothed_pts
 
