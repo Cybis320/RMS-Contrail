@@ -876,7 +876,7 @@ def parseCapture(config, parser):
         pass
 
     if parser.has_option(section, "media_backend"):
-        config.log_dir = parser.get(section, "media_backend")
+        config.media_backend = parser.get(section, "media_backend")
 
     if parser.has_option(section, "uyvy_pixelformat"):
         config.uyvy_pixelformat = parser.getboolean(section, "uyvy_pixelformat")
