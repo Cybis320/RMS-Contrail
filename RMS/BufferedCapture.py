@@ -96,8 +96,7 @@ class BufferedCapture(Process):
         self.frame_shape = None
         self.convert_to_gray = False
 
-        # Custom buffer
-        self.frame_count = 0
+        # Smoothing parameters
         self.n = 0
         self.sum_x = 0
         self.sum_y = 0
@@ -195,23 +194,37 @@ class BufferedCapture(Process):
 
 
     def device_is_opened(self):
+        """ Return True if media backend is opened.
+        """
+        
         if self.device is None:
             return False
+        
         try:
+            # OpenCV
             if isinstance(self.device, cv2.VideoCapture):
                 return self.device.isOpened()
+            
+            # GStreamer
             else:
                 state = self.device.get_state(Gst.CLOCK_TIME_NONE).state
                 if state == Gst.State.PLAYING:
                     return True
                 else:
                     return False
+                
         except Exception as e:
             log.error('Error checking device status: {}'.format(e))
             return False
 
 
-    def add_pts_point(self, x, y):
+    def calculate_pts_regression_params(self, x, y):
+        """ Perform an online linear regression on pts.
+            smoothed_pts = m * frame_count + b
+            Returns slope m (ns per frame) and a b such that the line passes through the 
+            earliest frame.
+        """
+
         self.n += 1
         self.sum_x += x
         self.sum_y += y
@@ -219,46 +232,38 @@ class BufferedCapture(Process):
         self.sum_xy += x * y
 
         # Update regression parameters
-        m, b = self.calculate_pts_regression_params()
-
-        # Check if this is the first point or if it's the new lowest point
-        if self.frame_count < 10:
-            pass
-        elif self.lowest_point is None or y - (m * x + b) < self.lowest_point[2]:
-            self.lowest_point = (x, y, y - (m * x + b))
-            # Adjust b using the lowest point
-            self.adjusted_b = y - m * x
-    
-
-    def calculate_pts_regression_params(self):
         if self.n > 1:
             m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
             b = (self.sum_y - m * self.sum_x) / self.n
         else:
             m, b = 0, self.sum_y if self.n else 0  # Handle case with <= 1 point
 
+        # Ignore first 10 points, then check if this is the first point or if it's the new lowest point
+        if self.n < 10:
+            pass
+        elif self.lowest_point is None or y - (m * x + b) < self.lowest_point[2]:
+            self.lowest_point = (x, y, y - (m * x + b))
+            # Adjust b using the lowest point
+            self.adjusted_b = y - m * x
+    
         return m, self.adjusted_b if self.adjusted_b is not None else b
 
 
-    def smooth_pts(self, new_pts):
+    def smooth_pts(self, new_pts):        
 
-        self.frame_count += 1
-
-        # Append new raw pts
-        self.add_pts_point(self.frame_count, new_pts)
+        # Calulate linear regression params
+        m, b = self.calculate_pts_regression_params(self.n, new_pts)
 
         # On initial run or after a reset
-        if self.frame_count == 1:
+        if self.n == 1:
             smoothed_pts = new_pts
 
-        # Perform linear regression
+        # Calculate smoothed pts from regression parameters
         else:
-            m, b = self.calculate_pts_regression_params()
-            smoothed_pts = m * self.frame_count + b
+            smoothed_pts = m * self.n + b
 
-            # Reset on dropped frame
+            # Reset regression on dropped frame (raw pts is more than 1 frame late)
             if new_pts - smoothed_pts > m:
-                self.frame_count = 0
                 self.n = 0
                 self.sum_x = 0
                 self.sum_y = 0
@@ -269,11 +274,10 @@ class BufferedCapture(Process):
                 log.error('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
-            sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+            sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
             sys.stdout.flush()
 
         return smoothed_pts
-
 
 
     def read(self):
@@ -333,6 +337,9 @@ class BufferedCapture(Process):
 
 
     def extract_rtsp_url(self, input_string):
+        '''
+        Return validated camera url
+        '''
         # Define the regular expression pattern
         pattern = r'(rtsp://.*?\.sdp)/?'
 
@@ -350,6 +357,9 @@ class BufferedCapture(Process):
             
 
     def is_grayscale(self, frame):
+        '''
+        Return True if all color channels contain identical data
+        '''
         # Check if the R, G, and B channels are equal
         b, g, r = cv2.split(frame)
         if np.array_equal(r, g) and np.array_equal(g, b):
