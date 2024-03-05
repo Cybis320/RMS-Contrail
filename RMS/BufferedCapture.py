@@ -218,7 +218,7 @@ class BufferedCapture(Process):
             return False
 
 
-    def calculate_pts_regression_params(self, x, y):
+    def calculate_pts_regression_params(self, y):
         """ Perform an online linear regression on pts.
             smoothed_pts = m * frame_count + b
             Returns slope m (ns per frame) and a b such that the line passes through the 
@@ -226,6 +226,7 @@ class BufferedCapture(Process):
         """
 
         self.n += 1
+        x = self.n
         self.sum_x += x
         self.sum_y += y
         self.sum_xx += x * x
@@ -252,7 +253,7 @@ class BufferedCapture(Process):
     def smooth_pts(self, new_pts):        
 
         # Calulate linear regression params
-        m, b = self.calculate_pts_regression_params(self.n, new_pts)
+        m, b = self.calculate_pts_regression_params(new_pts)
 
         # On initial run or after a reset
         if self.n == 1:
