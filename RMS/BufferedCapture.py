@@ -269,8 +269,8 @@ class BufferedCapture(Process):
                 self.adjusted_b = None
                 return new_pts
         
-        sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
-        sys.stdout.flush()
+            sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+            sys.stdout.flush()
 
         return smoothed_pts
 
