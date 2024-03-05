@@ -218,13 +218,11 @@ class BufferedCapture(Process):
             return False
 
 
-    def calculate_pts_regression_params(self, y):
-        """ Perform an online linear regression on pts.
+    def add_pts_point(self, y):
+        """ Add pts and perform an online linear regression on pts.
             smoothed_pts = m * frame_count + b
-            Returns slope m (ns per frame) and a b such that the line passes through the 
-            earliest frame.
+            Adjust b so that the line passes through the earliest frame.
         """
-
         self.n += 1
         x = self.n
         self.sum_x += x
@@ -233,13 +231,9 @@ class BufferedCapture(Process):
         self.sum_xy += x * y
 
         # Update regression parameters
-        if self.n > 1:
-            m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
-            b = (self.sum_y - m * self.sum_x) / self.n
-        else:
-            m, b = 0, self.sum_y if self.n else 0  # Handle case with <= 1 point
+        m, b = self.calculate_pts_regression_params()
 
-        # Ignore first 10 points, then check if this is the first point or if it's the new lowest point
+        # Check if this is the first point or if it's the new lowest point
         if self.n < 10:
             pass
         elif self.lowest_point is None or y - (m * x + b) < self.lowest_point[2]:
@@ -247,13 +241,28 @@ class BufferedCapture(Process):
             # Adjust b using the lowest point
             self.adjusted_b = y - m * x
     
+
+    def calculate_pts_regression_params(self):
+        """ Perform an online linear regression on pts.
+            smoothed_pts = m * frame_count + b
+            Returns slope m (ns per frame) and a b such that the line passes through the 
+            earliest frame.
+        """
+        if self.n > 1:
+            m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
+            b = (self.sum_y - m * self.sum_x) / self.n
+        else:
+            m, b = 0, self.sum_y if self.n else 0  # Handle case with <= 1 point
+
         return m, self.adjusted_b if self.adjusted_b is not None else b
+
 
 
     def smooth_pts(self, new_pts):        
 
         # Calulate linear regression params
-        m, b = self.calculate_pts_regression_params(new_pts)
+        self.add_pts_point(new_pts)
+        m, b = self.calculate_pts_regression_params()
 
         # On initial run or after a reset
         if self.n == 1:
