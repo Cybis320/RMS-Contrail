@@ -311,7 +311,7 @@ class BufferedCapture(Process):
             if self.config.media_backend == 'gst' and not self.media_backend_override:
                 sample = self.device.emit("pull-sample")
                 if not sample:
-                    log.info("Gst device did not emit a sample.")
+                    log.info("GStreamer pipeline did not emit a sample.")
                     return False, None, None
 
                 buffer = sample.get_buffer()
@@ -325,7 +325,7 @@ class BufferedCapture(Process):
 
                 ret, map_info = buffer.map(Gst.MapFlags.READ)
                 if not ret:
-                    log.info("Gst Buffer did not contain a frame.")
+                    log.info("GStreamer Buffer did not contain a frame.")
                     return False, None, None
 
                 # Handling for grayscale conversion
@@ -485,7 +485,7 @@ class BufferedCapture(Process):
 
             if self.config.media_backend == 'gst':
                 try:
-                    log.info("Initialize GStreamer Device.")
+                    log.info("Initialize GStreamer Standalone Device.")
                     Gst.init(None)  # Initialize GStreamer
 
                     # Create and start a GStreamer pipeline
@@ -529,11 +529,11 @@ class BufferedCapture(Process):
 
             if self.config.media_backend == 'v4l2':
                 try:
-                    log.info("Initialize v4l2 Device.")
+                    log.info("Initialize OpenCV Device with v4l2.")
                     self.device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
                     self.device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
                 except Exception as e:
-                    log.info("Could not initialize v4l2. Initialize OpenCV Device instead. Error: {}".format(e))
+                    log.info("Could not initialize OpenCV with v4l2. Initialize OpenCV Device without v4l2 instead. Error: {}".format(e))
                     self.media_backend_override = True
                     self.release_resources()
 
