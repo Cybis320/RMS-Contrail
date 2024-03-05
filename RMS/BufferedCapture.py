@@ -127,9 +127,9 @@ class BufferedCapture(Process):
 
         self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
         if self.config.height == 1080:
-            self.system_latency = 0.02 # seconds. Experimentally measured latency
+            self.system_latency = 0.085 # seconds. Experimentally measured latency
         else:
-            self.system_latency = 0.01 # seconds. Experimentally measured latency
+            self.system_latency = 0.075 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
 
