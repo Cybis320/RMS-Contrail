@@ -257,17 +257,17 @@ class BufferedCapture(Process):
             m, b = self.calculate_parameters()
             smoothed_pts = m * self.frame_count + b
 
-        # Reset on dropped frame
-        if new_pts - smoothed_pts > m:
-            self.frame_count = 0
-            self.n = 0
-            self.sum_x = 0
-            self.sum_y = 0
-            self.sum_xx = 0
-            self.sum_xy = 0
-            self.lowest_point = None
-            self.adjusted_b = None
-            return new_pts
+            # Reset on dropped frame
+            if new_pts - smoothed_pts > m:
+                self.frame_count = 0
+                self.n = 0
+                self.sum_x = 0
+                self.sum_y = 0
+                self.sum_xx = 0
+                self.sum_xy = 0
+                self.lowest_point = None
+                self.adjusted_b = None
+                return new_pts
         
         sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
         sys.stdout.flush()
