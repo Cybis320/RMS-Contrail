@@ -86,9 +86,6 @@ class BufferedCapture(Process):
         self.dropped_frames2 = 0
         self.last_timestamp = None
         
-        # Custom buffer
-        self.frame_count = 0
-
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 2.0*(1.0/config.fps)
 
@@ -127,9 +124,9 @@ class BufferedCapture(Process):
 
         self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
         if self.config.height == 1080:
-            self.system_latency = 0.085 # seconds. Experimentally measured latency
+            self.system_latency = 0.055 # seconds. Experimentally measured latency
         else:
-            self.system_latency = 0.075 # seconds. Experimentally measured latency
+            self.system_latency = 0.045 # seconds. Experimentally measured latency
         self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
 
 
@@ -214,7 +211,7 @@ class BufferedCapture(Process):
             return False
 
 
-    def add_point(self, x, y):
+    def add_pts_point(self, x, y):
         self.n += 1
         self.sum_x += x
         self.sum_y += y
@@ -222,16 +219,18 @@ class BufferedCapture(Process):
         self.sum_xy += x * y
 
         # Update regression parameters
-        m, b = self.calculate_parameters()
+        m, b = self.calculate_pts_regression_params()
 
         # Check if this is the first point or if it's the new lowest point
-        if self.lowest_point is None or y - (m * x + b) < self.lowest_point[2]:
+        if self.frame_count < 10:
+            pass
+        elif self.lowest_point is None or y - (m * x + b) < self.lowest_point[2]:
             self.lowest_point = (x, y, y - (m * x + b))
             # Adjust b using the lowest point
             self.adjusted_b = y - m * x
     
 
-    def calculate_parameters(self):
+    def calculate_pts_regression_params(self):
         if self.n > 1:
             m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
             b = (self.sum_y - m * self.sum_x) / self.n
@@ -246,15 +245,15 @@ class BufferedCapture(Process):
         self.frame_count += 1
 
         # Append new raw pts
-        self.add_point(self.frame_count, new_pts)
+        self.add_pts_point(self.frame_count, new_pts)
 
         # On initial run or after a reset
         if self.frame_count == 1:
             smoothed_pts = new_pts
 
-        # Perform linear regration
+        # Perform linear regression
         else:
-            m, b = self.calculate_parameters()
+            m, b = self.calculate_pts_regression_params()
             smoothed_pts = m * self.frame_count + b
 
             # Reset on dropped frame
@@ -267,6 +266,7 @@ class BufferedCapture(Process):
                 self.sum_xy = 0
                 self.lowest_point = None
                 self.adjusted_b = None
+                log.error('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
             sys.stdout.write(f"\r Frame count: {self.frame_count}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
