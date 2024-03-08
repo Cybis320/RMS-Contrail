@@ -240,6 +240,9 @@ class BufferedCapture(Process):
             self.lowest_point = (x, y, y - (m * x + b))
             # Adjust b using the lowest point
             self.adjusted_b = y - m * x
+        else:
+            # Introduce a 1 ms per hour bias
+            self.adjusted_b += 1000000 / 25 / 3600 # ns
     
 
     def calculate_pts_regression_params(self):
@@ -281,7 +284,7 @@ class BufferedCapture(Process):
                 self.sum_xy = 0
                 self.lowest_point = None
                 self.adjusted_b = None
-                log.error('smooth_pts detected dropped frame. Resetting regression parameters.')
+                log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
             sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
@@ -331,7 +334,7 @@ class BufferedCapture(Process):
                 # Handling for grayscale conversion
                 frame = self.handle_grayscale_conversion(map_info)
 
-                # Smooth raw timestamp and calculate actual timestamp
+                # Smooth raw pts and calculate actual timestamp
                 smoothed_pts = self.smooth_pts(gst_timestamp_ns)
                 timestamp = self.start_timestamp + (smoothed_pts / 1e9)
 
