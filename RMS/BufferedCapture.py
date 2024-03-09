@@ -103,7 +103,7 @@ class BufferedCapture(Process):
         self.sum_xx = 0
         self.sum_xy = 0
         self.startup_frames = 25 * 60 * 5
-        self.adjusted_b = 0
+        self.adjusted_b = 1e11
         self.expected_m = 1e9/config.fps # ns
 
 
@@ -235,7 +235,7 @@ class BufferedCapture(Process):
         m, b = self.calculate_pts_regression_params()
 
         # Calulate the delta between the lowest point and current point 
-        delta_b = b - (y - m * x)
+        delta_b = self.adjusted_b - (y - m * x)
 
         # Don't update lowest point for the first few points
         if self.n <= 10:
@@ -277,7 +277,7 @@ class BufferedCapture(Process):
         else:
             m, b = 0, self.sum_y if self.n else 0  # Handle case with <= 1 point
 
-        return m, self.adjusted_b if self.adjusted_b > 0 else b
+        return m, self.adjusted_b if self.adjusted_b < 1e11 else b
 
 
 
@@ -302,7 +302,7 @@ class BufferedCapture(Process):
                 self.sum_y = 0
                 self.sum_xx = 0
                 self.sum_xy = 0
-                self.adjusted_b = 0
+                self.adjusted_b = 1e11
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
