@@ -2,7 +2,6 @@ import RPi.GPIO as GPIO
 import time
 from datetime import datetime, timedelta
 import argparse
-import keyboard
 
 # Display seconds on a Laurel L timer
 # Timer should be set for Mode: Stopwatch, Function: A to B
@@ -113,24 +112,19 @@ def main():
             initial_delay_until_next_minute_signal = (next_minute - base_real_time).total_seconds()
 
             # Calculate the initial delay to the next second mark, adjusted for the first signal timing
-            next_second = (base_real_time + timedelta(seconds=1)).replace(microsecond=0)
+            next_second = (base_real_time + timedelta(seconds=1)).replace(microsecond=0) - timedelta(microseconds=350)
             initial_delay_until_next_second_signal = (next_second - base_real_time).total_seconds()
 
 
             # Recalculate if too close to next minute
             if initial_delay_until_next_second_signal < 0.1:
-                next_second = (base_real_time + timedelta(seconds=2)).replace(microsecond=0)
+                next_second = (base_real_time + timedelta(seconds=2)).replace(microsecond=0) - timedelta(microseconds=350)
                 if initial_delay_until_next_minute_signal < 0.:
                     next_minute = (base_real_time + timedelta(minutes=2)).replace(second=0, microsecond=0)
 
 
 
             while True:
-                # Check for keyboard input to adjust next_second
-                if keyboard.is_pressed('up'):
-                    next_second += timedelta(microseconds=100)
-                elif keyboard.is_pressed('down'):
-                    next_second -= timedelta(microseconds=100)
                 
                 # Calculate the next timer start and stop signal timings relative to the elapsed time
                 next_timer_start_signal_time = next_minute - timedelta(milliseconds=30.1)  # 30.1 ms before the top of the minute
@@ -172,7 +166,7 @@ def main():
                     while (base_real_time + timedelta(seconds=time.perf_counter() - base_perf_counter)) < next_led_off_signal_time:
                         pass
                     turn_led_off(pwr_led)
-                    next_second += timedelta(seconds=25/24.981)
+                    next_second += timedelta(seconds=25/24.9823435)
     finally:
         GPIO.cleanup()
         # Restore the LED trigger
