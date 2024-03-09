@@ -2,6 +2,7 @@ import RPi.GPIO as GPIO
 import time
 from datetime import datetime, timedelta
 import argparse
+import keyboard
 
 # Display seconds on a Laurel L timer
 # Timer should be set for Mode: Stopwatch, Function: A to B
@@ -125,10 +126,15 @@ def main():
 
 
             while True:
+                # Check for keyboard input to adjust next_second
+                if keyboard.is_pressed('up'):
+                    next_second += timedelta(microseconds=100)
+                elif keyboard.is_pressed('down'):
+                    next_second -= timedelta(microseconds=100)
                 
                 # Calculate the next timer start and stop signal timings relative to the elapsed time
                 next_timer_start_signal_time = next_minute - timedelta(milliseconds=30.1)  # 30.1 ms before the top of the minute
-                next_timer_stop_signal_time = next_timer_start_signal_time - timedelta(milliseconds=15) # 5 ms before the start signal
+                next_timer_stop_signal_time = next_timer_start_signal_time - timedelta(milliseconds=20) # 5 ms before the start signal
                 
                 # Calculate the next LED start and stop signal timings relative to the elapsed time
                 next_led_on_signal_time = next_second - timedelta(milliseconds=0)
