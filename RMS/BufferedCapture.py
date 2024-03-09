@@ -243,16 +243,18 @@ class BufferedCapture(Process):
         
         # Check if current point is the new lowest point
         elif delta_b > 0:
-            # Adjust the lowest point aggressively at first 
+
+            # Adjust the lowest point aggressively at first
             if 10 < self.n <= 25 * 60 * 5: # first 5 min
-                # Update the lowest b
-                self.adjusted_b -= delta_b
-                log.info(f"NEW LOW during startup: {self.adjusted_b:.1f} ns")
+                delta_b = min(delta_b, 1000) # max 10 us
+                
             else:
                 # After 5 min, limit the max amount of change per frame (~0.0255 ms per 256 block)
                 delta_b = min(delta_b, 100) # max 1 us
-                self.adjusted_b -= delta_b
-                log.info(f"NEW LOW after startup: {self.adjusted_b:.1f} ns, b_delta: {delta_b:.1f} ns")
+            
+            # Update the lowest b
+            self.adjusted_b -= delta_b
+            log.info(f"NEW LOW after startup: {self.adjusted_b:.1f} ns, b_delta: {delta_b:.1f} ns")
             
         else:
             # Introduce a 0.000025 ms per frame upward bias
