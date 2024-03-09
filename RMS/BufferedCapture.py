@@ -102,8 +102,10 @@ class BufferedCapture(Process):
         self.sum_y = 0
         self.sum_xx = 0
         self.sum_xy = 0
-        self.lowest_point = None
-        self.adjusted_b = None
+        self.startup_frames = 25 * 60
+        self.lowest_point = 0
+        self.adjusted_b = 0
+        self.expected_m = 1e9/config.fps # ns
 
 
         # TIMESTAMP LATENCY
@@ -221,7 +223,7 @@ class BufferedCapture(Process):
     def add_pts_point(self, y):
         """ Add pts and perform an online linear regression on pts.
             smoothed_pts = m * frame_count + b
-            Adjust b so that the line passes through the earliest frame.
+            Adjust b so that the line passes through the earliest frames.
         """
         self.n += 1
         x = self.n
@@ -233,16 +235,33 @@ class BufferedCapture(Process):
         # Update regression parameters
         m, b = self.calculate_pts_regression_params()
 
-        # Check if this is the first point or if it's the new lowest point
-        if self.n < 10:
+        # Calulate the delta between the lowest point and current point 
+        delta_to_lowest_point = self.lowest_point - (y - (m * x + b))
+
+        # Don't update lowest point for the first few points
+        if self.n <= 10:
             pass
-        elif self.lowest_point is None or y - (m * x + b) < self.lowest_point[2]:
-            self.lowest_point = (x, y, y - (m * x + b))
-            # Adjust b using the lowest point
-            self.adjusted_b = y - m * x
+        
+        # Check if current point is the new lowest point
+        elif delta_to_lowest_point < 0:
+            # Adjust the lowest point aggressively at first 
+            if 10 < self.n <= 25 * 60 * 5: # first 5 min
+                # Update the lowest point
+                self.lowest_point -= delta_to_lowest_point
+                # Adjust b to the lowest point
+                self.adjusted_b = y - m * x
+                log.info(f"NEW LOW during startup: {self.adjusted_b:.1f} ns")
+            else:
+                # After 5 min, limit the max amount of change
+                b_delta = min(delta_to_lowest_point, 100*1e3) # max 100 us
+                self.lowest_point -= b_delta
+                self.adjusted_b -= b_delta
+                log.info(f"NEW LOW after startup: {self.adjusted_b:.1f} ns, b_delta: {b_delta:.1f} ns")
+
+            
         else:
-            # Introduce a 1 ms per hour bias
-            self.adjusted_b += 1000000 / 25 / 3600 # ns
+            # Introduce a 1 ms per hour upward bias
+            self.lowest_point += 1000000 / 25 / 3600 # ns
     
 
     def calculate_pts_regression_params(self):
@@ -253,15 +272,21 @@ class BufferedCapture(Process):
         """
         if self.n > 1:
             m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
+
+            # On startup use expected fps until calculate fps is stable
+            if self.n < self.startup_frames:
+                # Calculate a weighted average m (slope, 1e9/fps)
+                m = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
+
             b = (self.sum_y - m * self.sum_x) / self.n
         else:
             m, b = 0, self.sum_y if self.n else 0  # Handle case with <= 1 point
 
-        return m, self.adjusted_b if self.adjusted_b is not None else b
+        return m, self.adjusted_b if self.adjusted_b > 0 else b
 
 
 
-    def smooth_pts(self, new_pts):        
+    def smooth_pts(self, new_pts):
 
         # Calulate linear regression params
         self.add_pts_point(new_pts)
@@ -282,12 +307,12 @@ class BufferedCapture(Process):
                 self.sum_y = 0
                 self.sum_xx = 0
                 self.sum_xy = 0
-                self.lowest_point = None
-                self.adjusted_b = None
+                self.lowest_point = 0
+                self.adjusted_b = 0
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
-            sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+            sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, b: {b:.1f}, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
             sys.stdout.flush()
 
         return smoothed_pts
