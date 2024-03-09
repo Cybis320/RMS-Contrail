@@ -103,7 +103,6 @@ class BufferedCapture(Process):
         self.sum_xx = 0
         self.sum_xy = 0
         self.startup_frames = 25 * 60 * 5
-        self.lowest_point = 0
         self.adjusted_b = 0
         self.expected_m = 1e9/config.fps # ns
 
@@ -236,32 +235,28 @@ class BufferedCapture(Process):
         m, b = self.calculate_pts_regression_params()
 
         # Calulate the delta between the lowest point and current point 
-        delta_to_lowest_point = self.lowest_point - (y - (m * x + b))
+        delta_b = b - (y - m * x)
 
         # Don't update lowest point for the first few points
         if self.n <= 10:
             pass
         
         # Check if current point is the new lowest point
-        elif delta_to_lowest_point > 0:
+        elif delta_b > 0:
             # Adjust the lowest point aggressively at first 
             if 10 < self.n <= 25 * 60 * 5: # first 5 min
-                # Update the lowest point
-                self.lowest_point -= delta_to_lowest_point
-                # Adjust b to the lowest point
-                self.adjusted_b = y - m * x
+                # Update the lowest b
+                self.adjusted_b -= delta_b
                 log.info(f"NEW LOW during startup: {self.adjusted_b:.1f} ns")
             else:
-                # After 5 min, limit the max amount of change
-                b_delta = min(delta_to_lowest_point, 100*1e3) # max 100 us
-                self.lowest_point -= b_delta
-                self.adjusted_b -= b_delta
-                log.info(f"NEW LOW after startup: {self.adjusted_b:.1f} ns, b_delta: {b_delta:.1f} ns")
-
+                # After 5 min, limit the max amount of change per frame (~0.0255 ms per 256 block)
+                delta_b = min(delta_b, 100) # max 1 us
+                self.adjusted_b -= delta_b
+                log.info(f"NEW LOW after startup: {self.adjusted_b:.1f} ns, b_delta: {delta_b:.1f} ns")
             
         else:
-            # Introduce a 1 ms per hour upward bias
-            self.lowest_point += 1000000 / 25 / 3600 # ns
+            # Introduce a 0.000025 ms per frame upward bias
+            self.adjusted_b += 25 # ns
     
 
     def calculate_pts_regression_params(self):
@@ -307,7 +302,6 @@ class BufferedCapture(Process):
                 self.sum_y = 0
                 self.sum_xx = 0
                 self.sum_xy = 0
-                self.lowest_point = 0
                 self.adjusted_b = 0
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
