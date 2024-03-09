@@ -102,7 +102,7 @@ class BufferedCapture(Process):
         self.sum_y = 0
         self.sum_xx = 0
         self.sum_xy = 0
-        self.startup_frames = 25 * 60
+        self.startup_frames = 25 * 60 * 5
         self.lowest_point = 0
         self.adjusted_b = 0
         self.expected_m = 1e9/config.fps # ns
@@ -243,7 +243,7 @@ class BufferedCapture(Process):
             pass
         
         # Check if current point is the new lowest point
-        elif delta_to_lowest_point < 0:
+        elif delta_to_lowest_point > 0:
             # Adjust the lowest point aggressively at first 
             if 10 < self.n <= 25 * 60 * 5: # first 5 min
                 # Update the lowest point
