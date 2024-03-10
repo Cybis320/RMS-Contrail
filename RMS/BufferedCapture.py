@@ -232,7 +232,10 @@ class BufferedCapture(Process):
         self.sum_xy += x * y
 
         # Update regression parameters
-        m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
+        if self.n > 1:
+            m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
+        else:
+            m = self.expected_m
 
         # On startup use expected fps until calculate fps is stable
         if self.n <= self.startup_frames:
