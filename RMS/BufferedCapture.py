@@ -103,7 +103,7 @@ class BufferedCapture(Process):
         self.sum_xx = 0
         self.sum_xy = 0
         self.startup_frames = 25 * 60 * 5
-        self.adjusted_b = 1e11
+        self.b = 1e11
         self.expected_m = 1e9/config.fps # ns
 
 
@@ -219,7 +219,7 @@ class BufferedCapture(Process):
             return False
 
 
-    def add_pts_point(self, y):
+    def calculate_pts_regression_params(self, y):
         """ Add pts and perform an online linear regression on pts.
             smoothed_pts = m * frame_count + b
             Adjust b so that the line passes through the earliest frames.
@@ -232,62 +232,42 @@ class BufferedCapture(Process):
         self.sum_xy += x * y
 
         # Update regression parameters
-        m, b = self.calculate_pts_regression_params()
+        m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
+
+        # On startup use expected fps until calculate fps is stable
+        if self.n <= self.startup_frames:
+            # Calculate a weighted average m (slope, 1e9/fps)
+            m = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
 
         # Calulate the delta between the lowest point and current point 
-        delta_b = self.adjusted_b - (y - m * x)
-
-        # Don't update lowest point for the first few points
-        if self.n <= 10:
-            pass
+        delta_b = self.b - (y - m * x)
         
         # Check if current point is the new lowest point
-        elif delta_b > 0:
+        if delta_b > 0:
 
             # Adjust the lowest point aggressively at first
-            if 10 < self.n <= 25 * 60 * 5: # first 5 min
+            if self.n <= 25 * 60 * 5: # first 5 min
                 delta_b = min(delta_b, 1000) # max 10 us
-                
+
             else:
                 # After 5 min, limit the max amount of change per frame (~0.0255 ms per 256 block)
                 delta_b = min(delta_b, 100) # max 1 us
             
             # Update the lowest b
-            self.adjusted_b -= delta_b
-            log.info(f"NEW LOW after startup: {self.adjusted_b:.1f} ns, b_delta: {delta_b:.1f} ns")
+            self.b -= delta_b
+            log.info(f"NEW LOW: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns")
             
         else:
             # Introduce a 0.000025 ms per frame upward bias
-            self.adjusted_b += 25 # ns
+            self.b += 25 # ns
+        
+        return m, self.b
     
-
-    def calculate_pts_regression_params(self):
-        """ Perform an online linear regression on pts.
-            smoothed_pts = m * frame_count + b
-            Returns slope m (ns per frame) and a b such that the line passes through the 
-            earliest frame.
-        """
-        if self.n > 1:
-            m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
-
-            # On startup use expected fps until calculate fps is stable
-            if self.n < self.startup_frames:
-                # Calculate a weighted average m (slope, 1e9/fps)
-                m = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
-
-            b = (self.sum_y - m * self.sum_x) / self.n
-        else:
-            m, b = 0, self.sum_y if self.n else 0  # Handle case with <= 1 point
-
-        return m, self.adjusted_b if self.adjusted_b < 1e11 else b
-
-
 
     def smooth_pts(self, new_pts):
 
         # Calulate linear regression params
-        self.add_pts_point(new_pts)
-        m, b = self.calculate_pts_regression_params()
+        m, b = self.calculate_pts_regression_params(new_pts)
 
         # On initial run or after a reset
         if self.n == 1:
@@ -304,7 +284,7 @@ class BufferedCapture(Process):
                 self.sum_y = 0
                 self.sum_xx = 0
                 self.sum_xy = 0
-                self.adjusted_b = 1e11
+                self.b = 1e11
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
