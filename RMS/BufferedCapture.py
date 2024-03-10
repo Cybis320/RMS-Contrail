@@ -242,14 +242,18 @@ class BufferedCapture(Process):
             # Calculate a weighted average m (slope, 1e9/fps)
             m = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
 
-        # Calulate the delta between the lowest point and current point 
+        # Calulate the delta between the lowest point and current point
         delta_b = self.b - (y - m * x)
         
         # Check if current point is the new lowest point
         if delta_b > 0:
+            
+            # Set the lowest point for the first point
+            if self.n <= 1:
+                pass
 
             # Adjust the lowest point aggressively at first
-            if self.n <= 25 * 60 * 5: # first 5 min
+            elif self.n <= 25 * 60 * 5: # first 5 min
                 delta_b = min(delta_b, 1000) # max 10 us
 
             else:
