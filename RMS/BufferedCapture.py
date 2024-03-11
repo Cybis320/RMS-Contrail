@@ -96,17 +96,6 @@ class BufferedCapture(Process):
         self.frame_shape = None
         self.convert_to_gray = False
 
-        # Smoothing parameters
-        self.n = 0
-        self.sum_x = 0
-        self.sum_y = 0
-        self.sum_xx = 0
-        self.sum_xy = 0
-        self.startup_frames = 25 * 60 * 5
-        self.b = 1e11
-        self.expected_m = 1e9/config.fps # ns
-
-
         # TIMESTAMP LATENCY
         #
         # Experimentally establish device_buffer and device_latency
@@ -222,6 +211,7 @@ class BufferedCapture(Process):
     def calculate_pts_regression_params(self, y):
         """ Add pts and perform an online linear regression on pts.
             smoothed_pts = m * frame_count + b
+            m is the slope (1e9/fps)
             Adjust b so that the line passes through the earliest frames.
         """
         self.n += 1
@@ -236,36 +226,43 @@ class BufferedCapture(Process):
             m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
         else:
             m = self.expected_m
+            self.b = y - m * x
 
-        # On startup use expected fps until calculate fps is stable
+        # On startup blend in expected fps until calculate fps stabilizes
         if self.n <= self.startup_frames:
-            # Calculate a weighted average m (slope, 1e9/fps)
-            m = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
+            # Calculate a weighted average m
+            m_corr = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
+             print(f"m error: {(m - self.expected_m) * self.m:.1f}")
 
-        # Calulate the delta between the lowest point and current point
+
+        # Calculate the delta between the lowest point and current point
         delta_b = self.b - (y - m * x)
+
+        # Adjust b error debt to the max of current debt or new delta b
+        self.b_error_debt = max(self.b_error_debt, delta_b)
         
-        # Check if current point is the new lowest point
-        if delta_b > 0:
+        # Check if b adjustment is due
+        if self.b_error_debt > 0:
+
+            # Don't limit changes to b for the first few blocks of frames
+            if self.n <= 256 * 3:
+                b_corr = self.b_error_debt
+
+            # Then adjust b aggressively for the first few minutes (0.25 ms per block)
+            elif self.n <= 256 * 6 * 10: # first ~10 min
+                b_corr = min(self.b_error_debt, 250 * 1000 / 256) # ns
             
-            # Set the lowest point for the first point
-            if self.n <= 1:
-                pass
-
-            # Adjust the lowest point aggressively at first
-            elif self.n <= 25 * 60 * 5: # first 5 min
-                delta_b = min(delta_b, 1000) # max 10 us
-
+            # Then only allow small changes (0.1 ms per block)
             else:
-                # After 5 min, limit the max amount of change per frame (~0.0255 ms per 256 block)
-                delta_b = min(delta_b, 100) # max 1 us
+                b_corr = min(self.b_error_debt, 100 * 1000 / 256) # ns
             
-            # Update the lowest b
-            self.b -= delta_b
-            log.info(f"NEW LOW: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns")
+            # Update the lowest b and adjust the debt
+            self.b -= b_corr
+            self.b_error_debt -= b_corr
+            log.info(f"NEW LOW: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}")
             
         else:
-            # Introduce a 0.000025 ms per frame upward bias
+            # Introduce a 0.000025 ms per frame upward bias to account for potential camera drift
             self.b += 25 # ns
         
         return m, self.b
@@ -285,13 +282,14 @@ class BufferedCapture(Process):
             smoothed_pts = m * self.n + b
 
             # Reset regression on dropped frame (raw pts is more than 1 frame late)
-            if new_pts - smoothed_pts > m:
+            if new_pts - smoothed_pts > self.expected_m:
                 self.n = 0
                 self.sum_x = 0
                 self.sum_y = 0
                 self.sum_xx = 0
                 self.sum_xy = 0
-                self.b = 1e11
+                self.startup_frames = 0
+                self.b_error_debt = 0
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
@@ -497,7 +495,20 @@ class BufferedCapture(Process):
             if self.config.media_backend == 'gst':
                 try:
                     log.info("Initialize GStreamer Standalone Device.")
-                    Gst.init(None)  # Initialize GStreamer
+                    
+                    # Initialize Smoothing parameters
+                    self.n = 0
+                    self.sum_x = 0
+                    self.sum_y = 0
+                    self.sum_xx = 0
+                    self.sum_xy = 0
+                    self.startup_frames = 25 * 60 * 5
+                    self.b = 0
+                    self.b_error_debt = 0
+                    self.expected_m = 1e9/config.fps # ns
+
+                    # Initialize GStreamer
+                    Gst.init(None)
 
                     # Create and start a GStreamer pipeline
                     self.device = self.create_gstream_device('BGR')
