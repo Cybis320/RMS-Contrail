@@ -234,9 +234,12 @@ class BufferedCapture(Process):
             m_weighted_avg = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
 
             # Exit if calculated m doesn't converge with expected m
-            if self.n % 256 * 3 == 0:
+            if self.n % 256 == 0:
                 m_err = abs(m - self.expected_m)
-                if m_err > self.last_m_err:
+                delta_m_err = (m_err - self.last_m_err) / 256
+                startup_remaining = self.startup_frames - self.n
+                final_m_err = m_err + startup_remaining * delta_m_err
+                if final_m_err  > 0:
                     self.startup_frames = 0
                     log.info("Exiting weighted-avg m logic early at frame: {}, Expected fps: {}, calculated fps at this point: {:.6f}").format(self.n, self.config.fps, 1/m)
                 self.last_m_err = m_err
