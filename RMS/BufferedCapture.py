@@ -231,8 +231,17 @@ class BufferedCapture(Process):
         # On startup blend in expected fps until calculate fps stabilizes
         if self.n <= self.startup_frames:
             # Calculate a weighted average m
-            m_corr = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
-             print(f"m error: {(m - self.expected_m) * self.m:.1f}")
+            m_weighted_avg = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
+
+            # Exit if calculated m doesn't converge with expected m
+            if self.n % 256 * 3 == 0:
+                m_err = abs(m - self.expected_m)
+                if m_err > self.last_m_err:
+                    self.startup_frames = 0
+                    log.info("Exiting weighted-avg m logic early at frame: {}, Expected fps: {}, calculated fps at this point: {:.6f}").format(self.n, self.config.fps, 1/m)
+                self.last_m_err = m_err
+            if self.startup_frames > 0:
+                m = m_weighted_avg
 
 
         # Calculate the delta between the lowest point and current point
@@ -290,6 +299,8 @@ class BufferedCapture(Process):
                 self.sum_xy = 0
                 self.startup_frames = 0
                 self.b_error_debt = 0
+                self.last_m_err = float('inf')
+
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
@@ -505,7 +516,8 @@ class BufferedCapture(Process):
                     self.startup_frames = 25 * 60 * 5
                     self.b = 0
                     self.b_error_debt = 0
-                    self.expected_m = 1e9/config.fps # ns
+                    self.expected_m = 1e9/self.config.fps # ns
+                    self.last_m_err = float('inf')
 
                     # Initialize GStreamer
                     Gst.init(None)
