@@ -323,6 +323,7 @@ class BufferedCapture(Process):
                 self.sum_xx = 0
                 self.sum_xy = 0
                 self.startup_frames = 0
+                self.m_jump_error = 0
                 self.b_error_debt = 0
                 self.last_m_err = float('inf')
 
@@ -541,6 +542,7 @@ class BufferedCapture(Process):
                     self.startup_frames = 25 * 60 * 5
                     self.b = 0
                     self.b_error_debt = 0
+                    self.m_jump_error = 0
                     self.expected_m = 1e9/self.config.fps # ns
                     self.last_m_err = float('inf')
 
