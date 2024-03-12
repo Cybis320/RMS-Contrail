@@ -301,7 +301,7 @@ class BufferedCapture(Process):
             
         
         
-        return m, self.b
+        return m, self.b + self.m_jump_error
     
 
     def smooth_pts(self, new_pts):
