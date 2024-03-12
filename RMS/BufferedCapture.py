@@ -247,13 +247,13 @@ class BufferedCapture(Process):
                     self.startup_frames = 0
 
                     # If residual error at exit of startup is too large, reset debt and b
-                    if m_err > 1000:
+                    if m_err > 2000:
                         log.info("Check config FPS! Exiting startup logic early at frame: {}, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns".format(self.n, 1e9/self.expected_m, 1e9/m, m_err))
                         self.b_error_debt = 0
                         self.b = y - m * x
                         self.m_jump_error = 0
                     else:
-                        # calculate the jump error at startup exit
+                        # calculate the jump error at exit of startup
                         self.m_jump_error = x * (m - self.expected_m) # ns
                         log.info("Exiting startup logic at frame: {}, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns".format(self.n, 1e9/self.expected_m, 1e9/m, m_err))
 
@@ -266,9 +266,9 @@ class BufferedCapture(Process):
         delta_b = self.b - (y - m * x)
 
         # Adjust b error debt to the max of current debt or new delta b
-        self.b_error_debt = max(self.b_error_debt, delta_b, 0)
+        self.b_error_debt = max(self.b_error_debt, delta_b)
         
-        if self.b_error_debt != 0 or self.m_jump_error != 0:
+        if self.b_error_debt > 0:
 
             # Don't limit changes to b for the first few blocks of frames
             if self.n <= 256 * 3:
@@ -285,20 +285,23 @@ class BufferedCapture(Process):
             b_corr = min(self.b_error_debt, max_adjust) # ns
 
             # Update the lowest b and adjust the debt
-            self.b -= b_corr + self.m_jump_error
+            self.b -= b_corr
             self.b_error_debt -= b_corr
+        
+        else:
+            # Introduce a 0.000025 ms per frame upward bias to account for potential camera drift
+            self.b += 25 # ns
 
+        if self.m_jump_error != 0:
             # Update m jump error debt
             if self.m_jump_error > 0:
                 self.m_jump_error = max(self.m_jump_error - max_adjust, 0)
             else:
                 self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
             
-            log.info(f"NEW LOW: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
+        log.info(f"b: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
             
-        else:
-            # Introduce a 0.000025 ms per frame upward bias to account for potential camera drift
-            self.b += 25 # ns
+        
         
         return m, self.b
     
