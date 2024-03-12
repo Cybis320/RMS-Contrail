@@ -227,46 +227,68 @@ class BufferedCapture(Process):
         else:
             m = self.expected_m
             self.b = y - m * x
-
-        # On startup blend in expected fps until calculate fps stabilizes
+        
+        ## STARTUP ##
+        # On startup, use expected fps until calculate fps stabilizes
         if self.n <= self.startup_frames:
-            # Calculate a weighted average m
-            m_weighted_avg = ((self.startup_frames - self.n) * self.expected_m + self.n * m) / self.startup_frames
 
-            # Exit if calculated m doesn't converge with expected m
-            if self.n % 256 == 0:
+            # Exit startup if calculated m doesn't converge with expected m
+            # Check error every 512 frames and determine if the values converge
+            if self.n % 512 == 0:
                 m_err = abs(m - self.expected_m)
-                delta_m_err = (m_err - self.last_m_err) / 256
+                delta_m_err = (m_err - self.last_m_err) / 512
                 startup_remaining = self.startup_frames - self.n
                 final_m_err = m_err + startup_remaining * delta_m_err
-                if final_m_err  > 0:
-                    self.startup_frames = 0
-                    log.info("Exiting weighted-avg m logic early at frame: {}, Expected fps: {}, calculated fps at this point: {:.6f}").format(self.n, self.config.fps, 1/m)
                 self.last_m_err = m_err
+
+                # If error will not reach zero by end of startup, exit startup
+                if final_m_err  > 0:
+                    # This will bypass startup on next frame
+                    self.startup_frames = 0
+
+                    # If residual error at exit of startup is too large, reset debt and b
+                    if m_err > 1000:
+                        log.info("Check config FPS! Exiting startup logic early at frame: {}, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns".format(self.n, 1e9/self.expected_m, 1e9/m, m_err))
+                        self.b_error_debt = 0
+                        self.b = y - m * x
+                        self.m_jump_error = 0
+                    else:
+                        # calculate the jump error at startup exit
+                        self.m_jump_error = x * (m - self.expected_m) # ns
+                        log.info("Exiting startup logic at frame: {}, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns".format(self.n, 1e9/self.expected_m, 1e9/m, m_err))
+
+            # Use expected value during startup
             if self.startup_frames > 0:
-                m = m_weighted_avg
+                m = self.expected_m
 
 
         # Calculate the delta between the lowest point and current point
         delta_b = self.b - (y - m * x)
 
         # Adjust b error debt to the max of current debt or new delta b
-        self.b_error_debt = max(self.b_error_debt, delta_b)
+        self.b_error_debt = max(self.b_error_debt, delta_b, 0)
         
-        # Check if b adjustment is due
-        if self.b_error_debt > 0:
+        if self.b_error_debt != 0 or self.m_jump_error != 0:
 
             # Don't limit changes to b for the first few blocks of frames
             if self.n <= 256 * 3:
-                b_corr = self.b_error_debt
+                max_adjust = float('inf')
 
-            # Then adjust b aggressively for the first few minutes (0.25 ms per block)
+            # Then adjust b aggressively for the first few minutes (0.05 ms per block)
             elif self.n <= 256 * 6 * 10: # first ~10 min
-                b_corr = min(self.b_error_debt, 250 * 1000 / 256) # ns
-            
-            # Then only allow small changes (0.1 ms per block)
+                max_adjust = 50 * 1000 / 256
+
+            # Then only allow small changes (0.01 ms per block)
             else:
-                b_corr = min(self.b_error_debt, 100 * 1000 / 256) # ns
+                max_adjust = 10 * 1000 / 256
+
+            b_corr = min(self.b_error_debt, max_adjust) - self.m_jump_error # ns
+
+            # Update m jump error debt
+            if self.m_jump_error > 0:
+                self.m_jump_error = max(self.m_jump_error - max_adjust, 0)
+            elif self.m_jump_error < 0:
+                    self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
             
             # Update the lowest b and adjust the debt
             self.b -= b_corr
