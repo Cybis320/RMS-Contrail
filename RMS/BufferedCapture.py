@@ -276,11 +276,11 @@ class BufferedCapture(Process):
 
             # Then adjust b aggressively for the first few minutes (0.05 ms per block)
             elif self.n <= 256 * 6 * 10: # first ~10 min
-                max_adjust = 50 * 1000 / 256
+                max_adjust = 250 * 1000 / 256
 
             # Then only allow small changes (0.01 ms per block)
             else:
-                max_adjust = 10 * 1000 / 256
+                max_adjust = 50 * 1000 / 256
 
             b_corr = min(self.b_error_debt, max_adjust) # ns
 
@@ -294,7 +294,7 @@ class BufferedCapture(Process):
             else:
                 self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
             
-            log.info(f"NEW LOW: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}")
+            log.info(f"NEW LOW: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
             
         else:
             # Introduce a 0.000025 ms per frame upward bias to account for potential camera drift
