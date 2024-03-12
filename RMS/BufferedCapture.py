@@ -282,17 +282,18 @@ class BufferedCapture(Process):
             else:
                 max_adjust = 10 * 1000 / 256
 
-            b_corr = min(self.b_error_debt, max_adjust) - self.m_jump_error # ns
+            b_corr = min(self.b_error_debt, max_adjust) # ns
+
+            # Update the lowest b and adjust the debt
+            self.b -= b_corr + self.m_jump_error
+            self.b_error_debt -= b_corr
 
             # Update m jump error debt
             if self.m_jump_error > 0:
                 self.m_jump_error = max(self.m_jump_error - max_adjust, 0)
-            elif self.m_jump_error < 0:
-                    self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
+            else:
+                self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
             
-            # Update the lowest b and adjust the debt
-            self.b -= b_corr
-            self.b_error_debt -= b_corr
             log.info(f"NEW LOW: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}")
             
         else:
