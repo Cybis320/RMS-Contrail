@@ -268,22 +268,20 @@ class BufferedCapture(Process):
         # Adjust b error debt to the max of current debt or new delta b
         self.b_error_debt = max(self.b_error_debt, delta_b)
         
+        # Don't limit changes to b for the first few blocks of frames
+        if self.n <= 256 * 3:
+            max_adjust = float('inf')
+
+        # Then adjust b aggressively for the first few minutes (0.05 ms per block)
+        elif self.n <= 256 * 6 * 10: # first ~10 min
+            max_adjust = 250 * 1000 / 256
+
+        # Then only allow small changes (0.01 ms per block)
+        else:
+            max_adjust = 50 * 1000 / 256
+     
         if self.b_error_debt > 0:
-
-            # Don't limit changes to b for the first few blocks of frames
-            if self.n <= 256 * 3:
-                max_adjust = float('inf')
-
-            # Then adjust b aggressively for the first few minutes (0.05 ms per block)
-            elif self.n <= 256 * 6 * 10: # first ~10 min
-                max_adjust = 250 * 1000 / 256
-
-            # Then only allow small changes (0.01 ms per block)
-            else:
-                max_adjust = 50 * 1000 / 256
-
             b_corr = min(self.b_error_debt, max_adjust) # ns
-
             # Update the lowest b and adjust the debt
             self.b -= b_corr
             self.b_error_debt -= b_corr
