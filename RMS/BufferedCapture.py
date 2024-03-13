@@ -239,8 +239,10 @@ class BufferedCapture(Process):
             # Exit startup if calculated m doesn't converge with expected m
 
             # Check error at increasingly longer intervals
-            if x < self.startup_frames / 16:
+            if x < self.startup_frames / 32:
                 sample_interval = 128
+            elif x < self.startup_frames / 16:
+                sample_interval = 512
             elif x < self.startup_frames / 8:
                 sample_interval = 1024
             elif x < self.startup_frames / 4:
