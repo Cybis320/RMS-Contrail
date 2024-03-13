@@ -236,9 +236,10 @@ class BufferedCapture(Process):
 
             # Exit startup if calculated m doesn't converge with expected m
             # Check error every 512 frames and determine if the values converge
-            if self.n % 512 == 0:
+            sample_interval = 1024
+            if self.n % sample_rate == 0:
                 m_err = abs(m - self.expected_m)
-                delta_m_err = (m_err - self.last_m_err) / 512
+                delta_m_err = (m_err - self.last_m_err) / sample_interval
                 startup_remaining = self.startup_frames - self.n
                 final_m_err = m_err + startup_remaining * delta_m_err
                 self.last_m_err = m_err
