@@ -251,7 +251,7 @@ class BufferedCapture(Process):
                 sample_interval = 4096
 
             # Determine if the values converge. Skipping the first few noisy frames
-            if (x - 25) % sample_interval == 0:
+            if (x - 25) % sample_interval == 0 or x == self.startup_frames:
 
                 m_err = abs(m - self.expected_m)
                 delta_m_err = (m_err - self.last_m_err) / (x - self.last_m_err_n)
@@ -667,7 +667,7 @@ class BufferedCapture(Process):
                 if abs(self.last_calculated_fps - self.config.fps) > 0.0005:
                     log.info('Consider updating config file fps!')
                 log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}".format(self.last_calculated_fps, self.n, self.config.fps))
-                
+
                 time.sleep(5)
                 log.info('GStreamer Video device released!')
             except Exception as e:
