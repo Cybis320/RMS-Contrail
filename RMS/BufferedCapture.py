@@ -88,6 +88,8 @@ class BufferedCapture(Process):
         
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 2.0*(1.0/config.fps)
+        
+        self.startup_flag = True
 
         self.dropped_frames = Value('i', 0)
         self.device = None
@@ -232,11 +234,11 @@ class BufferedCapture(Process):
         
         ## STARTUP ##
         # On startup, use expected fps until calculate fps stabilizes
-        if self.n <= self.startup_frames:
+        if self.n <= self.startup_frames and self.startup_flag:
 
             # Exit startup if calculated m doesn't converge with expected m
 
-            # Check error at increasingly longer intervals 
+            # Check error at increasingly longer intervals
             if x < self.startup_frames / 8:
                 sample_interval = 128
             elif x < self.startup_frames / 4:
@@ -246,7 +248,7 @@ class BufferedCapture(Process):
             else:
                 sample_interval = 4096
 
-            # Determine if the values converge. Skipping the first few noisy frames 
+            # Determine if the values converge. Skipping the first few noisy frames
             if (x - 25) % sample_interval == 0:
 
                 m_err = abs(m - self.expected_m)
@@ -259,13 +261,14 @@ class BufferedCapture(Process):
                 # If end is reached, or error does not converge to zero, exit startup
                 if final_m_err  > 0 or x == self.startup_frames:
 
-                    # This will bypass startup on next frame
+                    # This will temporarily bypass startup on next frame
                     self.startup_frames = 0
 
                     # If residual error on exit is too large, the expected m is probably wrong.
                     if m_err > 2000:
 
-                        # Reset debt and b as they were probably wrong
+                        # Reset debt and b as they were probably wrong, and permanently disable startup 
+                        self.startup_flag = False
                         self.b_error_debt = 0
                         self.b = y - m * x
                         self.m_jump_error = 0
@@ -582,14 +585,13 @@ class BufferedCapture(Process):
                     self.sum_y = 0
                     self.sum_xx = 0
                     self.sum_xy = 0
-                    self.startup_frames = 25 * 60 * 5
+                    self.startup_frames = 25 * 60 * 10 # 10 minutes
                     self.b = 0
                     self.b_error_debt = 0
                     self.m_jump_error = 0
                     self.expected_m = 1e9/self.config.fps # ns
                     self.last_m_err = float('inf')
                     self.last_m_err_n = 0
-
 
                     # Initialize GStreamer
                     Gst.init(None)
