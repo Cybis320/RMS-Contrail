@@ -6,6 +6,8 @@ If fps is not provided, the default value of 25 is used.
 
 """
 
+from __future__ import print_function, division, absolute_import
+
 import os
 import argparse
 import tarfile
@@ -98,7 +100,7 @@ def plotFFTimeIntervals(dir_path, fps=25.0, ff_block_size=256, ma_window_size=50
     #mean_interval = np.mean(intervals) if intervals else None
     median_interval = np.median(intervals_np)
     std_intervals_seconds = np.std(intervals_np)
-    std_intervals_frames = std_intervals_seconds*fps
+    std_intervals_frames = std_intervals_seconds*fps/ff_block_size
     expected_interval = ff_block_size/fps
 
     # Calculate average fps
