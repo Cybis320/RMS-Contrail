@@ -224,6 +224,8 @@ class BufferedCapture(Process):
         # Update regression parameters
         if self.n > 1:
             m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
+        
+        # First frame
         else:
             m = self.expected_m
             self.b = y - m * x
@@ -282,7 +284,7 @@ class BufferedCapture(Process):
                 max_adjust = 25 * 1000 / 256
             
             b_corr = min(self.b_error_debt, max_adjust) # ns
-            
+
             # Update the lowest b and adjust the debt
             self.b -= b_corr
             self.b_error_debt -= b_corr
@@ -299,7 +301,7 @@ class BufferedCapture(Process):
             # Introduce a 0.000025 ms per frame upward bias to account for potential camera drift
             self.b += 25 # ns
         
-        return m, self.b + self.m_jump_error
+        return m, self.b - self.m_jump_error
     
 
     def smooth_pts(self, new_pts):
