@@ -235,14 +235,21 @@ class BufferedCapture(Process):
         if self.n <= self.startup_frames:
 
             # Exit startup if calculated m doesn't converge with expected m
-            # Check error every 512 frames and determine if the values converge
-            sample_interval = 1024
-            if self.n % sample_interval == 0:
+            # Check error at regular interval and determine if the values converge
+            if self.n < self.startup_frames / 4:
+                sample_interval = 64
+            elif self.n < self.startup_frames / 2:
+                sample_interval = 512
+            else:
+                sample_interval = 1024
+
+            if (self.n - 2) % sample_interval == 0:
                 m_err = abs(m - self.expected_m)
-                delta_m_err = (m_err - self.last_m_err) / sample_interval
+                delta_m_err = (m_err - self.last_m_err) / (self.n - self.last_m_err_n)
                 startup_remaining = self.startup_frames - self.n
                 final_m_err = m_err + startup_remaining * delta_m_err
                 self.last_m_err = m_err
+                self.last_m_err_n = self.n
 
                 # If error will not reach zero by end of startup, exit startup
                 if final_m_err  > 0:
@@ -329,7 +336,7 @@ class BufferedCapture(Process):
                 self.m_jump_error = 0
                 self.b_error_debt = 0
                 self.last_m_err = float('inf')
-
+                self.last_m_err_n = 0
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
@@ -548,6 +555,8 @@ class BufferedCapture(Process):
                     self.m_jump_error = 0
                     self.expected_m = 1e9/self.config.fps # ns
                     self.last_m_err = float('inf')
+                    self.last_m_err_n = 0
+
 
                     # Initialize GStreamer
                     Gst.init(None)
