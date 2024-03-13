@@ -239,11 +239,11 @@ class BufferedCapture(Process):
             # Exit startup if calculated m doesn't converge with expected m
 
             # Check error at increasingly longer intervals
-            if x < self.startup_frames / 8:
+            if x < self.startup_frames / 16:
                 sample_interval = 128
-            elif x < self.startup_frames / 4:
+            elif x < self.startup_frames / 8:
                 sample_interval = 1024
-            elif x < self.startup_frames / 2:
+            elif x < self.startup_frames / 4:
                 sample_interval = 2048
             else:
                 sample_interval = 4096
@@ -260,9 +260,6 @@ class BufferedCapture(Process):
 
                 # If end is reached, or error does not converge to zero, exit startup
                 if final_m_err  > 0 or x == self.startup_frames:
-
-                    # This will temporarily bypass startup on next frame
-                    self.startup_frames = 0
 
                     # If residual error on exit is too large, the expected m is probably wrong.
                     if m_err > 2000:
@@ -283,6 +280,8 @@ class BufferedCapture(Process):
 
                     log.info("Exiting startup logic at {:.1f}% of startup sequence, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns, sample interval: {}".format(100 * x / self.startup_frames, 1e9/self.expected_m, 1e9/m, m_err, sample_interval))
 
+                    # This will temporarily exit startup
+                    self.startup_frames = 0
 
             # Use expected value during startup
             if self.startup_frames > 0:
