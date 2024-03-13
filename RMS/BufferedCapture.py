@@ -211,7 +211,7 @@ class BufferedCapture(Process):
     def calculate_pts_regression_params(self, y):
         """ Add pts and perform an online linear regression on pts.
             smoothed_pts = m * frame_count + b
-            m is the slope (1e9/fps)
+            m is the slope in ns per frame (1e9/fps)
             Adjust b so that the line passes through the earliest frames.
         """
         self.n += 1
@@ -222,7 +222,7 @@ class BufferedCapture(Process):
         self.sum_xy += x * y
 
         # Update regression parameters
-        if self.n > 1:
+        if x > 1:
             m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
         
         # First frame
@@ -235,62 +235,95 @@ class BufferedCapture(Process):
         if self.n <= self.startup_frames:
 
             # Exit startup if calculated m doesn't converge with expected m
-            # Check error at regular interval and determine if the values converge
-            if self.n < self.startup_frames / 4:
-                sample_interval = 64
-            elif self.n < self.startup_frames / 2:
-                sample_interval = 512
-            else:
-                sample_interval = 1024
 
-            if (self.n - 2) % sample_interval == 0:
+            # Check error at increasingly longer intervals 
+            if x < self.startup_frames / 8:
+                sample_interval = 128
+            elif x < self.startup_frames / 4:
+                sample_interval = 1024
+            elif x < self.startup_frames / 2:
+                sample_interval = 2048
+            else:
+                sample_interval = 4096
+
+            # Determine if the values converge. Skipping the first few noisy frames 
+            if (x - 25) % sample_interval == 0:
+
                 m_err = abs(m - self.expected_m)
-                delta_m_err = (m_err - self.last_m_err) / (self.n - self.last_m_err_n)
-                startup_remaining = self.startup_frames - self.n
+                delta_m_err = (m_err - self.last_m_err) / (x - self.last_m_err_n)
+                startup_remaining = self.startup_frames - x
                 final_m_err = m_err + startup_remaining * delta_m_err
                 self.last_m_err = m_err
                 self.last_m_err_n = self.n
 
-                # If error will not reach zero by end of startup, exit startup
-                if final_m_err  > 0:
+                # If end is reached, or error does not converge to zero, exit startup
+                if final_m_err  > 0 or x == self.startup_frames:
+
                     # This will bypass startup on next frame
                     self.startup_frames = 0
 
-                    # If residual error at exit of startup is too large, reset debt and b
+                    # If residual error on exit is too large, the expected m is probably wrong.
                     if m_err > 2000:
-                        log.info("Check config FPS! Exiting startup logic early at frame: {}, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns".format(self.n, 1e9/self.expected_m, 1e9/m, m_err))
+
+                        # Reset debt and b as they were probably wrong
                         self.b_error_debt = 0
                         self.b = y - m * x
                         self.m_jump_error = 0
+
+                        log.info("Check config FPS! Startup sequence exited early probably due to wrong FPS value.")
+
+                    # On normal exit, calculate residual error for smooth transition to calculate m
                     else:
-                        # calculate the jump error at exit of startup
+
+                        # calculate the jump error
                         self.m_jump_error = x * (m - self.expected_m) # ns
-                        log.info("Exiting startup logic at frame: {}, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns".format(self.n, 1e9/self.expected_m, 1e9/m, m_err))
+
+                    log.info("Exiting startup logic at {:.1f}% of startup sequence, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns, sample interval: {}".format(100 * x / self.startup_frames, 1e9/self.expected_m, 1e9/m, m_err, sample_interval))
+
 
             # Use expected value during startup
             if self.startup_frames > 0:
                 m = self.expected_m
 
-
+        ### LEAST DELAYED FRAME LOGIC ###
+                
+        # The code attempts to smoothly distribute presentation timestamps (pts) on a line that passes
+        # through the least-delayed frame. The idea is that the least-delayed frames are thought to
+        # be the least affected by network and other delays, and should therefore offer the most
+        # consistent points of reference.
+        # When a new least-delayed frame is detected, the time delta is smoothly distributed over
+        # time.
+        # The line has a slope m (ns per frame) that passes through the least delayed frame by
+        # adjusting b in: y = m * x + b
+        # where y is the pts, and x is the frame number.
+        # A slow positive bias is introduce to keep the line in contact with a slowly accelerating
+        # frame rate.
+        # Finally, the small jump error at the completion of the startup sequence, when 
+        # transitioning from expected fps to calculated fps (linear regression), is smoothly 
+        # distributed over time.
+                
         # Calculate the delta between the lowest point and current point
         delta_b = self.b - (y - m * x)
 
         # Adjust b error debt to the max of current debt or new delta b
         self.b_error_debt = max(self.b_error_debt, delta_b)
         
+        # Skew b, if due
         if self.b_error_debt > 0 or self.m_jump_error != 0:
-        # Don't limit changes to b for the first few blocks of frames
-            if self.n <= 256 * 3:
+
+            # Don't limit changes to b for the first few blocks of frames
+            if x <= 256 * 3:
                 max_adjust = float('inf')
 
-            # Then adjust b aggressively for the first few minutes (0.05 ms per block)
-            elif self.n <= 256 * 6 * 10: # first ~10 min
-                max_adjust = 100 * 1000 / 256
+            # Then adjust b aggressively for the first few minutes
+            elif x <= 256 * 6 * 10: # first ~10 min
+                max_adjust = 100 * 1000 / 256 # 0.1 ms per block
 
-            # Then only allow small changes (0.01 ms per block)
+            # Then only allow small changes for the remainder of the run
             else:
-                max_adjust = 25 * 1000 / 256
+                max_adjust = 25 * 1000 / 256 # 0.025 ms per block
             
+            # Determine the correction factor
             b_corr = min(self.b_error_debt, max_adjust) # ns
 
             # Update the lowest b and adjust the debt
@@ -306,7 +339,7 @@ class BufferedCapture(Process):
             log.info(f"b: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
 
         else:
-            # Introduce a 0.000025 ms per frame upward bias to account for potential camera drift
+            # Introduce a very small positive bias
             self.b += 25 # ns
         
         return m, self.b - self.m_jump_error
