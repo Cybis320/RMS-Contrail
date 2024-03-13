@@ -118,7 +118,7 @@ class BufferedCapture(Process):
             self.system_latency = 0.055 # seconds. Experimentally measured latency
         else:
             self.system_latency = 0.045 # seconds. Experimentally measured latency
-        self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency
+        self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency + self.config.camera_latency
 
 
 
@@ -258,7 +258,7 @@ class BufferedCapture(Process):
                 startup_remaining = self.startup_frames - x
                 final_m_err = m_err + startup_remaining * delta_m_err
                 self.last_m_err = m_err
-                self.last_m_err_n = self.n
+                self.last_m_err_n = x
 
                 # If end is reached, or error does not converge to zero, exit startup
                 if final_m_err  > 0 or x == self.startup_frames:
@@ -353,6 +353,9 @@ class BufferedCapture(Process):
 
         # Calulate linear regression params
         m, b = self.calculate_pts_regression_params(new_pts)
+
+        # Store calculated fps
+        self.last_calculated_fps = 1e9 / m
 
         # On initial run or after a reset
         if self.n == 1:
@@ -591,6 +594,7 @@ class BufferedCapture(Process):
                     self.b_error_debt = 0
                     self.m_jump_error = 0
                     self.expected_m = 1e9/self.config.fps # ns
+                    self.last_calculated_fps = 0
                     self.last_m_err = float('inf')
                     self.last_m_err_n = 0
 
@@ -659,6 +663,11 @@ class BufferedCapture(Process):
         if self.pipeline:
             try:
                 self.pipeline.set_state(Gst.State.NULL)
+
+                if abs(self.last_calculated_fps - self.config.fps) > 0.0005:
+                    log.info('Consider updating config file fps!')
+                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}".format(self.last_calculated_fps, self.n, self.config.fps))
+                
                 time.sleep(5)
                 log.info('GStreamer Video device released!')
             except Exception as e:
