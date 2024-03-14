@@ -281,7 +281,7 @@ class BufferedCapture(Process):
                         self.b = y - m * x
                         self.m_jump_error = 0
 
-                        log.info("Check config FPS! Startup sequence exited early probably due to wrong FPS value. "
+                        log.info("Check config FPS! Startup sequence exited early probably due to inaccurate FPS value. "
                                  "Startup is disabled for the remainder of the run")
 
                     # On normal exit, calculate residual error for smooth transition to calculate m
