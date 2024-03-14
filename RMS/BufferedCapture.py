@@ -94,6 +94,7 @@ class BufferedCapture(Process):
         self.last_calculated_fps = 0
         self.last_calculated_fps_n = 0
         self.expected_m = 1e9/self.config.fps
+        self.reset_count = -1
 
 
         self.dropped_frames = Value('i', 0)
@@ -363,7 +364,13 @@ class BufferedCapture(Process):
 
     def smooth_pts(self, new_pts):
 
-        # Calulate linear regression params
+        # Disable smoothing if too many resets are detected
+        if self.reset_count >= 50:
+            if self.reset_count == 50:
+                log.info("Too many resets. Disabling smoothing function!")
+            return new_pts
+
+        # Calculate linear regression params
         m, b = self.calculate_pts_regression_params(new_pts)
 
         # Store last calculated fps for the longest run so far
@@ -381,6 +388,7 @@ class BufferedCapture(Process):
 
             # Reset regression on dropped frame (raw pts is more than 1 frame late)
             if new_pts - smoothed_pts > self.expected_m:
+                self.reset_count += 1
                 self.n = 0
                 self.sum_x = 0
                 self.sum_y = 0
@@ -599,6 +607,7 @@ class BufferedCapture(Process):
                     log.info("Initialize GStreamer Standalone Device.")
                     
                     # Initialize Smoothing parameters
+                    self.reset_count += 1
                     self.n = 0
                     self.sum_x = 0
                     self.sum_y = 0
@@ -680,8 +689,8 @@ class BufferedCapture(Process):
 
                 if abs(self.last_calculated_fps - self.config.fps) > 0.0005 and self.last_calculated_fps_n > 25*60*60:
                     log.info('Config file fps appears to be inaccurate. Consider updating the config file!')
-                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}"
-                         .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps))
+                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}, resets: {}"
+                         .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps, self.reset_count))
 
                 time.sleep(5)
                 log.info('GStreamer Video device released!')
