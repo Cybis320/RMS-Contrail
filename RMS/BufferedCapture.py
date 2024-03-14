@@ -368,6 +368,7 @@ class BufferedCapture(Process):
         if self.reset_count >= 50:
             if self.reset_count == 50:
                 log.info("Too many resets. Disabling smoothing function!")
+                self.reset_count += 1
             return new_pts
 
         # Calculate linear regression params
