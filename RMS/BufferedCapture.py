@@ -111,20 +111,23 @@ class BufferedCapture(Process):
         #
         # RPi4, GStream, IMX291, 720p @ 25 FPS, VBR
         #     self.device_buffer = 1
-        #     self.system_latency = 0.01
+        #     self.system_latency = 0.055
         #
         # If timestamp is late, increase latency. If it is early, decrease latency.
         # Formula is: timestamp = time.time() - total_latency
 
-        # TODO: Incorporate variables in .config
+        # Fine tune using the config file's camera_latency field.
 
         self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
         if self.config.height == 1080:
             self.system_latency = 0.055 # seconds. Experimentally measured latency
         else:
             self.system_latency = 0.045 # seconds. Experimentally measured latency
-        self.total_latency = self.device_buffer / self.config.fps + (self.config.fps - 5) / 2000 + self.system_latency + self.config.camera_latency
+        buffer_latency = self.device_buffer / self.config.fps
+        fps_adjustment = (self.config.fps - 5) / 2000
+        total_configured_latency = self.system_latency + self.config.camera_latency
 
+        self.total_latency = buffer_latency + fps_adjustment + total_configured_latency
 
 
     def save_image_to_disk(self, filename, img_path, img, i):
@@ -277,7 +280,8 @@ class BufferedCapture(Process):
                         self.b = y - m * x
                         self.m_jump_error = 0
 
-                        log.info("Check config FPS! Startup sequence exited early probably due to wrong FPS value.")
+                        log.info("Check config FPS! Startup sequence exited early probably due to wrong FPS value. "
+                                 "Startup is disabled for the remainder of the run")
 
                     # On normal exit, calculate residual error for smooth transition to calculate m
                     else:
@@ -285,7 +289,9 @@ class BufferedCapture(Process):
                         # calculate the jump error
                         self.m_jump_error = x * (m - self.expected_m) # ns
 
-                    log.info("Exiting startup logic at {:.1f}% of startup sequence, Expected fps: {:.6f}, calculated fps at this point: {:.6f}, residual m error: {:.1f} ns, sample interval: {}".format(100 * x / self.startup_frames, 1e9/self.expected_m, 1e9/m, m_err, sample_interval))
+                    log.info("Exiting startup logic at {:.1f}% of startup sequence, Expected fps: {:.6f}, "
+                             "calculated fps at this point: {:.6f}, residual m error: {:.1f} ns, sample interval: {}"
+                             .format(100 * x / self.startup_frames, 1e9/self.expected_m, 1e9/m, m_err, sample_interval))
 
                     # This will temporarily exit startup
                     self.startup_frames = 0
@@ -345,7 +351,8 @@ class BufferedCapture(Process):
             else:
                 self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
 
-            log.info(f"b: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
+            log.info(f"b: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, "
+                     "error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
 
         else:
             # Introduce a very small positive bias
@@ -387,7 +394,8 @@ class BufferedCapture(Process):
                 log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
         
-            sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, b: {b:.1f}, delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+            sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, b: {b:.1f}, "
+                             "delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
             sys.stdout.flush()
 
         return smoothed_pts
@@ -651,7 +659,8 @@ class BufferedCapture(Process):
                     self.device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
                     self.device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
                 except Exception as e:
-                    log.info("Could not initialize OpenCV with v4l2. Initialize OpenCV Device without v4l2 instead. Error: {}".format(e))
+                    log.info("Could not initialize OpenCV with v4l2. Initialize "
+                             "OpenCV Device without v4l2 instead. Error: {}".format(e))
                     self.media_backend_override = True
                     self.release_resources()
 
@@ -671,7 +680,8 @@ class BufferedCapture(Process):
 
                 if abs(self.last_calculated_fps - self.config.fps) > 0.0005 and self.last_calculated_fps_n > 25*60*60:
                     log.info('Config file fps appears to be inaccurate. Consider updating the config file!')
-                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}".format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps))
+                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}"
+                         .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps))
 
                 time.sleep(5)
                 log.info('GStreamer Video device released!')
@@ -957,11 +967,13 @@ class BufferedCapture(Process):
                 if i == block_frames - 1:
                     # For cv2, show elapsed time since frame read to assess loop performance
                     if self.config.media_backend != 'gst' and not self.media_backend_override:
-                        log.info("Block's max frame interval: {:.3f} (normalized). Run's late frames: {}".format(max_frame_interval_normalized, self.dropped_frames.value))
+                        log.info("Block's max frame interval: {:.3f} (normalized). Run's late frames: {}"
+                                 .format(max_frame_interval_normalized, self.dropped_frames.value))
                     
                     # For GStreamer, show elapsed time since frame capture to assess sink fill level
                     else:
-                        log.info("Block's max frame age: {:.3f} seconds. Run's dropped frames: {}".format(max_frame_age_seconds, self.dropped_frames.value))
+                        log.info("Block's max frame age: {:.3f} seconds. Run's dropped frames: {}"
+                                 .format(max_frame_age_seconds, self.dropped_frames.value))
 
                 last_frame_timestamp = frame_timestamp
 
@@ -1041,7 +1053,8 @@ class BufferedCapture(Process):
                 else:
                     self.startTime2.value = first_frame_timestamp
 
-                log.info('New block of raw frames available for compression with starting time: {:s}'.format(str(first_frame_timestamp)))
+                log.info('New block of raw frames available for compression with starting time: {:s}'
+                         .format(str(first_frame_timestamp)))
 
             
             # Switch the frame block buffer flags
