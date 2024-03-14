@@ -89,7 +89,12 @@ class BufferedCapture(Process):
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 2.0*(1.0/config.fps)
         
+        # Initialize Smoothing variables
         self.startup_flag = True
+        self.last_calculated_fps = 0
+        self.last_calculated_fps_n = 0
+        self.expected_m = 1e9/self.config.fps
+
 
         self.dropped_frames = Value('i', 0)
         self.device = None
@@ -266,7 +271,7 @@ class BufferedCapture(Process):
                     # If residual error on exit is too large, the expected m is probably wrong.
                     if m_err > 2000:
 
-                        # Reset debt and b as they were probably wrong, and permanently disable startup 
+                        # Reset debt and b as they were probably wrong, and permanently disable startup
                         self.startup_flag = False
                         self.b_error_debt = 0
                         self.b = y - m * x
@@ -302,8 +307,8 @@ class BufferedCapture(Process):
         # where y is the pts, and x is the frame number.
         # A slow positive bias is introduce to keep the line in contact with a slowly accelerating
         # frame rate.
-        # Finally, the small jump error at the completion of the startup sequence, when 
-        # transitioning from expected fps to calculated fps (linear regression), is smoothly 
+        # Finally, the small jump error at the completion of the startup sequence, when
+        # transitioning from expected fps to calculated fps (linear regression), is smoothly
         # distributed over time.
                 
         # Calculate the delta between the lowest point and current point
@@ -354,8 +359,10 @@ class BufferedCapture(Process):
         # Calulate linear regression params
         m, b = self.calculate_pts_regression_params(new_pts)
 
-        # Store calculated fps
-        self.last_calculated_fps = 1e9 / m
+        # Store last calculated fps for the longest run so far
+        if self.n > self.last_calculated_fps_n:
+            self.last_calculated_fps = 1e9 / m
+            self.last_calculated_fps_n = self.n
 
         # On initial run or after a reset
         if self.n == 1:
@@ -372,7 +379,7 @@ class BufferedCapture(Process):
                 self.sum_y = 0
                 self.sum_xx = 0
                 self.sum_xy = 0
-                self.startup_frames = 0
+                self.startup_frames = 25 * 60 * 10 # 10 minutes
                 self.m_jump_error = 0
                 self.b_error_debt = 0
                 self.last_m_err = float('inf')
@@ -593,8 +600,6 @@ class BufferedCapture(Process):
                     self.b = 0
                     self.b_error_debt = 0
                     self.m_jump_error = 0
-                    self.expected_m = 1e9/self.config.fps # ns
-                    self.last_calculated_fps = 0
                     self.last_m_err = float('inf')
                     self.last_m_err_n = 0
 
@@ -664,9 +669,9 @@ class BufferedCapture(Process):
             try:
                 self.pipeline.set_state(Gst.State.NULL)
 
-                if abs(self.last_calculated_fps - self.config.fps) > 0.0005:
-                    log.info('Consider updating config file fps!')
-                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}".format(self.last_calculated_fps, self.n, self.config.fps))
+                if abs(self.last_calculated_fps - self.config.fps) > 0.0005 and self.last_calculated_fps_n > 25*60*60:
+                    log.info('Config file fps appears to be inaccurate. Consider updating the config file!')
+                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}".format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps))
 
                 time.sleep(5)
                 log.info('GStreamer Video device released!')
