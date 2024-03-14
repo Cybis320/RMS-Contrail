@@ -353,7 +353,7 @@ class BufferedCapture(Process):
                 self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
 
             log.info(f"b: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, "
-                     "error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
+                     f"error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
 
         else:
             # Introduce a very small positive bias
@@ -403,7 +403,7 @@ class BufferedCapture(Process):
                 return new_pts
         
             sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, b: {b:.1f}, "
-                             "delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
+                             f"delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
             sys.stdout.flush()
 
         return smoothed_pts
@@ -689,8 +689,8 @@ class BufferedCapture(Process):
 
                 if abs(self.last_calculated_fps - self.config.fps) > 0.0005 and self.last_calculated_fps_n > 25*60*60:
                     log.info('Config file fps appears to be inaccurate. Consider updating the config file!')
-                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}, resets: {}"
-                         .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps, self.reset_count))
+                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}, resets: {}, startup status: {}"
+                         .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps, self.reset_count, self.startup_flag))
 
                 time.sleep(5)
                 log.info('GStreamer Video device released!')
