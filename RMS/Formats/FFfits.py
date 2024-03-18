@@ -8,6 +8,8 @@ import numpy as np
 from astropy.io import fits
 
 from RMS.Formats.FFStruct import FFStruct
+from RMS.Formats.FFfile import filenameToDatetime
+
 
 
 
@@ -51,6 +53,12 @@ def read(directory, filename, array=False, full_filename=False):
     ff.first = head['FIRST']
     ff.camno = head['CAMNO']
     ff.fps = head['FPS']
+
+    # Check for the EXPSTART field and read datetime from filename it if it doesn't exist
+    if 'EXPSTART' in head:
+        ff.starttime = head['EXPSTART']
+    else:
+        ff.starttime = filenameToDatetime(filename).strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # Read in the image data
     ff.maxpixel = hdulist[1].data
@@ -102,6 +110,8 @@ def write(ff, directory, filename):
     head['FIRST'] = ff.first
     head['CAMNO'] = ff.camno
     head['FPS'] = ff.fps
+    head['EXPSTART'] = ff.starttime
+
 
     # Deconstruct the 3D array into individual images
     if ff.array is not None:

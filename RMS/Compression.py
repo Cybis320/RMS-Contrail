@@ -117,7 +117,7 @@ class Compressor(multiprocessing.Process):
         # Generate the name for the file
         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(startTime))
 
-        # Calculate miliseconds
+        # Calculate milliseconds
         micros = int((startTime - floor(startTime))*1000000)
         millis = int((startTime - floor(startTime))*1000)
         
@@ -137,6 +137,7 @@ class Compressor(multiprocessing.Process):
         ff.first = N + 256
         ff.camno = self.config.stationID
         ff.fps = self.config.fps
+        ff.starttime = date_string + "_" + str(micros).zfill(6)
         
         # Write the FF file
         FFfile.write(ff, self.data_dir, filename_millis, fmt=self.config.ff_format)
@@ -312,7 +313,7 @@ class Compressor(multiprocessing.Process):
                 self.saveLiveJPG(compressed, startTime)
 
 
-            # Save the extracted intensitites per every field
+            # Save the extracted intensities per every field
             FieldIntensities.saveFieldIntensitiesBin(field_intensities, self.data_dir, filename_micros)
 
             # Run the extractor
