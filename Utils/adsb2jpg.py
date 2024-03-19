@@ -64,11 +64,25 @@ def get_bounding_box_from_kml_file(file_path):
 
 
 
+import re
+from datetime import datetime, timezone
+import os
+
+
+import re
+from datetime import datetime, timezone
+import os
+
+
+import re
+from datetime import datetime, timezone
+import os
+
 def extract_timestamp_from_name(name):
     """Extracts the timestamp from a file or directory name.
 
     Args:
-        name (str): The name from which to extract timestamp from.
+        name (str): The name from which to extract the timestamp.
 
     Returns:
         datetime: The timestamp as a datetime object, or None if extraction fails.
@@ -78,22 +92,28 @@ def extract_timestamp_from_name(name):
     name = name.rstrip('/')
     name = os.path.basename(name)
 
-    # Use a regular expression to find the date and time components in the image name (optionally match milliseconds)
-    match = re.search(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(?:_(\d{3}))?", name)
+    # Updated regular expression to make fractional seconds part optional
+    match = re.search(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(?:_(\d{3,6}))?", name)
     if match:
-        # Extract and convert the date, time components to integers
-        year, month, day, hour, minute, second, *millisecond = map(int, match.groups(default=0))
+        groups = match.groups()
+        year, month, day, hour, minute, second = map(int, groups[:6])
+        
+        # Handle optional fractional seconds
+        fractional_seconds = groups[6]
+        if fractional_seconds:
+            # Adjust microseconds based on the length of the fractional part
+            microsecond = int(fractional_seconds) if len(fractional_seconds) == 6 else int(fractional_seconds) * 1000
+        else:
+            microsecond = 0
 
-        # Create and return a datetime object
+        # Create and return a datetime object with UTC timezone
         try:
-            microsecond = millisecond[0] * 1000 if millisecond else 0
             return datetime(year, month, day, hour, minute, second, microsecond, tzinfo=timezone.utc)
-        except:
+        except ValueError as e:
+            print(f"Error creating datetime: {e}")
             return None
 
     return None
-
-
 
 
 def query_aircraft_positions(client, begin_time, end_time, bounding_box=None, limit=None, offset=None, retries=3, sleep_time=10):
