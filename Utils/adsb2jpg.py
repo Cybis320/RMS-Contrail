@@ -711,7 +711,7 @@ def run_overlay_on_images(input_path, platepar):
     grouped_points = group_and_sort_points(query_result)
 
     # Divide grouped_points into batches
-    batch_size = 10 # 75 gave best perf on a macbook
+    batch_size = 50 # 75 gave best perf on a macbook
     batches = create_image_batches(sorted_timestamps, batch_size)
     image_count = 0
     total_images = len(sorted_timestamps)
