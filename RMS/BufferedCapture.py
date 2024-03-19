@@ -249,7 +249,7 @@ class BufferedCapture(Process):
 
             # Check error at increasingly longer intervals
             if x < self.startup_frames / 32:
-                sample_interval = 128
+                sample_interval = 256
             elif x < self.startup_frames / 16:
                 sample_interval = 512
             elif x < self.startup_frames / 8:
