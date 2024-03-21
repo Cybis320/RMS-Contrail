@@ -505,13 +505,13 @@ class BufferedCapture(Process):
             "location=\"{}\" ! "
             "rtph264depay ! tee name=t").format(device_url)
 
-        # Branch for processing: Decoding and converting the video format
+        # Branch for processing
         processing_branch = (
             "t. ! queue ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format={} ! "
             "queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
             "appsink max-buffers=100 drop=true sync=0 name=appsink").format(video_format)
 
-        # Branch for storage: Directly saving the raw H264 stream
+        # Branch for storage
         storage_branch = "t. ! queue ! filesink location=raw_stream.h264"
 
         # Combine all parts of the pipeline
