@@ -499,26 +499,23 @@ class BufferedCapture(Process):
 
         device_url = self.extractRtspUrl(self.config.deviceID)
 
-        # Define the source and initial processing
-        device_str = (
+        # Define the source up to the point where we want to branch off
+        source_to_tee = (
             "rtspsrc buffer-mode=1 protocols=tcp tcp-timeout=5000000 retry=5 "
             "location=\"{}\" ! "
-            "rtph264depay ! h264parse ! avdec_h264").format(device_url)
+            "rtph264depay ! tee name=t").format(device_url)
 
-        # Define the tee and branching for processing and storage
-        branching_and_processing = (
-            "tee name=t "
-            "t. ! queue ! videoconvert ! video/x-raw,format={} ! "
+        # Branch for processing: Decoding and converting the video format
+        processing_branch = (
+            "t. ! queue ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format={} ! "
             "queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
             "appsink max-buffers=100 drop=true sync=0 name=appsink").format(video_format)
 
-        # Direct H264 stream recording to file, without redundant parsing
-        h264_storage = (
-            "t. ! queue ! filesink location=raw_stream.h264"
-        )
+        # Branch for storage: Directly saving the raw H264 stream
+        storage_branch = "t. ! queue ! filesink location=raw_stream.h264"
 
         # Combine all parts of the pipeline
-        pipeline_str = device_str + " ! " + branching_and_processing + " " + h264_storage
+        pipeline_str = "{} ! {} {}".format(source_to_tee, processing_branch, storage_branch)
 
         log.debug("GStreamer pipeline string: {}".format(pipeline_str))
         
