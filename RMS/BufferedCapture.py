@@ -498,26 +498,31 @@ class BufferedCapture(Process):
         """
 
         device_url = self.extractRtspUrl(self.config.deviceID)
-        # device_str = ("rtspsrc  buffer-mode=1 latency=1000 default-rtsp-version=17 protocols=tcp tcp-timeout=5000000 retry=5 "
-        #               "location=\"{}\" ! rtpjitterbuffer latency=1000 mode=1 ! "
-        #               "rtph264depay ! h264parse ! avdec_h264").format(device_url)
 
         device_str = ("rtspsrc  buffer-mode=1 protocols=tcp tcp-timeout=5000000 retry=5 "
                       "location=\"{}\" ! "
                       "rtph264depay ! h264parse ! avdec_h264").format(device_url)
-
+        
+        # Branching with tee to direct H264 stream into a file while also continuing processing
+        branching = ("tee name=t "
+                     "t. ! queue ! h264parse ! avdec_h264 ")
+        
         conversion = "videoconvert ! video/x-raw,format={}".format(video_format)
-        pipeline_str = ("{} ! queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                        "{} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                        "appsink max-buffers=100 drop=true sync=0 name=appsink").format(device_str, conversion)
 
+        appsink_setup = ("queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
+                         "{} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
+                         "appsink max-buffers=100 drop=true sync=0 name=appsink").format(conversion)
+        
+        # Direct H264 stream recording to file
+        h264_storage = ("t. ! queue ! h264parse ! "
+                        "filesink location=raw_stream.h264")
+        
+        pipeline_str = "{} ! {} {} {}".format(device_str, branching, appsink_setup, h264_storage)
 
         log.debug("GStreamer pipeline string: {}".format(pipeline_str))
         
         self.pipeline = Gst.parse_launch(pipeline_str)
-
         self.pipeline.set_state(Gst.State.PLAYING)
-
 
         # Calculate camera latency from config parameters
         total_latency = self.config.camera_buffer/self.config.fps + self.config.camera_latency
