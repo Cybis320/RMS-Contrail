@@ -62,22 +62,6 @@ def get_bounding_box_from_kml_file(file_path):
     return ((min_lat, min_lon), (max_lat, max_lon))
 
 
-
-
-import re
-from datetime import datetime, timezone
-import os
-
-
-import re
-from datetime import datetime, timezone
-import os
-
-
-import re
-from datetime import datetime, timezone
-import os
-
 def extract_timestamp_from_name(name):
     """Extracts the timestamp from a file or directory name.
 
@@ -166,9 +150,6 @@ def query_aircraft_positions(client, begin_time, end_time, bounding_box=None, li
     return []
 
 
-
-
-
 def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=timedelta(seconds=5), bounding_box=None, input_dir=None, batch_time=timedelta(hours=1)):
     """Queries InfluxDB for aircraft positions within a given time range, using hourly batch intervals.
     
@@ -235,17 +216,11 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
     return all_points
 
 
-
-
-# TODO: create function that detect ADS-B dark windows.
-#       Goal is to overlay red flag when no ADS-B data exists
-
-
-
 # TODO: is sorting necessary or influx already sort
 def group_and_sort_points(points):
     """
-    Groups the aircraft position points by hex code, sorts them by timestamp, and removes any with malformed timestamps.
+    Groups the aircraft position points by hex code, sorts them by timestamp,
+    and removes any with malformed timestamps.
     
     Args:
         points (list): List of dictionaries representing aircraft positions.
@@ -280,8 +255,6 @@ def group_and_sort_points(points):
     return grouped_points
 
 
-
-
 def create_image_batches(image_timestamps, batch_size=20):
     """Create batches of images.
     Args:
@@ -302,8 +275,6 @@ def create_image_batches(image_timestamps, batch_size=20):
         i = end
     
     return batches
-
-
 
 
 def get_points_for_batch(grouped_points, batch_start_time, batch_end_time, time_buffer=timedelta(seconds=5)):
@@ -711,7 +682,7 @@ def run_overlay_on_images(input_path, platepar):
     grouped_points = group_and_sort_points(query_result)
 
     # Divide grouped_points into batches
-    batch_size = 50 # 75 gave best perf on a macbook
+    batch_size = 50  # 75 gave best perf on a macbook
     batches = create_image_batches(sorted_timestamps, batch_size)
     image_count = 0
     total_images = len(sorted_timestamps)
@@ -736,6 +707,12 @@ def run_overlay_on_images(input_path, platepar):
 
             points_XY = add_pixel_coordinates(interpolated_points, platepar)
             
+            # Correct for rolling shutter
+            # for point in points_XY:
+            #     corr_timestamp = timestamp + 0.03*point[1]/platepar.Y_res
+            #     corr_interpolated_points = interpolate_aircraft_positions(relevant_points, corr_timestamp, time_buffer)
+            #     corr_points_XY = add_pixel_coordinates(corr_interpolated_points, platepar)
+
             image = cv2.imread(img_file)
 
             # Check if the image was loaded successfully
@@ -748,7 +725,7 @@ def run_overlay_on_images(input_path, platepar):
             
             # overlay timestamp
             img_name = os.path.basename(img_file)
-            station_name = img_name.split("_")[1]
+            station_name = img_name.split("_")[0]
 
             height, _, _ = image.shape
 
@@ -764,7 +741,7 @@ def run_overlay_on_images(input_path, platepar):
             print(f"\r{image_count} / {total_images} Elapsed: {time.time() - start_total_time:.2f}s. (batches of: {batch_size})", end="", flush=True)
     print("\nFinished applying ADS-B overlay to images.")
     
-    return  output_dir
+    return output_dir
 
 
 

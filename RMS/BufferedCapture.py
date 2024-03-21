@@ -1,37 +1,37 @@
 # RPi Meteor Station
 # Copyright (C) 2015  Dario Zubovic
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function, division, absolute_import
+from RMS.Misc import ping
+import cv2
+from multiprocessing import Process, Event, Value
+import os.path
+import datetime
+import logging
+from math import floor
+import numpy as np
+import time
+import re
+import sys
 
 import os
 # Set GStreamer debug level. Use '2' for warnings in production environments.
 os.environ['GST_DEBUG'] = '2'
-#os.environ['GST_DEBUG_FILE'] = '/home/pi/RMS_data/gst_debug.log'
-import sys
-import re
-import time
-import numpy as np
-from math import floor
-import logging
-import datetime
-import os.path
-from multiprocessing import Process, Event, Value
+# os.environ['GST_DEBUG_FILE'] = '/home/pi/RMS_data/gst_debug.log'
 
-import cv2
-from RMS.Misc import ping
 
 # Get the logger from the main module
 log = logging.getLogger("logger")
@@ -47,12 +47,12 @@ except ImportError as e:
 class BufferedCapture(Process):
     """ Capture from device to buffer in memory.
     """
-    
+
     running = False
-    
+
     def __init__(self, array1, startTime1, array2, startTime2, config, video_file=None):
         """ Populate arrays with (startTime, frames) after startCapture is called.
-        
+
         Arguments:
             array1: numpy array in shared memory that is going to be filled with frames
             startTime1: float in shared memory that holds time of first frame in array1
@@ -60,22 +60,22 @@ class BufferedCapture(Process):
             startTime2: float in shared memory that holds time of first frame in array2
 
         Keyword arguments:
-            video_file: [str] Path to the video file, if it was given as the video source. None by default.
+            video_file: [str] Path to the video file, if it was given as the video source.
+                        None by default.
 
         """
-        
+
         super(BufferedCapture, self).__init__()
         self.array1 = array1
         self.startTime1 = startTime1
         self.array2 = array2
         self.startTime2 = startTime2
-        
+
         self.startTime1.value = 0
         self.startTime2.value = 0
 
         self.video_file = video_file
 
-        
         self.config = config
         self.media_backend_override = False
 
@@ -85,17 +85,16 @@ class BufferedCapture(Process):
         self.expected_fps2 = 25
         self.dropped_frames2 = 0
         self.last_timestamp = None
-        
+
         # A frame will be considered dropped if it was late more then half a frame
         self.time_for_drop = 2.0*(1.0/config.fps)
-        
+
         # Initialize Smoothing variables
         self.startup_flag = True
         self.last_calculated_fps = 0
         self.last_calculated_fps_n = 0
         self.expected_m = 1e9/self.config.fps
         self.reset_count = -1
-
 
         self.dropped_frames = Value('i', 0)
         self.device = None
@@ -119,17 +118,17 @@ class BufferedCapture(Process):
 
         # Fine tune using the config file's camera_latency field.
 
-        self.device_buffer = 1 # Experimentally measured buffer size (does not set the buffer)
+        # Experimentally measured buffer size (does not set the buffer)
+        self.device_buffer = 1
         if self.config.height == 1080:
-            self.system_latency = 0.055 # seconds. Experimentally measured latency
+            self.system_latency = 0.055  # seconds. Experimentally measured latency
         else:
-            self.system_latency = 0.045 # seconds. Experimentally measured latency
+            self.system_latency = 0.045  # seconds. Experimentally measured latency
         buffer_latency = self.device_buffer / self.config.fps
         fps_adjustment = (self.config.fps - 5) / 2000
         total_configured_latency = self.system_latency + self.config.camera_latency
 
         self.total_latency = buffer_latency + fps_adjustment + total_configured_latency
-
 
     def save_image_to_disk(self, filename, img_path, img, i):
         try:
@@ -137,7 +136,6 @@ class BufferedCapture(Process):
             log.info(f"Saving completed: i={i}: {filename}")
         except Exception as e:
             log.info(f"Error, could not save image to disk: {e}")
-    
 
     def update_fps(self, frame_timestamp):
         if self.last_timestamp is not None:
@@ -145,35 +143,34 @@ class BufferedCapture(Process):
 
         self.last_timestamp = frame_timestamp
         self.timestamps.append(frame_timestamp)
-        
+
         if len(self.timestamps) > self.window_size:
             self.timestamps.pop(0)
-        
+
         if len(self.timestamps) > 1:
             elapsed_time = self.timestamps[-1] - self.timestamps[0]
             fps = (len(self.timestamps) - 1) / elapsed_time
             delta_t = time.time() - frame_timestamp
-            sys.stdout.write(f"\rMoving Average FPS: {fps:.4f} | Delta_t: {delta_t:.4f}, time diff {time_diff:.6f}")
+            sys.stdout.write(
+                f"\rMoving Average FPS: {fps:.4f} | Delta_t: {delta_t:.4f}, time diff {time_diff:.6f}")
             sys.stdout.flush()
-
 
     def startCapture(self, cameraID=0):
         """ Start capture using specified camera.
-        
+
         Arguments:
             cameraID: ID of video capturing device (ie. ID for /dev/video3 is 3). Default is 0.
-            
+
         """
-        
+
         self.cameraID = cameraID
         self.exit = Event()
         self.start()
-    
 
     def stopCapture(self):
         """ Stop capture.
         """
-        
+
         self.exit.set()
 
         time.sleep(1)
@@ -193,19 +190,18 @@ class BufferedCapture(Process):
 
         return self.dropped_frames.value
 
-
     def device_is_opened(self):
         """ Return True if media backend is opened.
         """
-        
+
         if self.device is None:
             return False
-        
+
         try:
             # OpenCV
             if isinstance(self.device, cv2.VideoCapture):
                 return self.device.isOpened()
-            
+
             # GStreamer
             else:
                 state = self.device.get_state(Gst.CLOCK_TIME_NONE).state
@@ -213,11 +209,10 @@ class BufferedCapture(Process):
                     return True
                 else:
                     return False
-                
+
         except Exception as e:
             log.error('Error checking device status: {}'.format(e))
             return False
-
 
     def calculate_pts_regression_params(self, y):
         """ Add pts and perform an online linear regression on pts.
@@ -229,18 +224,19 @@ class BufferedCapture(Process):
         x = self.n
         self.sum_x += x
         self.sum_y += y
-        self.sum_xx += x * x
-        self.sum_xy += x * y
+        self.sum_xx += x*x
+        self.sum_xy += x*y
 
         # Update regression parameters
         if x > 1:
-            m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / (self.n * self.sum_xx - self.sum_x ** 2)
-        
+            m = (self.n * self.sum_xy - self.sum_x * self.sum_y) / \
+                (self.n * self.sum_xx - self.sum_x ** 2)
+
         # First frame
         else:
             m = self.expected_m
             self.b = y - m * x
-        
+
         ## STARTUP ##
         # On startup, use expected fps until calculate fps stabilizes
         if self.n <= self.startup_frames and self.startup_flag:
@@ -259,18 +255,19 @@ class BufferedCapture(Process):
             else:
                 sample_interval = 4096
 
-            # Determine if the values converge. Skipping the first few noisy frames
+            # Determine if the values converge. Skipping the first few frames
             if (x - 25) % sample_interval == 0 or x == self.startup_frames:
 
                 m_err = abs(m - self.expected_m)
-                delta_m_err = (m_err - self.last_m_err) / (x - self.last_m_err_n)
+                delta_m_err = (m_err - self.last_m_err) / \
+                    (x - self.last_m_err_n)
                 startup_remaining = self.startup_frames - x
                 final_m_err = m_err + startup_remaining * delta_m_err
                 self.last_m_err = m_err
                 self.last_m_err_n = x
 
-                # If end is reached, or error does not converge to zero, exit startup
-                if final_m_err  > 0 or x == self.startup_frames:
+                # If end is reached, or error does not converge, exit startup
+                if final_m_err > 0 or x == self.startup_frames:
 
                     # If residual error on exit is too large, the expected m is probably wrong.
                     if m_err > 2000:
@@ -288,7 +285,7 @@ class BufferedCapture(Process):
                     else:
 
                         # calculate the jump error
-                        self.m_jump_error = x * (m - self.expected_m) # ns
+                        self.m_jump_error = x * (m - self.expected_m)  # ns
 
                     log.info("Exiting startup logic at {:.1f}% of startup sequence, Expected fps: {:.6f}, "
                              "calculated fps at this point: {:.6f}, residual m error: {:.1f} ns, sample interval: {}"
@@ -302,7 +299,7 @@ class BufferedCapture(Process):
                 m = self.expected_m
 
         ### LEAST DELAYED FRAME LOGIC ###
-                
+
         # The code attempts to smoothly distribute presentation timestamps (pts) on a line that passes
         # through the least-delayed frame. The idea is that the least-delayed frames are thought to
         # be the least affected by network and other delays, and should therefore offer the most
@@ -317,13 +314,13 @@ class BufferedCapture(Process):
         # Finally, the small jump error at the completion of the startup sequence, when
         # transitioning from expected fps to calculated fps (linear regression), is smoothly
         # distributed over time.
-                
+
         # Calculate the delta between the lowest point and current point
         delta_b = self.b - (y - m * x)
 
         # Adjust b error debt to the max of current debt or new delta b
         self.b_error_debt = max(self.b_error_debt, delta_b)
-        
+
         # Skew b, if due
         if self.b_error_debt > 0 or self.m_jump_error != 0:
 
@@ -332,15 +329,15 @@ class BufferedCapture(Process):
                 max_adjust = float('inf')
 
             # Then adjust b aggressively for the first few minutes
-            elif x <= 256 * 6 * 10: # first ~10 min
-                max_adjust = 100 * 1000 / 256 # 0.1 ms per block
+            elif x <= 256 * 6 * 10:  # first ~10 min
+                max_adjust = 100 * 1000 / 256  # 0.1 ms per block
 
             # Then only allow small changes for the remainder of the run
             else:
-                max_adjust = 25 * 1000 / 256 # 0.025 ms per block
-            
+                max_adjust = 25 * 1000 / 256  # 0.025 ms per block
+
             # Determine the correction factor
-            b_corr = min(self.b_error_debt, max_adjust) # ns
+            b_corr = min(self.b_error_debt, max_adjust)  # ns
 
             # Update the lowest b and adjust the debt
             self.b -= b_corr
@@ -352,15 +349,14 @@ class BufferedCapture(Process):
             else:
                 self.m_jump_error = min(self.m_jump_error + max_adjust, 0)
 
-            #log.info(f"b: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, "
+            # log.info(f"b: {self.b:.1f} ns, b_delta: {delta_b:.1f} ns, "
             #        f"error debt: {self.b_error_debt:.1f}, m_jump_err: {self.m_jump_error:.1f}")
 
         else:
             # Introduce a very small positive bias
-            self.b += 25 # ns
-        
+            self.b += 25  # ns
+
         return m, self.b - self.m_jump_error
-    
 
     def smooth_pts(self, new_pts):
 
@@ -395,20 +391,20 @@ class BufferedCapture(Process):
                 self.sum_y = 0
                 self.sum_xx = 0
                 self.sum_xy = 0
-                self.startup_frames = 25 * 60 * 10 # 10 minutes
+                self.startup_frames = 25 * 60 * 10  # 10 minutes
                 self.m_jump_error = 0
                 self.b_error_debt = 0
                 self.last_m_err = float('inf')
                 self.last_m_err_n = 0
-                log.info('smooth_pts detected dropped frame. Resetting regression parameters.')
+                log.info(
+                    'smooth_pts detected dropped frame. Resetting regression parameters.')
                 return new_pts
-        
+
             # sys.stdout.write(f"\r Frame count: {self.n}, average fps: {1e9/m:.6f} ms, b: {b:.1f}, "
             #                  f"delta: {(smoothed_pts - new_pts) / 1e6:.3f} ms")
             # sys.stdout.flush()
 
         return smoothed_pts
-
 
     def read(self):
         '''
@@ -423,8 +419,8 @@ class BufferedCapture(Process):
         if self.video_file is not None:
             ret, frame = self.device.read()
             if ret:
-                timestamp = None # assigned later
-        
+                timestamp = None  # assigned later
+
         # Read capture device frame
         else:
             # GStreamer
@@ -440,7 +436,8 @@ class BufferedCapture(Process):
                 # Sanity check for pts value
                 max_expected_ns = 24 * 60 * 60 * 1e9  # 24 hours in nanoseconds
                 if not (0 < gst_timestamp_ns <= max_expected_ns):
-                    log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
+                    log.info("Unexpected PTS value: {}.".format(
+                        gst_timestamp_ns))
                     return False, None, None
 
                 ret, map_info = buffer.map(Gst.MapFlags.READ)
@@ -456,15 +453,14 @@ class BufferedCapture(Process):
                 timestamp = self.start_timestamp + (smoothed_pts / 1e9)
 
                 buffer.unmap(map_info)
-        
+
             # OpenCV
             else:
                 ret, frame = self.device.read()
                 if ret:
                     timestamp = time.time()
-                
-        return ret, frame, timestamp
 
+        return ret, frame, timestamp
 
     def extract_rtsp_url(self, input_string):
         '''
@@ -484,7 +480,6 @@ class BufferedCapture(Process):
             return rtsp_url
         else:
             return None  # Return None if no RTSP URL is found
-            
 
     def is_grayscale(self, frame):
         '''
@@ -495,7 +490,6 @@ class BufferedCapture(Process):
         if np.array_equal(r, g) and np.array_equal(g, b):
             return True
         return False
-    
 
     def handle_grayscale_conversion(self, map_info):
         """Handle conversion of frame to grayscale if necessary."""
@@ -503,10 +497,11 @@ class BufferedCapture(Process):
             return np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
 
         # Convert to grayscale by selecting a specific channel
-        bgr_frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
-        gray_frame = bgr_frame[:, :, 0]  # Assuming the blue channel for grayscale
+        bgr_frame = np.ndarray(shape=self.frame_shape,
+                               buffer=map_info.data, dtype=np.uint8)
+        # Assuming the blue channel for grayscale
+        gray_frame = bgr_frame[:, :, 0]
         return gray_frame
-
 
     def create_gstream_device(self, video_format):
         """
@@ -533,21 +528,21 @@ class BufferedCapture(Process):
                       "location=\"{}\" ! "
                       "rtph264depay ! h264parse ! avdec_h264").format(device_url)
 
-        conversion = "videoconvert ! video/x-raw,format={}".format(video_format)
+        conversion = "videoconvert ! video/x-raw,format={}".format(
+            video_format)
         pipeline_str = ("{} ! queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
                         "{} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
                         "appsink max-buffers=100 drop=true sync=0 name=appsink").format(device_str, conversion)
 
-        
         self.pipeline = Gst.parse_launch(pipeline_str)
 
         self.pipeline.set_state(Gst.State.PLAYING)
         self.start_timestamp = time.time() - self.total_latency
-        start_time_str = datetime.datetime.fromtimestamp(self.start_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
+        start_time_str = datetime.datetime.fromtimestamp(
+            self.start_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')
         log.info("Start time is {}".format(start_time_str))
 
         return self.pipeline.get_by_name("appsink")
-
 
     def initVideoDevice(self):
         """ Initialize the video device. """
@@ -564,10 +559,9 @@ class BufferedCapture(Process):
             if "rtsp" in str(self.config.deviceID):
                 ip_cam = True
 
-
             if ip_cam:
 
-                ### If the IP camera is used, check first if it can be pinged
+                # If the IP camera is used, check first if it can be pinged
 
                 # Extract the IP address
                 ip = re.findall(r"[0-9]+(?:\.[0-9]+){3}", self.config.deviceID)
@@ -598,7 +592,6 @@ class BufferedCapture(Process):
                     log.error("Can't find the camera IP!")
                     return False
 
-
             # Init the video device
             log.info("Initializing the video device...")
             log.info("Device: " + str(self.config.deviceID))
@@ -606,7 +599,7 @@ class BufferedCapture(Process):
             if self.config.media_backend == 'gst':
                 try:
                     log.info("Initialize GStreamer Standalone Device.")
-                    
+
                     # Initialize Smoothing parameters
                     self.reset_count += 1
                     self.n = 0
@@ -614,7 +607,7 @@ class BufferedCapture(Process):
                     self.sum_y = 0
                     self.sum_xx = 0
                     self.sum_xy = 0
-                    self.startup_frames = 25 * 60 * 10 # 10 minutes
+                    self.startup_frames = 25 * 60 * 10  # 10 minutes
                     self.b = 0
                     self.b_error_debt = 0
                     self.m_jump_error = 0
@@ -642,31 +635,34 @@ class BufferedCapture(Process):
                     caps = sample.get_caps()
                     if not caps:
                         raise ValueError("Sample caps are None.")
-                        
+
                     structure = caps.get_structure(0)
                     if not structure:
                         raise ValueError("Could not determine frame shape.")
-                    
+
                     # Extract width, height, and format, and create frame
                     width = structure.get_value('width')
                     height = structure.get_value('height')
                     self.frame_shape = (height, width, 3)
-                    frame = np.ndarray(shape=self.frame_shape, buffer=map_info.data, dtype=np.uint8)
-                    
+                    frame = np.ndarray(shape=self.frame_shape,
+                                       buffer=map_info.data, dtype=np.uint8)
+
                     # Check if frame is grayscale and set flag
                     self.convert_to_gray = self.is_grayscale(frame)
-                    log.info("Video format: BGR, {}P, color: {}".format(height, not self.convert_to_gray))
+                    log.info("Video format: BGR, {}P, color: {}".format(
+                        height, not self.convert_to_gray))
 
                 except Exception as e:
-                    log.info("Error initializing GStreamer, switching to alternative. Error: {}".format(e))
+                    log.info(
+                        "Error initializing GStreamer, switching to alternative. Error: {}".format(e))
                     self.media_backend_override = True
                     self.release_resources()
-
 
             if self.config.media_backend == 'v4l2':
                 try:
                     log.info("Initialize OpenCV Device with v4l2.")
-                    self.device = cv2.VideoCapture(self.config.deviceID, cv2.CAP_V4L2)
+                    self.device = cv2.VideoCapture(
+                        self.config.deviceID, cv2.CAP_V4L2)
                     self.device.set(cv2.CAP_PROP_CONVERT_RGB, 0)
                 except Exception as e:
                     log.info("Could not initialize OpenCV with v4l2. Initialize "
@@ -674,13 +670,11 @@ class BufferedCapture(Process):
                     self.media_backend_override = True
                     self.release_resources()
 
-
             elif self.config.media_backend == 'cv2' or self.media_backend_override:
                 log.info("Initialize OpenCV Device.")
                 self.device = cv2.VideoCapture(self.config.deviceID)
 
         return True
-
 
     def release_resources(self):
         """Releases resources for GStreamer and OpenCV devices."""
@@ -689,7 +683,8 @@ class BufferedCapture(Process):
                 self.pipeline.set_state(Gst.State.NULL)
 
                 if abs(self.last_calculated_fps - self.config.fps) > 0.0005 and self.last_calculated_fps_n > 25*60*60:
-                    log.info('Config file fps appears to be inaccurate. Consider updating the config file!')
+                    log.info(
+                        'Config file fps appears to be inaccurate. Consider updating the config file!')
                 log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}, resets: {}, startup status: {}"
                          .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps, self.reset_count, self.startup_flag))
 
@@ -697,7 +692,7 @@ class BufferedCapture(Process):
                 log.info('GStreamer Video device released!')
             except Exception as e:
                 log.error('Error releasing GStreamer pipeline: {}'.format(e))
-                
+
         if self.device:
             try:
                 if isinstance(self.device, cv2.VideoCapture):
@@ -708,11 +703,10 @@ class BufferedCapture(Process):
             finally:
                 self.device = None  # Reset device to None after releasing
 
-
     def run(self):
         """ Capture frames.
         """
-        
+
         # Init the video device
         while not self.exit.is_set() and not self.initVideoDevice():
             log.info('Waiting for the video device to be connect...')
@@ -721,8 +715,9 @@ class BufferedCapture(Process):
         # Create dir to save jpg files
         stationID = str(self.config.stationID)
         date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
-        dirname = f"JPG_{stationID}_"+ date_string
-        dirname = os.path.join(self.config.data_dir, self.config.jpg_dir, dirname)
+        dirname = f"JPG_{stationID}_" + date_string
+        dirname = os.path.join(self.config.data_dir,
+                               self.config.jpg_dir, dirname)
 
         # Create the directory
         os.makedirs(dirname, exist_ok=True)
@@ -733,7 +728,6 @@ class BufferedCapture(Process):
             self.exit.set()
             return False
 
-
         # Wait until the device is opened
         device_opened = False
         for i in range(20):
@@ -741,7 +735,6 @@ class BufferedCapture(Process):
             if self.device_is_opened():
                 device_opened = True
                 break
-
 
         # If the device could not be opened, stop capturing
         if not device_opened:
@@ -752,10 +745,8 @@ class BufferedCapture(Process):
         else:
             log.info('Video device opened!')
 
-
         # Keep track of the total number of frames
         total_frames = 0
-
 
         # For video devices only (not files), throw away the first 10 frames
         if self.video_file is None and isinstance(self.device, cv2.VideoCapture):
@@ -766,18 +757,20 @@ class BufferedCapture(Process):
 
             total_frames = first_skipped_frames
 
-
         # If a video file was used, set the time of the first frame to the time read from the file name
         if self.video_file is not None:
-            time_stamp = "_".join(os.path.basename(self.video_file).split("_")[1:4])
+            time_stamp = "_".join(os.path.basename(
+                self.video_file).split("_")[1:4])
             time_stamp = time_stamp.split(".")[0]
-            video_first_time = datetime.datetime.strptime(time_stamp, "%Y%m%d_%H%M%S_%f")
+            video_first_time = datetime.datetime.strptime(
+                time_stamp, "%Y%m%d_%H%M%S_%f")
             log.info("Using a video file: " + self.video_file)
-            log.info("Setting the time of the first frame to: " + str(video_first_time))
+            log.info("Setting the time of the first frame to: " +
+                     str(video_first_time))
 
             # Convert the first time to a UNIX timestamp
-            video_first_timestamp = (video_first_time - datetime.datetime(1970, 1, 1)).total_seconds()
-
+            video_first_timestamp = (
+                video_first_time - datetime.datetime(1970, 1, 1)).total_seconds()
 
         # Use the first frame buffer to start - it will be flip-flopped between the first and the second
         #   buffer during capture, to prevent any data loss
@@ -786,14 +779,13 @@ class BufferedCapture(Process):
         wait_for_reconnect = False
 
         last_frame_timestamp = False
-        
+
         # Run until stopped from the outside
         while not self.exit.is_set():
 
-
             # Wait until the compression is done (only when a video file is used)
             if self.video_file is not None:
-                
+
                 wait_for_compression = False
 
                 if buffer_one:
@@ -804,18 +796,15 @@ class BufferedCapture(Process):
                         wait_for_compression = True
 
                 if wait_for_compression:
-                    log.debug("Waiting for the {:d}. compression thread to finish...".format(int(not buffer_one) + 1))
+                    log.debug("Waiting for the {:d}. compression thread to finish...".format(
+                        int(not buffer_one) + 1))
                     time.sleep(0.1)
                     continue
 
-
-
-            
             if buffer_one:
                 self.startTime1.value = 0
             else:
                 self.startTime2.value = 0
-            
 
             # If the video device was disconnected, wait 5s for reconnection
             if wait_for_reconnect:
@@ -828,11 +817,9 @@ class BufferedCapture(Process):
 
                     time.sleep(5)
 
-
                     if self.device is None:
                         print("The video device couldn't be connected! Retrying...")
                         continue
-
 
                     if self.exit.is_set():
                         break
@@ -848,9 +835,7 @@ class BufferedCapture(Process):
                         wait_for_reconnect = False
                         break
 
-
                 wait_for_reconnect = False
-
 
             t_frame = 0
             t_assignment = 0
@@ -859,11 +844,11 @@ class BufferedCapture(Process):
             max_frame_interval_normalized = 0.0
             max_frame_age_seconds = 0.0
 
-
             # Capture a block of 256 frames
             block_frames = 256
 
-            log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
+            log.info(
+                'Grabbing a new block of {:d} frames...'.format(block_frames))
 
             # Debug code
             while False:
@@ -871,32 +856,29 @@ class BufferedCapture(Process):
                 if not ret:
                     break  # Exit the loop if the frame read was unsuccessful
                 self.update_fps(frame_timestamp)
-                
-            for i in range(block_frames):
 
+            for i in range(block_frames):
 
                 # Read the frame (keep track how long it took to grab it)
                 t1_frame = time.time()
                 ret, frame, frame_timestamp = self.read()
                 t_frame = time.time() - t1_frame
 
-
                 # If the video device was disconnected, wait for reconnection
                 if (self.video_file is None) and (not ret):
 
-                    log.info('Frame grabbing failed, video device is probably disconnected!')
+                    log.info(
+                        'Frame grabbing failed, video device is probably disconnected!')
                     self.release_resources()
                     wait_for_reconnect = True
                     break
 
-
                 # If a video file is used, compute the time using the time from the file timestamp
                 if self.video_file is not None:
-                
+
                     frame_timestamp = video_first_timestamp + total_frames/self.config.fps
 
                     # print("tot={:6d}, i={:3d}, fps={:.2f}, t={:.8f}".format(total_frames, i, self.config.fps, frame_timestamp))
-
 
                 # Set the time of the first frame
                 if i == 0:
@@ -904,7 +886,7 @@ class BufferedCapture(Process):
                     # Initialize last frame timestamp if it's not set
                     if not last_frame_timestamp:
                         last_frame_timestamp = frame_timestamp
-                    
+
                     # Always set first frame timestamp in the beginning of the block
                     first_frame_timestamp = frame_timestamp
 
@@ -917,21 +899,26 @@ class BufferedCapture(Process):
                     if i % 128 == 0:
 
                         # Generate the name for the file
-                        date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
+                        date_string = time.strftime(
+                            "%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
 
                         # Calculate miliseconds
-                        millis = int((frame_timestamp - floor(frame_timestamp))*1000)
-                        
+                        millis = int(
+                            (frame_timestamp - floor(frame_timestamp))*1000)
+
                         # Create the filename
-                        filename = f"{stationID}_"+ date_string + "_" + str(millis).zfill(3) + ".jpg"
+                        filename = f"{stationID}_" + date_string + \
+                            "_" + str(millis).zfill(3) + ".jpg"
 
                         img_path = os.path.join(dirname, filename)
 
                         # Save the image to disk
                         try:
-                            self.save_image_to_disk(filename, img_path, frame,i)
+                            self.save_image_to_disk(
+                                filename, img_path, frame, i)
                         except:
-                            log.error("Could not save {:s} to disk!".format(filename))
+                            log.error(
+                                "Could not save {:s} to disk!".format(filename))
 
                 # If the end of the video file was reached, stop the capture
                 if self.video_file is not None:
@@ -940,18 +927,19 @@ class BufferedCapture(Process):
                         log.info("End of video file!")
                         log.debug("Video end status:")
                         log.debug("Frame:" + str(frame))
-                        log.debug("Device open:" + str(self.device_is_opened()))
+                        log.debug("Device open:" +
+                                  str(self.device_is_opened()))
 
                         self.exit.set()
                         time.sleep(0.1)
                         break
 
-
                 # Check if frame is dropped if it has been more than 1.5 frames than the last frame
                 elif (frame_timestamp - last_frame_timestamp) >= self.time_for_drop:
-                    
+
                     # Calculate the number of dropped frames
-                    n_dropped = int((frame_timestamp - last_frame_timestamp)*self.config.fps)
+                    n_dropped = int(
+                        (frame_timestamp - last_frame_timestamp)*self.config.fps)
 
                     self.dropped_frames.value += n_dropped
 
@@ -962,16 +950,19 @@ class BufferedCapture(Process):
                 # If cv2:
                 if self.config.media_backend != 'gst' and not self.media_backend_override:
                     # Calculate the normalized frame interval between the current and last frame read, normalized by frames per second (fps)
-                    frame_interval_normalized = (frame_timestamp - last_frame_timestamp) / (1 / self.config.fps)
+                    frame_interval_normalized = (
+                        frame_timestamp - last_frame_timestamp) / (1 / self.config.fps)
                     # Update max_frame_interval_normalized for this cycle
-                    max_frame_interval_normalized = max(max_frame_interval_normalized, frame_interval_normalized)
+                    max_frame_interval_normalized = max(
+                        max_frame_interval_normalized, frame_interval_normalized)
 
                 # If GStreamer:
                 else:
                     # Calculate the time difference between the current time and the frame's timestamp
                     frame_age_seconds = time.time() - frame_timestamp
                     # Update max_frame_age_seconds for this cycles
-                    max_frame_age_seconds = max(max_frame_age_seconds, frame_age_seconds)
+                    max_frame_age_seconds = max(
+                        max_frame_age_seconds, frame_age_seconds)
 
                 # On the last loop, report late or dropped frames
                 if i == block_frames - 1:
@@ -979,7 +970,7 @@ class BufferedCapture(Process):
                     if self.config.media_backend != 'gst' and not self.media_backend_override:
                         log.info("Block's max frame interval: {:.3f} (normalized). Run's late frames: {}"
                                  .format(max_frame_interval_normalized, self.dropped_frames.value))
-                    
+
                     # For GStreamer, show elapsed time since frame capture to assess sink fill level
                     else:
                         log.info("Block's max frame age: {:.3f} seconds. Run's dropped frames: {}"
@@ -987,15 +978,12 @@ class BufferedCapture(Process):
 
                 last_frame_timestamp = frame_timestamp
 
-
-
-
                 ### Convert the frame to grayscale ###
 
                 t1_convert = time.time()
 
                 # Convert the frame to grayscale
-                #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
                 # Convert the frame to grayscale
                 if len(frame.shape) == 3:
@@ -1016,19 +1004,14 @@ class BufferedCapture(Process):
                 else:
                     gray = frame
 
-
                 # Cut the frame to the region of interest (ROI)
-                gray = gray[self.config.roi_up:self.config.roi_down, \
-                    self.config.roi_left:self.config.roi_right]
+                gray = gray[self.config.roi_up:self.config.roi_down,
+                            self.config.roi_left:self.config.roi_right]
 
                 # Track time for frame conversion
                 t_convert = time.time() - t1_convert
 
-
                 ### ###
-
-
-
 
                 # Assign the frame to shared memory (track time to do so)
                 t1_assign = time.time()
@@ -1039,19 +1022,13 @@ class BufferedCapture(Process):
 
                 t_assignment = time.time() - t1_assign
 
-
-
                 # Keep track of all captured frames
                 total_frames += 1
-
-
-
 
             if self.exit.is_set():
                 wait_for_reconnect = False
                 log.info('Capture exited!')
                 break
-
 
             if not wait_for_reconnect:
 
@@ -1066,13 +1043,11 @@ class BufferedCapture(Process):
                 log.info('New block of raw frames available for compression with starting time: {:s}'
                          .format(str(first_frame_timestamp)))
 
-            
             # Switch the frame block buffer flags
             buffer_one = not buffer_one
             if self.config.report_dropped_frames:
-                log.info('Estimated FPS: {:.3f}'.format(block_frames/(time.time() - t_block)))
-        
+                log.info('Estimated FPS: {:.3f}'.format(
+                    block_frames/(time.time() - t_block)))
 
         log.info('Releasing video device...')
         self.release_resources()
-    
