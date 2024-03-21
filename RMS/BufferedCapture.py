@@ -515,7 +515,7 @@ class BufferedCapture(Process):
         storage_branch = "t. ! queue ! filesink location=raw_stream.h264"
 
         # Combine all parts of the pipeline
-        pipeline_str = "{} ! {} {}".format(source_to_tee, processing_branch, storage_branch)
+        pipeline_str = "{} {} {}".format(source_to_tee, processing_branch, storage_branch)
 
         log.debug("GStreamer pipeline string: {}".format(pipeline_str))
         
