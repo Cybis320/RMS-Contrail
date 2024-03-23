@@ -165,7 +165,7 @@ def write(ff, directory, filename):
 
     # Add the maxpixle to the list
     maxpixel_hdu = fits.CompImageHDU(maxpixel, head, compression_type='RICE_1')
-    maxframe_hdu = fits.CompImageHDU(maxframe, head, compression_type='PLIO_1')
+    maxframe_hdu = fits.CompImageHDU(maxframe, head, compression_type='RICE_1')
     avepixel_hdu = fits.CompImageHDU(avepixel, head, compression_type='RICE_1')
     stdpixel_hdu = fits.CompImageHDU(stdpixel, head, compression_type='RICE_1')
     
