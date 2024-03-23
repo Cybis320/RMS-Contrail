@@ -157,11 +157,11 @@ def write(ff, directory, filename):
 
     # Deconstruct the 3D array into individual images
     if ff.array is not None:
-        ff.maxpixel, ff.maxframe, ff.avepixel, ff.stdpixel = np.split(ff.array, 4, axis=0)
-        ff.maxpixel = ff.maxpixel[0]
-        ff.maxframe = ff.maxframe[0]
-        ff.avepixel = ff.avepixel[0]
-        ff.stdpixel = ff.stdpixel[0]
+        maxpixel, maxframe, avepixel, stdpixel = np.split(ff.array, 4, axis=0)
+        maxpixel = maxpixel[0]
+        maxframe = maxframe[0]
+        avepixel = avepixel[0]
+        stdpixel = stdpixel[0]
 
     # Add the maxpixle to the list
     maxpixel_hdu = fits.CompImageHDU(maxpixel, head, compression_type='RICE')
