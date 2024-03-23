@@ -164,10 +164,10 @@ def write(ff, directory, filename):
         ff.stdpixel = ff.stdpixel[0]
 
     # Add the maxpixle to the list
-    maxpixel_hdu = fits.ImageHDU(ff.maxpixel, name='MAXPIXEL')
-    maxframe_hdu = fits.ImageHDU(ff.maxframe, name='MAXFRAME')
-    avepixel_hdu = fits.ImageHDU(ff.avepixel, name='AVEPIXEL')
-    stdpixel_hdu = fits.ImageHDU(ff.stdpixel, name='STDPIXEL')
+    maxpixel_hdu = fits.CompImageHDU(maxpixel, head, compression_type='RICE')
+    maxframe_hdu = fits.CompImageHDU(maxframe, head, compression_type='RICE')
+    avepixel_hdu = fits.CompImageHDU(avepixel, head, compression_type='RICE')
+    stdpixel_hdu = fits.CompImageHDU(stdpixel, head, compression_type='RICE')
     
     # Create the primary part
     prim = fits.PrimaryHDU(header=head)
