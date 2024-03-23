@@ -503,16 +503,16 @@ class BufferedCapture(Process):
         source_to_tee = (
             "rtspsrc buffer-mode=1 protocols=tcp tcp-timeout=5000000 retry=5 "
             "location=\"{}\" ! "
-            "rtph264depay ! tee name=t").format(device_url)
+            "rtph264depay ! h264parse ! tee name=t").format(device_url)
 
         # Branch for processing
         processing_branch = (
-            "t. ! queue ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format={} ! "
+            "t. ! queue ! avdec_h264 ! videoconvert ! video/x-raw,format={} ! "
             "queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
             "appsink max-buffers=100 drop=true sync=0 name=appsink").format(video_format)
 
         # Branch for storage
-        storage_branch = "t. ! queue ! filesink location=raw_stream.h264"
+        storage_branch = "t. ! queue ! splitmuxsink location=segment_%05d.mkv max-size-time=60000000000 muxer-factory=matroskamux"
 
         # Combine all parts of the pipeline
         pipeline_str = "{} {} {}".format(source_to_tee, processing_branch, storage_branch)
