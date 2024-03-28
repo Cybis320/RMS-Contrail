@@ -887,20 +887,18 @@ def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, 
             with tarfile.open(archive_path, "w:bz2") as tar:
                 for root, dirs, files in os.walk(parent_dir):
                     for file in files:
-                        if not file.endswith('.mp4'):
-                            file_path = os.path.join(root, file)
+                        file_path = os.path.join(root, file)
+                        if file_path != archive_path and not file.endswith('.mp4'):
                             tar.add(file_path, arcname=os.path.relpath(file_path, parent_dir))
                             files_added_to_archive.append(file_path)
             print(f"Archived non-video files to {archive_path}")
 
             # Verify the archive exists and has content before deleting files
             if os.path.exists(archive_path) and os.path.getsize(archive_path) > 0:
-                print("Archive verified. Proceeding to delete files.")
                 if files_added_to_archive:
                     for file_path in files_added_to_archive:
                         try:
                             os.remove(file_path)
-                            print(f"Deleted {file_path}")
                         except Exception as e:
                             print(f"Could not delete {file_path}: {e}")
 
