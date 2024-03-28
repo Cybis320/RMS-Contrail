@@ -493,7 +493,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     temp_dir = run_overlay_on_images(full_jpg_subdir, overlay_platepar)
 
                     # Make the name of the timelapse file
-                    jpg_subdir_cleaned = jpg_subdir.replace("_JPG", "")
+                    jpg_subdir_cleaned = jpg_subdir.replace("JPG_", "")
                     timelapse_file_name = jpg_subdir_cleaned + "_adsb_timelapse.mp4"
                     timelapse_path = os.path.join(full_jpg_subdir, timelapse_file_name)
 
