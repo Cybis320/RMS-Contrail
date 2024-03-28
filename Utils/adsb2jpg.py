@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import platform
+import tarfile
 import subprocess
 import re
 import time
@@ -831,17 +832,17 @@ def run_overlay_on_images(input_path, platepar):
 #  23     70
 
 
-def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_images=False):
+def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, crf=20, delete_images=False):
     """
 
     """
-    images = [img for img in sorted(glob.glob(os.path.join(image_folder, "*_overlay.*")))]
+    images = [img for img in sorted(glob.glob(os.path.join(temp_image_folder, "*_overlay.*")))]
     if len(images) == 0:
         print("No overlay images found.")
         return
 
     # Create a text file listing all the images
-    list_file_path = os.path.join(image_folder, "filelist.txt")
+    list_file_path = os.path.join(temp_image_folder, "filelist.txt")
     with open(list_file_path, 'w') as f:
         for img_path in images:
             f.write(f"file '{os.path.basename(img_path)}'\n")
@@ -853,13 +854,12 @@ def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_im
 
     if platform.system() in ['Linux', 'Darwin']:  # Darwin is macOS
         software_name = "ffmpeg"
-        encode_command = f"{software_name} {base_command}"
     elif platform.system() == 'Windows':
-        ffmpeg_path = os.path.join(os.path.dirname(__file__), "ffmpeg.exe")
-        encode_command = f"{ffmpeg_path} {base_command}"
+        software_name = os.path.join(os.path.dirname(__file__), "ffmpeg.exe")
     else:
         print("Unsupported platform.")
         return
+    encode_command = f"{software_name} {base_command}"
 
     # Execute the command
     print("Creating timelapse using ffmpeg...")
@@ -867,9 +867,29 @@ def create_video_from_images(image_folder, video_path, fps=30, crf=20, delete_im
                                           video_path=video_path), shell=True)
 
     # Optionally, delete the source images and list file
-    if os.path.exists(image_folder) and delete_images:
-        shutil.rmtree(image_folder)
-        print(f"Deleted temporary directory : {image_folder}")
+    if os.path.exists(temp_image_folder) and delete_images:
+        try:
+            shutil.rmtree(temp_image_folder)
+            print(f"Deleted temporary directory : {temp_image_folder}")
+        except Exception as e:
+            print(f"Error deleting temporary directory: {e}")
+
+        # Extracting the directory where the video_path is to save the tar file
+        dir_name = os.path.basename(parent_dir).lstrip('JPG_')
+        archive_name = f"{dir_name}_adsb_timelapse_working_files.tar.bz2"
+        archive_path = os.path.join(parent_dir, archive_name)
+
+        try:
+            with tarfile.open(archive_path, "w:bz2") as tar:
+                for root, dirs, files in os.walk(parent_dir):
+                    for file in files:
+                        if not file.endswith('.mp4'):
+                            file_path = os.path.join(root, file)
+                            tar.add(file_path, arcname=os.path.relpath(file_path, parent_dir))
+
+            print(f"Archived non-video files to {archive_path}")
+        except Exception as e:
+            print(f"Error creating archive: {e}")
 
 
 if __name__ == "__main__":
@@ -915,12 +935,11 @@ if __name__ == "__main__":
 
     if os.path.isdir(cml_args.input_path):
         normalized_path = os.path.dirname(cml_args.input_path) if cml_args.input_path.endswith('/') else cml_args.input_path
-        dir_name = os.path.basename(normalized_path)
-
+        dir_name = os.path.basename(normalized_path).lstrip('JPG_')
         timelapse_file_name = dir_name + "_adsb_timelapse.mp4"
         video_path = os.path.join(cml_args.input_path, timelapse_file_name)
 
-        create_video_from_images(temp_dir, video_path, delete_images=False)
+        create_video_from_images(temp_dir, normalized_path, video_path, delete_images=False)
 
 '''
 # Debug Test code
