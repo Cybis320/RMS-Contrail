@@ -876,7 +876,7 @@ def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, 
 
         # Extracting the directory where the video_path is to save the tar file
         dir_name = os.path.basename(parent_dir).lstrip('JPG_')
-        archive_name = f"{dir_name}_adsb_timelapse_working_files.tar.bz2"
+        archive_name = f"{dir_name}_adsb_working_files.tar.bz2"
         archive_path = os.path.join(parent_dir, archive_name)
 
         # Track files added to the archive
