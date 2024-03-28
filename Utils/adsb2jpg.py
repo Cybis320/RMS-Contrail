@@ -211,8 +211,8 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
                                   f"end: {end_time.replace(microsecond=0)}")
                 print(need_start_msg)
 
-                if ((cache_begin_time <= begin_time.replace(microsecond=0))
-                        and (cache_end_time >= end_time.replace(microsecond=0))):
+                if (cache_begin_time <= begin_time.replace(microsecond=0)
+                        and cache_end_time >= end_time.replace(microsecond=0)):
                     print("Using cache file!")
                     with open(cache_file, 'r') as f:
                         return json.load(f)
