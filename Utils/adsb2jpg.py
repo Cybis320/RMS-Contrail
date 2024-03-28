@@ -893,10 +893,16 @@ def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, 
                             files_added_to_archive.append(file_path)
             print(f"Archived non-video files to {archive_path}")
 
-            # After successful archiving, delete the original files
-            for file_path in files_added_to_archive:
-                os.remove(file_path)
-            print("Deleted original files after archiving.")
+            # Verify the archive exists and has content before deleting files
+            if os.path.exists(archive_path) and os.path.getsize(archive_path) > 0:
+                print("Archive verified. Proceeding to delete files.")
+                if files_added_to_archive:
+                    for file_path in files_added_to_archive:
+                        try:
+                            os.remove(file_path)
+                            print(f"Deleted {file_path}")
+                        except Exception as e:
+                            print(f"Could not delete {file_path}: {e}")
 
         except Exception as e:
             print(f"Error creating archive: {e}")
