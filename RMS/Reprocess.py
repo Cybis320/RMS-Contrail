@@ -498,7 +498,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     timelapse_path = os.path.join(full_jpg_subdir, timelapse_file_name)
 
                     # Generate the timelapse
-                    create_video_from_images(temp_dir, jpg_subdir, timelapse_path, delete_images=True)
+                    create_video_from_images(temp_dir, full_jpg_subdir, timelapse_path, delete_images=True)
                     
                     # Add the timelapse to the extra files
                     # extra_files.append(timelapse_path)
