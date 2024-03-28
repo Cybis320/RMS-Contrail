@@ -879,6 +879,10 @@ def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, 
         archive_name = f"{dir_name}_adsb_timelapse_working_files.tar.bz2"
         archive_path = os.path.join(parent_dir, archive_name)
 
+        # Track files added to the archive
+        files_added_to_archive = []
+
+        # Creating the archive
         try:
             with tarfile.open(archive_path, "w:bz2") as tar:
                 for root, dirs, files in os.walk(parent_dir):
@@ -886,8 +890,14 @@ def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, 
                         if not file.endswith('.mp4'):
                             file_path = os.path.join(root, file)
                             tar.add(file_path, arcname=os.path.relpath(file_path, parent_dir))
-
+                            files_added_to_archive.append(file_path)
             print(f"Archived non-video files to {archive_path}")
+
+            # After successful archiving, delete the original files
+            for file_path in files_added_to_archive:
+                os.remove(file_path)
+            print("Deleted original files after archiving.")
+
         except Exception as e:
             print(f"Error creating archive: {e}")
 
