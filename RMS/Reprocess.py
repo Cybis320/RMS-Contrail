@@ -36,7 +36,8 @@ from Utils.MakeFlat import makeFlat
 from Utils.PlotFieldsums import plotFieldsums
 from Utils.RMS2UFO import FTPdetectinfo2UFOOrbitInput
 from Utils.ShowerAssociation import showerAssociation
-from Utils.adsb2jpg import run_overlay_on_images, create_video_from_images, extract_timestamp_from_name, find_closest_entry
+from Utils.adsb2jpg import (runOverlayOnImages, createVideoFromImages, extractTimestampFromName,
+                            findClosestEntry, cleanup)
 from Utils.PlotTimeIntervals import plotFFTimeIntervals
 
 # Get the logger from the main module
@@ -411,7 +412,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
 
     # Generate an ADSB timelapse
     if config.timelapse_generate_captured:
-        
+
         log.info('Generating ADS-B timelapse...')
         try:
             jpg_dir = os.path.join(config.data_dir, config.jpg_dir)
@@ -425,16 +426,16 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
             captured_subdirs = [os.path.join(captured_dir, d) for d in os.listdir(captured_dir)]
 
             # Combine the lists
-            combined_dirs = archived_subdirs + captured_subdirs 
+            combined_dirs = archived_subdirs + captured_subdirs
 
             # Loop through each directory in the jpg dir
             for jpg_subdir in os.listdir(jpg_dir):
                 full_jpg_subdir = os.path.join(jpg_dir, jpg_subdir)
-                
+
                 # If it's not a directory, skip
                 if not os.path.isdir(full_jpg_subdir):
                     continue
-                
+
                 # Search for JPG files
                 jpg_search_pattern = os.path.join(full_jpg_subdir, '*.jpg')
                 jpg_files = glob.glob(jpg_search_pattern)
@@ -445,19 +446,20 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                 # Search for *_adsb_timelapse.mp4
                 search_pattern = os.path.join(full_jpg_subdir, '*_adsb_timelapse.mp4')
                 found_files = glob.glob(search_pattern)
-                
+
                 # If not found, generate timelapse
                 if not found_files:
                     log.info(f"No ADS-B timelapse found in {jpg_subdir}, generating new timelapse...")
 
                     # Find best recalibrated all platepars json
                     try:
-                        jpg_subdir_timestamp = extract_timestamp_from_name(jpg_subdir)
+                        jpg_subdir_timestamp = extractTimestampFromName(jpg_subdir)
                         print(f"jpg_subdir_timestamp: {jpg_subdir_timestamp}")
                         recalibrated_platepars_dict = {}
                         for subdir_path in combined_dirs:
-                            recalibrated_all_platepars_path = os.path.join(subdir_path, config.platepars_recalibrated_name)
-                            
+                            recalibrated_all_platepars_path = os.path.join(subdir_path,
+                                                                           config.platepars_recalibrated_name)
+
                             # Skip this iteration if file does not exist
                             if not os.path.exists(recalibrated_all_platepars_path):
                                 continue
@@ -466,42 +468,56 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                             try:
                                 with open(recalibrated_all_platepars_path, 'r') as file:
                                     if '.fits' in file.read():
-                                        subdir_timestamp = extract_timestamp_from_name(subdir_path)
+                                        subdir_timestamp = extractTimestampFromName(subdir_path)
                                         print(f"subdir_timestamp: {subdir_timestamp}")
-                                        recalibrated_platepars_dict[subdir_timestamp] = recalibrated_all_platepars_path
+                                        recalibrated_platepars_dict[subdir_timestamp] \
+                                            = recalibrated_all_platepars_path
 
                             except UnicodeDecodeError:
                                 # Handle potential decoding errors for non-text files
                                 continue
 
-                            
-                            
                         # Check if no valid files were found
                         if not recalibrated_platepars_dict:
                             log.info("Using default platepar.")
                             overlay_platepar = platepar
-                        
+
                         else:
-                            overlay_platepar = find_closest_entry(recalibrated_platepars_dict, jpg_subdir_timestamp)
+                            overlay_platepar = findClosestEntry(recalibrated_platepars_dict,
+                                                                jpg_subdir_timestamp)
                             log.info(f"Using closest recalibrated platepar: {overlay_platepar}")
 
-                    
                     except Exception as e:
                         log.debug('Finding recalibrated platepar failed with message:\n' + repr(e))
                         overlay_platepar = platepar
-                    
-                    temp_dir = run_overlay_on_images(full_jpg_subdir, overlay_platepar)
+
+                    temp_dir = runOverlayOnImages(full_jpg_subdir, overlay_platepar)
 
                     # Make the name of the timelapse file
                     jpg_subdir_cleaned = jpg_subdir.replace("JPG_", "")
                     timelapse_file_name = jpg_subdir_cleaned + "_adsb_timelapse.mp4"
                     timelapse_path = os.path.join(full_jpg_subdir, timelapse_file_name)
 
-                    # Generate the timelapse
-                    create_video_from_images(temp_dir, full_jpg_subdir, timelapse_path, delete_images=True)
-                    
+                    # Generate the timelapse and cleanup
+                    createVideoFromImages(temp_dir, full_jpg_subdir, timelapse_path, delete_images=True)
+
                     # Add the timelapse to the extra files
                     # extra_files.append(timelapse_path)
+
+                # If mp4 timelapse found, check if cleanup is needed
+                else:
+                    pattern = os.path.join(full_jpg_subdir, 'query_cache_*.json')
+                    found_files = glob.glob(pattern)
+
+                    if found_files:
+                        file_path = found_files[0]
+                        if os.path.getsize(file_path) > 0:
+                            log.info("Found non-zero json file in {}. Proceeding with cleanup."
+                                     .format(full_jpg_subdir))
+                            cleanup(full_jpg_subdir)
+                        else:
+                            log.info("Found file {}, but it is of zero size. No cleanup performed. Check MP4!"
+                                     .format(file_path))
 
         except Exception as e:
             log.debug('Generating ADS-B timelapse failed with message:\n' + repr(e))

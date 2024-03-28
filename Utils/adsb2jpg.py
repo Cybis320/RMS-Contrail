@@ -31,7 +31,7 @@ from Utils.FOVKML import fovKML
 
 # ---- Helper Functions ----
 
-def get_bounding_box_from_kml_file(file_path):
+def getBoundingBoxFromKmlFile(file_path):
     """
     Extracts the bounding box from a KML file.
 
@@ -63,7 +63,7 @@ def get_bounding_box_from_kml_file(file_path):
     return ((min_lat, min_lon), (max_lat, max_lon))
 
 
-def extract_timestamp_from_name(name):
+def extractTimestampFromName(name):
     """Extracts the timestamp from a file or directory name.
 
     Args:
@@ -104,8 +104,8 @@ def extract_timestamp_from_name(name):
     return None
 
 
-def query_aircraft_positions(client, begin_time, end_time, bounding_box=None, limit=None,
-                             offset=None, retries=3, sleep_time=10):
+def queryAircraftPositions(client, begin_time, end_time, bounding_box=None, limit=None,
+                           offset=None, retries=3, sleep_time=10):
     """Queries InfluxDB for aircraft positions within a given time range.
 
     Args:
@@ -159,8 +159,8 @@ def query_aircraft_positions(client, begin_time, end_time, bounding_box=None, li
     return []
 
 
-def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=timedelta(seconds=5),
-                                   bounding_box=None, input_dir=None, batch_time=timedelta(hours=1)):
+def batchQueryAircraftPositions(client, begin_time, end_time, time_buffer=timedelta(seconds=5),
+                                bounding_box=None, input_dir=None, batch_time=timedelta(hours=1)):
     """Queries InfluxDB for aircraft positions within a given time range, using hourly batch intervals.
 
     Args:
@@ -227,7 +227,7 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
             current_end_time = end_time
 
         try:
-            points = query_aircraft_positions(client, current_begin_time, current_end_time, bounding_box)
+            points = queryAircraftPositions(client, current_begin_time, current_end_time, bounding_box)
             if points:
                 all_points.extend(points)
         except Exception as e:
@@ -250,7 +250,7 @@ def batch_query_aircraft_positions(client, begin_time, end_time, time_buffer=tim
 
 
 # TODO: is sorting necessary or influx already sort
-def group_and_sort_points(points):
+def groupAndSortPoints(points):
     """
     Groups the aircraft position points by hex code, sorts them by timestamp,
     and removes any with malformed timestamps.
@@ -290,7 +290,7 @@ def group_and_sort_points(points):
     return grouped_points
 
 
-def create_image_batches(image_timestamps, batch_size=20):
+def createImageBatches(image_timestamps, batch_size=20):
     """Create batches of images.
     Args:
         image_timestamps (list of tuples): each tuple is a pair of '(img_file, timestamp)'
@@ -312,7 +312,7 @@ def create_image_batches(image_timestamps, batch_size=20):
     return batches
 
 
-def get_points_for_batch(grouped_points, batch_start_time, batch_end_time, time_buffer=timedelta(seconds=5)):
+def getPointsForBatch(grouped_points, batch_start_time, batch_end_time, time_buffer=timedelta(seconds=5)):
     batch_start_time -= time_buffer
     batch_end_time += time_buffer
 
@@ -325,16 +325,16 @@ def get_points_for_batch(grouped_points, batch_start_time, batch_end_time, time_
     return filtered_points
 
 
-def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=timedelta(seconds=5),
-                                   adsb_latency=timedelta(milliseconds=0)):
+def interpolateAircraftPositions(relevant_points, target_time, time_buffer=timedelta(seconds=5),
+                                 adsb_latency=timedelta(milliseconds=0)):
     """Interpolates aircraft positions for a given timestamp.
 
     Args:
         relevant_points (dict): Grouped and sorted aircraft positions by hex code.
         target_time (datetime): The timestamp for which to interpolate positions.
         time_buffer (timedelta, optional): The time buffer around the target time
-                                           in which to include adsb position positions.
-        adsb_latency (timedelta, optional): the time offset to apply to adsb data
+                                           in which to include ADS-B position positions.
+        adsb_latency (timedelta, optional): the time offset to apply to ADS-B data
 
     Returns:
         list: A list of dictionaries containing interpolated positions.
@@ -343,7 +343,8 @@ def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=tim
     interpolated_positions = {}
 
     for hex_code, points_list in relevant_points.items():
-        close_points = [point for point in points_list if abs(point['time'] - adsb_latency - target_time) <= time_buffer]
+        close_points = [point for point in points_list if abs(point['time'] - adsb_latency - target_time)
+                        <= time_buffer]
 
         if not close_points:
             continue
@@ -395,7 +396,7 @@ def interpolate_aircraft_positions(relevant_points, target_time, time_buffer=tim
     return flattened_interpolated_positions
 
 
-def add_pixel_coordinates(interpolated_positions, platepar):
+def addPixelCoordinates(interpolated_positions, platepar):
     """Add pixel coordinates to a list of interpolated aircraft positions.
 
     Args:
@@ -438,7 +439,7 @@ def add_pixel_coordinates(interpolated_positions, platepar):
     return pixel_positions
 
 
-def center_distance_two_rectangles(w1, h1, w2, h2, theta):
+def centerDistanceTwoRectangles(w1, h1, w2, h2, theta):
     """Helper function to compute distance between the centers of two adjacent rectangles"""
     # Ensure theta is between 0 and 2*pi and convert angle from north up to standard trigo angle + 90
     theta = (-theta)%360
@@ -456,7 +457,7 @@ def center_distance_two_rectangles(w1, h1, w2, h2, theta):
         return abs(max_vert_dist/np.sin(theta))
 
 
-def overlay_data_on_image(image, point, az_center):
+def overlayDataOnImage(image, point, az_center):
     """Helper function to overlay aircraft data on an image."""
     x, y = point['x'], point['y']
     alt_baro = int(round(point.get('alt_baro', None))) if point.get('alt_baro', None) is not None else 'N/A'
@@ -539,8 +540,7 @@ def overlay_data_on_image(image, point, az_center):
             max_width = text_width
 
     # Position text as a function of aircraft track away from potential contrail
-    offset = center_distance_two_rectangles(2*radius + 5, 2*radius + 5,
-                                            max_width, total_text_height, diff_angle)
+    offset = centerDistanceTwoRectangles(2*radius + 5, 2*radius + 5, max_width, total_text_height, diff_angle)
     x_offset = offset*np.cos(np.radians(diff_angle))
     y_offset = offset*np.sin(np.radians(diff_angle))
 
@@ -559,7 +559,7 @@ def overlay_data_on_image(image, point, az_center):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, lineType=cv2.LINE_AA)
 
 
-def find_closest_entry(dictionary, target_timestamp):
+def findClosestEntry(dictionary, target_timestamp):
     closest_timestamp = None
     smallest_difference = None
 
@@ -573,9 +573,51 @@ def find_closest_entry(dictionary, target_timestamp):
     return dictionary[closest_timestamp]
 
 
-# ---- Debug Functions ---- 
+def cleanup(parent_dir):
+    '''Delete 'temp_images' folder within parent_dir and archive working files excluding .mp4 files.'''
+    temp_image_folder = os.path.join(parent_dir, 'temp_images')  # Path to the temp_images folder
 
-def get_all_coordinates_from_kml(file_path, alt=14000):
+    # Attempt to delete the temp_images folder
+    if os.path.exists(temp_image_folder):
+        try:
+            shutil.rmtree(temp_image_folder)
+            print(f"Deleted temporary directory: {temp_image_folder}")
+        except Exception as e:
+            print(f"Error deleting temporary directory: {e}")
+
+    # Prepare the archive name and path
+    dir_name = os.path.basename(parent_dir).lstrip('JPG_')
+    archive_name = f"{dir_name}_adsb_working_files.tar.bz2"
+    archive_path = os.path.join(parent_dir, archive_name)
+
+    # Track files added to the archive
+    files_added_to_archive = []
+
+    # Creating the archive
+    try:
+        with tarfile.open(archive_path, "w:bz2") as tar:
+            for root, dirs, files in os.walk(parent_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    if file_path != archive_path and not file.endswith('.mp4'):
+                        tar.add(file_path, arcname=os.path.relpath(file_path, parent_dir))
+                        files_added_to_archive.append(file_path)
+        print(f"Archived non-video files to {archive_path}")
+
+        # Verify the archive exists and has content before deleting files
+        if os.path.exists(archive_path) and os.path.getsize(archive_path) > 0 and files_added_to_archive:
+            for file_path in files_added_to_archive:
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Could not delete {file_path}: {e}")
+    except Exception as e:
+        print(f"Error creating archive: {e}")
+
+
+# ---- Debug Functions ----
+
+def getAllCoordinatesFromKml(file_path, alt=14000):
     '''Debug function to get all the coord from the KML.
        Can be used to overlay on image. All point should be on the edge of the image'''
 
@@ -599,7 +641,7 @@ def get_all_coordinates_from_kml(file_path, alt=14000):
     return coords
 
 
-def print_structure(data, depth=0, max_depth=3, max_items=3):
+def printStructure(data, depth=0, max_depth=3, max_items=3):
     data_type = type(data)
     indent = '  '*depth  # Indentation for visual clarity
 
@@ -608,7 +650,7 @@ def print_structure(data, depth=0, max_depth=3, max_items=3):
         print(f"{indent}List or Tuple with {len(data)} items")
         if depth < max_depth:
             for item in data[:max_items]:
-                print_structure(item, depth + 1)
+                printStructure(item, depth + 1)
 
     # If it's a dictionary or defaultdict, inspect its values
     elif data_type in [dict, collections.defaultdict]:
@@ -618,7 +660,7 @@ def print_structure(data, depth=0, max_depth=3, max_items=3):
                 if i >= max_items:
                     break
                 print(f"{indent}  Key: {key}")
-                print_structure(value, depth + 2)
+                printStructure(value, depth + 2)
 
     # Otherwise, just print its type
     else:
@@ -626,7 +668,7 @@ def print_structure(data, depth=0, max_depth=3, max_items=3):
 
 
 # === ENTRY POINT ===
-def run_overlay_on_images(input_path, platepar):
+def runOverlayOnImages(input_path, platepar):
     """Overlay aircraft positions on image files in a directory or a single image.
 
     Args:
@@ -665,7 +707,7 @@ def run_overlay_on_images(input_path, platepar):
         os.makedirs(output_dir)
 
     # Extract, filter, and sort timestamps
-    image_timestamps = {img_file: extract_timestamp_from_name(img_file) for img_file in image_files}
+    image_timestamps = {img_file: extractTimestampFromName(img_file) for img_file in image_files}
     image_timestamps = {img: ts for img, ts in image_timestamps.items() if ts is not None}
     sorted_timestamps = sorted(image_timestamps.items(), key=lambda item: item[1])
 
@@ -699,7 +741,7 @@ def run_overlay_on_images(input_path, platepar):
 
             for ff_name in recalibrated_platepars_dict:
                 print(f"ff_name: {ff_name}")
-                time_pp = extract_timestamp_from_name(ff_name)
+                time_pp = extractTimestampFromName(ff_name)
 
                 # Update min and max times
                 min_time_pp = min(min_time_pp, time_pp)
@@ -723,15 +765,15 @@ def run_overlay_on_images(input_path, platepar):
     else:
         kml_path = fovKML(kml_dir, platepar, area_ht=18000, plot_station=False)
 
-    bounding_box = get_bounding_box_from_kml_file(kml_path)
+    bounding_box = getBoundingBoxFromKmlFile(kml_path)
 
-    query_result = batch_query_aircraft_positions(client, min_timestamp, max_timestamp,
-                                                  time_buffer, bounding_box, input_path)
-    grouped_points = group_and_sort_points(query_result)
+    query_result = batchQueryAircraftPositions(client, min_timestamp, max_timestamp,
+                                               time_buffer, bounding_box, input_path)
+    grouped_points = groupAndSortPoints(query_result)
 
     # Divide grouped_points into batches
     batch_size = 50  # 75 gave best perf on a macbook
-    batches = create_image_batches(sorted_timestamps, batch_size)
+    batches = createImageBatches(sorted_timestamps, batch_size)
     image_count = 0
     total_images = len(sorted_timestamps)
 
@@ -743,23 +785,23 @@ def run_overlay_on_images(input_path, platepar):
         # print(f"\nstart time: {batch_start_time}")
         # print(f"end time: {batch_end_time}")
 
-        relevant_points = get_points_for_batch(grouped_points, batch_start_time, batch_end_time, time_buffer)
+        relevant_points = getPointsForBatch(grouped_points, batch_start_time, batch_end_time, time_buffer)
 
         # Overlay aircraft positions on images
         for img_file, timestamp in batch:
-            interpolated_points = interpolate_aircraft_positions(relevant_points, timestamp, time_buffer)
+            interpolated_points = interpolateAircraftPositions(relevant_points, timestamp, time_buffer)
 
             # Load the closest recalibrated platepar
             if find_platepar:
-                platepar = find_closest_entry(recalibrated_platepars, timestamp)
+                platepar = findClosestEntry(recalibrated_platepars, timestamp)
 
-            points_XY = add_pixel_coordinates(interpolated_points, platepar)
+            points_XY = addPixelCoordinates(interpolated_points, platepar)
 
             # Correct for rolling shutter
             # for point in points_XY:
             #     corr_timestamp = timestamp + 0.03*point[1]/platepar.Y_res
-            #     corr_interpolated_points = interpolate_aircraft_positions(relevant_points, corr_timestamp, time_buffer)
-            #     corr_points_XY = add_pixel_coordinates(corr_interpolated_points, platepar)
+            #     corr_interpolated_points = interpolateAircraftPositions(relevant_points, corr_timestamp, time_buffer)
+            #     corr_points_XY = addPixelCoordinates(corr_interpolated_points, platepar)
 
             image = cv2.imread(img_file)
 
@@ -769,7 +811,7 @@ def run_overlay_on_images(input_path, platepar):
                 continue  # Skip processing this image
 
             for point in points_XY:
-                overlay_data_on_image(image, point, platepar.az_centre)
+                overlayDataOnImage(image, point, platepar.az_centre)
 
             # overlay timestamp
             img_name = os.path.basename(img_file)
@@ -777,7 +819,7 @@ def run_overlay_on_images(input_path, platepar):
 
             height, _, _ = image.shape
 
-            timestamp = extract_timestamp_from_name(img_file).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] + ' UTC'
+            timestamp = extractTimestampFromName(img_file).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3] + ' UTC'
             cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 2, cv2.LINE_AA)
             cv2.putText(image, f"{station_name} {timestamp}", (10, height - 6),
@@ -797,7 +839,7 @@ def run_overlay_on_images(input_path, platepar):
 
 
 # CV2 MP4
-# def create_video_from_images(image_folder, video_name, delete_images=False):
+# def createVideoFromImages(image_folder, video_name, delete_images=False):
 #     images = [img for img in sorted(glob.glob(os.path.join(image_folder, "*_overlay.*")))]
 #     if len(images) == 0:
 #         print("No overlay images found.")
@@ -832,7 +874,7 @@ def run_overlay_on_images(input_path, platepar):
 #  23     70
 
 
-def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, crf=20, delete_images=False):
+def createVideoFromImages(temp_image_folder, parent_dir, video_path, fps=30, crf=20, delete_images=False):
     """
 
     """
@@ -848,7 +890,10 @@ def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, 
             f.write(f"file '{os.path.basename(img_path)}'\n")
 
     # Formulate the ffmpeg command
-    # base_command = "-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 -pix_fmt yuv420p -crf {crf} -g 15 -vf \"hqdn3d=4:3:6:4.5,lutyuv=y=gammaval(0.77)\" {video_path}"
+    # base_command = (f"-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i {list_file_path} -c:v libx264 "
+    #                 f"-pix_fmt yuv420p -crf {crf} -g 15 -vf \"hqdn3d=4:3:6:4.5,lutyuv=y=gammaval(0.77)\" "
+    #                 f"{video_path}"
+
     base_command = (f"-nostdin -f concat -safe 0 -v quiet -r {fps} -y -i "
                     f"{list_file_path} -c:v libx264 -crf {crf} -g 15 {video_path}")
 
@@ -866,44 +911,13 @@ def create_video_from_images(temp_image_folder, parent_dir, video_path, fps=30, 
     subprocess.call(encode_command.format(fps=fps, list_file_path=list_file_path, crf=crf,
                                           video_path=video_path), shell=True)
 
-    # Optionally, delete the source images and list file
-    if os.path.exists(temp_image_folder) and delete_images:
-        try:
-            shutil.rmtree(temp_image_folder)
-            print(f"Deleted temporary directory : {temp_image_folder}")
-        except Exception as e:
-            print(f"Error deleting temporary directory: {e}")
-
-        # Extracting the directory where the video_path is to save the tar file
-        dir_name = os.path.basename(parent_dir).lstrip('JPG_')
-        archive_name = f"{dir_name}_adsb_working_files.tar.bz2"
-        archive_path = os.path.join(parent_dir, archive_name)
-
-        # Track files added to the archive
-        files_added_to_archive = []
-
-        # Creating the archive
-        try:
-            with tarfile.open(archive_path, "w:bz2") as tar:
-                for root, dirs, files in os.walk(parent_dir):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        if file_path != archive_path and not file.endswith('.mp4'):
-                            tar.add(file_path, arcname=os.path.relpath(file_path, parent_dir))
-                            files_added_to_archive.append(file_path)
-            print(f"Archived non-video files to {archive_path}")
-
-            # Verify the archive exists and has content before deleting files
-            if os.path.exists(archive_path) and os.path.getsize(archive_path) > 0:
-                if files_added_to_archive:
-                    for file_path in files_added_to_archive:
-                        try:
-                            os.remove(file_path)
-                        except Exception as e:
-                            print(f"Could not delete {file_path}: {e}")
-
-        except Exception as e:
-            print(f"Error creating archive: {e}")
+    if os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+        print(f"Video created successfully at {video_path}")
+        # Optionally, delete the temp images and archive files
+        if delete_images:
+            cleanup(parent_dir)
+    else:
+        print("Video creation failed or resulted in an empty file.")
 
 
 if __name__ == "__main__":
@@ -913,8 +927,9 @@ if __name__ == "__main__":
     ### COMMAND LINE ARGUMENTS
 
     # Init the command line arguments parser
-    arg_parser = argparse.ArgumentParser(description="""Compute the aircraft X, Y pixel coordinates given the platepar and jpg images. \
-        """, formatter_class=argparse.RawTextHelpFormatter)
+    arg_parser = argparse.ArgumentParser(description="""Compute the aircraft X, Y pixel coordinates given
+                                         the platepar and jpg images.""",
+                                         formatter_class=argparse.RawTextHelpFormatter)
 
     arg_parser.add_argument('platepar', metavar='PLATEPAR', type=str,
                             help="Path to the platepar file.")
@@ -943,17 +958,18 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unsupported calibration file")
 
-    temp_dir = run_overlay_on_images(cml_args.input_path, pp)
+    temp_dir = runOverlayOnImages(cml_args.input_path, pp)
 
     # If the input_path is a directory, run the function to create mp4 video
 
     if os.path.isdir(cml_args.input_path):
-        normalized_path = os.path.dirname(cml_args.input_path) if cml_args.input_path.endswith('/') else cml_args.input_path
+        normalized_path = (os.path.dirname(cml_args.input_path) if cml_args.input_path.endswith('/')
+                           else cml_args.input_path)
         dir_name = os.path.basename(normalized_path).lstrip('JPG_')
         timelapse_file_name = dir_name + "_adsb_timelapse.mp4"
         video_path = os.path.join(cml_args.input_path, timelapse_file_name)
 
-        create_video_from_images(temp_dir, normalized_path, video_path, delete_images=False)
+        createVideoFromImages(temp_dir, normalized_path, video_path, delete_images=False)
 
 '''
 # Debug Test code
@@ -966,13 +982,13 @@ pp.read('/Users/lucbusquin/Projects/test/platepar_cmn2010.cal')
 client = InfluxDBClient(host='adsbexchange.local', port=8086)
 client.switch_database('adsb_data')  # Switch to your specific database
 
-#run_overlay_on_images(client, cml_args.input_path, pp)
-run_overlay_on_images(client, '/Users/lucbusquin/Projects/test', pp)
+#runOverlayOnImages(client, cml_args.input_path, pp)
+runOverlayOnImages(client, '/Users/lucbusquin/Projects/test', pp)
 
 # If the input_path is a directory, run the function to create mp4 video
 if os.path.isdir('/Users/lucbusquin/Projects/test'):
     #output_dir = os.path.join(cml_args.input_path, "overlay_images")
     output_dir = os.path.join('/Users/lucbusquin/Projects/test', "overlay_images")
     video_name = os.path.join(output_dir, "overlay_video.mp4")
-    create_video_from_images(output_dir, video_name, False)
+    createVideoFromImages(output_dir, video_name, False)
 '''
