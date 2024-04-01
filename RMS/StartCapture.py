@@ -250,7 +250,7 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
         # Create a directory for captured files based on the current time
         if video_file is None:
 
-            stationID = str(self.config.stationID)
+            stationID = str(config.stationID)
             date_string = datetime.datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S_%f')
             night_data_dir_name = stationID + '_' + date_string
 
