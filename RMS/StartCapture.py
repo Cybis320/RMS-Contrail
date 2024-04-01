@@ -265,7 +265,7 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
             session_jpg_dir = os.path.join(os.path.abspath(config.data_dir), config.jpg_dir,
                                            night_data_dir_name)
         else:
-            jpg_dir = None
+            session_jpg_dir = None
 
     # Add a note about Patreon supporters
     print("################################################################")
@@ -289,7 +289,7 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
     # Make the directories for the night
     mkdirP(night_data_dir)
 
-    if jpg_dir:
+    if session_jpg_dir:
         mkdirP(session_jpg_dir)
 
     log.info('Data directory: ' + night_data_dir)
