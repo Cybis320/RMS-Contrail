@@ -249,18 +249,23 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
 
         # Create a directory for captured files based on the current time
         if video_file is None:
-            night_data_dir_name = str(config.stationID) + '_' \
-                + datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')
+
+            stationID = str(self.config.stationID)
+            date_string = datetime.datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S_%f')
+            night_data_dir_name = stationID + '_' + date_string
 
         # If a video file is given, take the folder name from the video file
         else:
             night_data_dir_name = os.path.basename(video_file[:-4])
 
-        # Full path to the data directory
+        # Full path to the capture and jpg data directories
         night_data_dir = os.path.join(os.path.abspath(config.data_dir), config.captured_dir, \
             night_data_dir_name)
-
-
+        if config.save_jpgs:
+            session_jpg_dir = os.path.join(os.path.abspath(config.data_dir), config.jpg_dir,
+                                           night_data_dir_name)
+        else:
+            jpg_dir = None
 
     # Add a note about Patreon supporters
     print("################################################################")
@@ -281,8 +286,11 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
         + "_|____    /__.-'|_|--|_|          ______|__\n")
     print("################################################################")
 
-    # Make a directory for the night
+    # Make the directories for the night
     mkdirP(night_data_dir)
+
+    if jpg_dir:
+        mkdirP(session_jpg_dir)
 
     log.info('Data directory: ' + night_data_dir)
 
@@ -392,7 +400,8 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
 
 
     # Initialize buffered capture
-    bc = BufferedCapture(sharedArray, startTime, sharedArray2, startTime2, config, video_file=video_file)
+    bc = BufferedCapture(sharedArray, startTime, sharedArray2, startTime2, config, session_jpg_dir,
+                         video_file=video_file)
 
 
     # Initialize the live image viewer

@@ -50,7 +50,7 @@ class BufferedCapture(Process):
 
     running = False
 
-    def __init__(self, array1, startTime1, array2, startTime2, config, video_file=None):
+    def __init__(self, array1, startTime1, array2, startTime2, config, session_jpg_dir, video_file=None):
         """ Populate arrays with (startTime, frames) after startCapture is called.
 
         Arguments:
@@ -77,6 +77,7 @@ class BufferedCapture(Process):
         self.video_file = video_file
 
         self.config = config
+        self.session_jpg_dir = session_jpg_dir
         self.media_backend_override = False
 
         # Debug section
@@ -129,31 +130,40 @@ class BufferedCapture(Process):
         total_configured_latency = self.system_latency + self.config.camera_latency
 
         self.total_latency = buffer_latency + fps_adjustment + total_configured_latency
+    
+    def saveImageToDisk(self, frame_timestamp, frame):
+        """Saves an image frame to disk with a timestamp-based filename.
 
-    def save_image_to_disk(self, filename, img_path, img, i):
+        This method generates a filename based on the station ID and the timestamp of the frame,
+        then saves the image in JPEG format to the session_jpg_dir directory.
+
+        The method calculates the filename using the station ID, the UTC date and time from the timestamp,
+        and the milliseconds part of the timestamp to ensure uniqueness. The filename format is
+        'stationID_YYYYMMDD_HHMMSS_MMM.jpg'.
+
+        Arguments:
+            frame_timestamp: [float] The timestamp of the frame to be saved, used for generating the filename.
+            frame: [ndarray] The image frame to save, expected to be a numpy array.
+
+        """
+
+        # Generate the name for the file
+        date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
+
+        # Calculate milliseconds
+        millis = int((frame_timestamp - floor(frame_timestamp))*1000)
+
+        # Create the filename
+        filename = (str(self.config.stationID).zfill(3) + "_" + date_string + "_"
+                    + str(millis).zfill(3) + ".jpg")
+
+        img_path = os.path.join(self.session_jpg_dir, filename)
+
         try:
-            cv2.imwrite(img_path, img)
-            log.info(f"Saving completed: i={i}: {filename}")
+            cv2.imwrite(img_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+            log.info(f"Saving completed: {filename}")
         except Exception as e:
-            log.info(f"Error, could not save image to disk: {e}")
-
-    def update_fps(self, frame_timestamp):
-        if self.last_timestamp is not None:
-            time_diff = frame_timestamp - self.last_timestamp
-
-        self.last_timestamp = frame_timestamp
-        self.timestamps.append(frame_timestamp)
-
-        if len(self.timestamps) > self.window_size:
-            self.timestamps.pop(0)
-
-        if len(self.timestamps) > 1:
-            elapsed_time = self.timestamps[-1] - self.timestamps[0]
-            fps = (len(self.timestamps) - 1) / elapsed_time
-            delta_t = time.time() - frame_timestamp
-            sys.stdout.write(
-                f"\rMoving Average FPS: {fps:.4f} | Delta_t: {delta_t:.4f}, time diff {time_diff:.6f}")
-            sys.stdout.flush()
+            log.info(f"Could not save image to disk: {e}")
 
     def startCapture(self, cameraID=0):
         """ Start capture using specified camera.
@@ -712,16 +722,6 @@ class BufferedCapture(Process):
             log.info('Waiting for the video device to be connect...')
             time.sleep(5)
 
-        # Create dir to save jpg files
-        stationID = str(self.config.stationID)
-        date_string = time.strftime("%Y%m%d_%H%M%S", time.gmtime(time.time()))
-        dirname = f"JPG_{stationID}_" + date_string
-        dirname = os.path.join(self.config.data_dir,
-                               self.config.jpg_dir, dirname)
-
-        # Create the directory
-        os.makedirs(dirname, exist_ok=True)
-
         if self.device is None:
 
             log.info('The video source could not be opened!')
@@ -850,13 +850,6 @@ class BufferedCapture(Process):
             log.info(
                 'Grabbing a new block of {:d} frames...'.format(block_frames))
 
-            # Debug code
-            while False:
-                ret, frame, frame_timestamp = self.read()
-                if not ret:
-                    break  # Exit the loop if the frame read was unsuccessful
-                self.update_fps(frame_timestamp)
-
             for i in range(block_frames):
 
                 # Read the frame (keep track how long it took to grab it)
@@ -890,35 +883,12 @@ class BufferedCapture(Process):
                     # Always set first frame timestamp in the beginning of the block
                     first_frame_timestamp = frame_timestamp
 
-                if self.video_file is None:
+                # If save_jpgs is set and a video device is used, save a jpg every nth frames
+                if (self.config.save_jpgs
+                        and self.video_file is None
+                        and total_frames%(self.config.jpgs_interval) == 0):
 
-                    # If a video device is used, save a jpg every nth frames
-                    # if i % 64 == 0:   > img every 2.56s, 3.7GB per day @ 25 fps
-                    # if i % 128 == 0:   > img every 5.12s, 1.9GB per day @ 25 fps
-                    # if i == 0:   > img every 10.24s, 0.9GB per day @ 25 fps
-                    if i % 128 == 0:
-
-                        # Generate the name for the file
-                        date_string = time.strftime(
-                            "%Y%m%d_%H%M%S", time.gmtime(frame_timestamp))
-
-                        # Calculate miliseconds
-                        millis = int(
-                            (frame_timestamp - floor(frame_timestamp))*1000)
-
-                        # Create the filename
-                        filename = f"{stationID}_" + date_string + \
-                            "_" + str(millis).zfill(3) + ".jpg"
-
-                        img_path = os.path.join(dirname, filename)
-
-                        # Save the image to disk
-                        try:
-                            self.save_image_to_disk(
-                                filename, img_path, frame, i)
-                        except:
-                            log.error(
-                                "Could not save {:s} to disk!".format(filename))
+                    self.saveImageToDisk(frame_timestamp, frame)
 
                 # If the end of the video file was reached, stop the capture
                 if self.video_file is not None:

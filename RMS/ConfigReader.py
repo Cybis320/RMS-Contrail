@@ -929,6 +929,21 @@ def parseCapture(config, parser):
     if parser.has_option(section, "live_jpg"):
         config.live_jpg = parser.getboolean(section, "live_jpg")
 
+    # Enable/disable saving video frames to jpg
+    if parser.has_option(section, "save_jpgs"):
+        config.save_jpgs = parser.getboolean(section, "save_jpgs")
+
+    # Load the interval for saving video frame to jpg
+    if parser.has_option(section, "jpgs_interval"):
+        config.jpgs_interval = parser.getint(section, "jpgs_interval")
+
+        # Must be greater than 5
+        if config.jpgs_interval < 5:
+            config.jpgs_interval = 256
+            print()
+            print("WARNING! The jpgs_interval must be greater than 5. It has been reset to 256!")
+
+
     # Enable/disable showing a slideshow of last night's meteor detections on the screen during the day
     if parser.has_option(section, "slideshow_enable"):
         config.slideshow_enable = parser.getboolean(section, "slideshow_enable")
