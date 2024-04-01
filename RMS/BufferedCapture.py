@@ -160,7 +160,7 @@ class BufferedCapture(Process):
         img_path = os.path.join(self.session_jpg_dir, filename)
 
         try:
-            cv2.imwrite(img_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+            cv2.imwrite(img_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.config.jpgs_quality])
             log.info(f"Saving completed: {filename}")
         except Exception as e:
             log.info(f"Could not save image to disk: {e}")

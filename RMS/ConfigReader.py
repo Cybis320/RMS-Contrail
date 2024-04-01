@@ -307,6 +307,15 @@ class Config:
 
         # Enable/disable saving a live.jpg file in the data directory with the latest image
         self.live_jpg = False
+ 
+        # Toggle saving video frames to JPEG at a set interval to the jpg_dir
+        self.save_jpgs = False
+
+        # Set JPEG compression quality for the save_jpgs feature
+        self.jpgs_quality = 90
+
+        # Set the interval for saving video frames to JPEG
+        self.jpgs_interval: 256
 
         # Enable/disable showing a slideshow of last night's meteor detections on the screen during the day
         self.slideshow_enable = False
@@ -932,6 +941,16 @@ def parseCapture(config, parser):
     # Enable/disable saving video frames to jpg
     if parser.has_option(section, "save_jpgs"):
         config.save_jpgs = parser.getboolean(section, "save_jpgs")
+
+    # Load the JPEG compression quality
+    if parser.has_option(section, "jpgs_quality"):
+        config.jpgs_quality = parser.getint(section, "jpgs_quality")
+
+        # Must be an integer between 0 and 100
+        if not 0 <= config.jpgs_quality <= 100:
+            config.jpgs_quality = 90
+            print()
+            print("WARNING! The jpgs_quality must be between 0 and 100. It has been reset to 90!")
 
     # Load the interval for saving video frame to jpg
     if parser.has_option(section, "jpgs_interval"):
