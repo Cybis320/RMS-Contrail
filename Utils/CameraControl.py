@@ -393,6 +393,26 @@ def setNetworkParam(cam, opts):
         print('EnableNTP followed by a dotted IP address to enable or 0 to disable')
 
 
+def setGeneralParam(cam, opts):
+    """ Set a parameter in the Genera section of the camera config
+
+    Args:
+        cam - the camera 
+        opts - array of fields, subfields and the value to set
+    """
+    # top level field name
+    fld=opts[1]
+    # these fields are stored in the ParamEx.[0] block
+    if fld == 'VideoFormat':
+        val = opts[2]
+        cam.set_info("General.Location.VideoFormat", val)
+
+
+    else:
+        print('usage: SetParam General VideoFormat,'PAL': ')
+
+
+
 def setCameraParam(cam, opts):
     """ Set a parameter in the Camera section of the camera config
         Individual parameters can be set and the change will take effect immediately 
@@ -574,6 +594,9 @@ def setParameter(cam, opts):
         setEncodeParam(cam, opts)
     elif opts[0] == 'Network':
         setNetworkParam(cam, opts)
+    elif opts[0] == 'General':
+        setGeneralParam(cam, opts)
+
     else:
         print('Setting not currently supported for', opts)
 
