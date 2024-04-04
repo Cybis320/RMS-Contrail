@@ -42,7 +42,8 @@ cd $RMSSOURCEDIR
 
 # Remove the build dir
 rm -r build
-
+find . -type d -name '__pycache__' -exec rm -r {} +
+find . -type f -name '*.so' -exec rm {} +
 
 # Set the flag indicating that the RMS dir is reset
 echo "1" > $UPDATEINPROGRESSFILE
