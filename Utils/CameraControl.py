@@ -409,7 +409,7 @@ def setGeneralParam(cam, opts):
 
 
     else:
-        print('usage: SetParam General VideoFormat,'PAL': ')
+        print('usage: SetParam General VideoFormat PAL')
 
 
 
