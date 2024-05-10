@@ -17,9 +17,16 @@ kht_module = Extension("kht_module",
                                "Native/Hough/subdivision.cpp",
                                "Native/Hough/voting.cpp"],
                     include_dirs = ["Native/Hough/"],
-                    extra_compile_args=["-O3", "-Wall"])
+                    extra_compile_args=[
+                        "-O3",
+                        "-march=native",
+                        "-funsafe-loop-optimizations",
+                        "-ftree-loop-if-convert-stores",
+                        "-flto=4",                        
+                        "-Wall"
+                        ])
 
-
+ 
 
 # Read requirements file
 with open('requirements.txt') as f:
