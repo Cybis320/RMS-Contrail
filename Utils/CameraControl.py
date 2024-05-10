@@ -394,19 +394,21 @@ def setNetworkParam(cam, opts):
 
 
 def setGeneralParam(cam, opts):
-    """ Set a parameter in the Genera section of the camera config
+    """ Set a parameter in the General section of the camera config
 
     Args:
         cam - the camera 
         opts - array of fields, subfields and the value to set
     """
-    # top level field name
-    fld=opts[1]
-    # these fields are stored in the ParamEx.[0] block
+
+    fld = opts[1]
     if fld == 'VideoFormat':
         val = opts[2]
+        if val != 'PAL' and val != 'NTSC':
+            print('VideoFormat must be PAL or NTSC')
+            return 
         cam.set_info("General.Location.VideoFormat", val)
-
+        print("Video Format set to {}".format(val))
 
     else:
         print('usage: SetParam General VideoFormat PAL')
