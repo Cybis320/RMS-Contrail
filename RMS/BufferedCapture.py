@@ -540,9 +540,9 @@ class BufferedCapture(Process):
 
         conversion = "videoconvert ! video/x-raw,format={}".format(
             video_format)
-        pipeline_str = ("{} ! queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                        "{} ! queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-                        "appsink max-buffers=100 drop=true sync=0 name=appsink").format(device_str, conversion)
+        pipeline_str = ("{} ! queue leaky=downstream max-size-buffers=25 max-size-bytes=0 max-size-time=0 ! "
+                        "{} ! queue max-size-buffers=50 max-size-bytes=0 max-size-time=0 ! "
+                        "appsink max-buffers=125 drop=true sync=0 name=appsink").format(device_str, conversion)
 
         self.pipeline = Gst.parse_launch(pipeline_str)
 
