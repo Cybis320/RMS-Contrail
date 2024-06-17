@@ -41,7 +41,7 @@ import RMS.Formats.Platepar
 import scipy.optimize
 from RMS.Astrometry.AtmosphericExtinction import \
     atmosphericExtinctionCorrection
-from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz, latLonAlt2ECEF, ECEF2AltAz, altAz2RADec, geo2Cartesian, vector2RaDec
+from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz, latLonAlt2ECEF, ECEF2AltAz, AEH2LatLonAlt, altAz2RADec, geo2Cartesian, vector2RaDec
 
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
 from RMS.Astrometry.CyFunctions import refractionTrueToApparent
@@ -861,7 +861,7 @@ def azAltToXYPP(az_data, alt_data, platepar):
 
 
 
-def GeoHt2xy (platepar, lat, lon, h):
+def GeoHt2xy(platepar, lat, lon, h):
     """ Given geo coordinates of the point and a height above sea level, compute pixel coordinates on the image.
 
     Arguments:
@@ -878,11 +878,33 @@ def GeoHt2xy (platepar, lat, lon, h):
     p_vector = latLonAlt2ECEF(np.radians(lat), np.radians(lon), h)
     s_vector = latLonAlt2ECEF(np.radians(platepar.lat), np.radians(platepar.lon), platepar.elev)
 
-    azim, alt = ECEF2AltAz(s_vector, p_vector)
+    az, alt = ECEF2AltAz(s_vector, p_vector)
 
-    x, y = azAltToXYPP(np.array([azim]), np.array([alt]), platepar)
+    x, y = azAltToXYPP(np.array([az]), np.array([alt]), platepar)
 
     return x, y
+
+
+
+def XyHt2Geo(platepar, x, y, h):
+    """ Given pixel coordinates on the image and a height of the target above sea level,
+        compute geo coordinates of the point.
+
+    Arguments:
+        platepar: [Platepar object]
+        x: [float] Image X coordinate
+        y: [float] Image Y coordinate
+        h: [float] elevation of the target in meters (WGS84)
+
+    Return:
+        (lat, lon): [tuple of floats] latitude in degrees (+north), longitude in degrees (+east), 
+
+    """
+
+    az, elev = xyToAltAzPP(np.array([x]), np.array([y]), platepar)
+    _, lat, lon, _ = AEH2LatLonAlt(az, elev, h, platepar.lat, platepar.lon, platepar.elev)
+
+    return lat, lon
 
 
 
