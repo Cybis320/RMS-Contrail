@@ -41,7 +41,7 @@ import RMS.Formats.Platepar
 import scipy.optimize
 from RMS.Astrometry.AtmosphericExtinction import \
     atmosphericExtinctionCorrection
-from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz, latLonAlt2ECEF, ECEF2AltAz, AEH2LatLonAlt, altAz2RADec, geo2Cartesian, vector2RaDec
+from RMS.Astrometry.Conversions import J2000_JD, date2JD, jd2Date, raDec2AltAz, latLonAlt2ECEF, ECEF2AltAz, AEH2LatLonAlt, altAz2RADec, geo2Cartesian, vector2RaDec, AEGeoidH2LatLonAlt
 
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
 from RMS.Astrometry.CyFunctions import refractionTrueToApparent
@@ -901,10 +901,14 @@ def XyHt2Geo(platepar, x, y, h):
 
     """
 
+    print(f"np.array([x]): {np.array([x])}, np.array([y]): {np.array([y])}")
     az, elev = xyToAltAzPP(np.array([x]), np.array([y]), platepar)
-    _, lat, lon, _ = AEH2LatLonAlt(az, elev, h, platepar.lat, platepar.lon, platepar.elev)
-
-    return lat, lon
+    print(f"az: {az}, elev: {elev}")
+    lat, lon = AEGeoidH2LatLonAlt(az, elev, h, platepar.lat, platepar.lon, platepar.elev)
+    print(f"lat: {lat}, lon: {lon}")
+    print(f"az: {az}, elev: {elev}")
+    print(f"x: {x}, y: {y}, h: {h}")
+    return lat[0], lon[0]
 
 
 
