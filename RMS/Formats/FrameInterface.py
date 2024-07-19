@@ -1445,8 +1445,8 @@ class InputTypeImages(object):
 
             try:
                 # Try reading the beginning time of the video from the name if time is not given
-                self.beginning_datetime = datetime.datetime.strptime(os.path.basename(self.dir_path), \
-                                                                     "%Y%m%d_%H%M%S.%f")
+                basename = os.path.basename(self.dir_path.rstrip('/'))
+                self.beginning_datetime = datetime.datetime.strptime(basename, "%Y%m%d_%H%M%S_%f")
 
             except:
                 messagebox(title='Input error',
