@@ -772,7 +772,7 @@ def AEGeoidH2LatLonAlt(azim, elev, h, lat, lon, alt):
     # Convert target ECEF coordinates to geodetic coordinates
     target_lat, target_lon, h2 = ecef2LatLonAlt(target_x, target_y, target_z)
     target_lat, target_lon = np.degrees(target_lat), np.degrees(target_lon)
-    print(f"h: {h}, h2: {h2}")
+    # print(f"h: {h}, h2: {h2}")
     return target_lat, target_lon
 
 
