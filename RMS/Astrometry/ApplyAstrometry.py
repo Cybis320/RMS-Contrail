@@ -57,6 +57,7 @@ from RMS.Astrometry.CyFunctions import (cyraDecToXY, cyAzAltToXY, cyTrueRaDec2Ap
                                         cyXYToAltAz,
                                         refractionApparentToTrue,
                                         eqRefractionApparentToTrue,
+                                        cyTrueRaDec2ApparentAltAz,
                                         equatorialCoordPrecession)
 
 # Handle Python 2/3 compability
@@ -901,7 +902,7 @@ def XyHt2Geo(platepar, x, y, h):
 
     """
 
-    print(f"np.array([x]): {np.array([x])}, np.array([y]): {np.array([y])}")
+    # print(f"np.array([x]): {np.array([x])}, np.array([y]): {np.array([y])}")
     az, elev = xyToAltAzPP(np.array([x]), np.array([y]), platepar)
     print(f"az: {az}, elev: {elev}")
     lat, lon = AEGeoidH2LatLonAlt(az, elev, h, platepar.lat, platepar.lon, platepar.elev)
@@ -910,6 +911,33 @@ def XyHt2Geo(platepar, x, y, h):
     print(f"x: {x}, y: {y}, h: {h}")
     return lat[0], lon[0]
 
+
+def XyHt2Geo2(platepar, x, y, h):
+    """ Given pixel coordinates on the image and a height of the target above sea level,
+        compute geo coordinates of the point.
+
+    Arguments:
+        platepar: [Platepar object]
+        x: [float] Image X coordinate
+        y: [float] Image Y coordinate
+        h: [float] elevation of the target in meters (WGS84)
+
+    Return:
+        (lat, lon): [tuple of floats] latitude in degrees (+north), longitude in degrees (+east), 
+
+    """
+    jd_arr, ra_arr, dec_arr, _ = xyToRaDecPP(2*[jd2Date(platepar.JD)], np.array([x]), \
+        np.array([y]), np.ones_like(x), platepar, extinction_correction=False, precompute_pointing_corr=True)
+    
+    az, elev = cyTrueRaDec2ApparentAltAz(np.radians(ra_arr), np.radians(dec_arr), jd_arr, \
+        np.radians(platepar.lat), np.radians(platepar.lon), platepar.refraction)
+    # print(f"np.array([x]): {np.array([x])}, np.array([y]): {np.array([y])}")
+    # print(f"az: {az}, elev: {elev}")
+    lat, lon = AEGeoidH2LatLonAlt(az, elev, h, platepar.lat, platepar.lon, platepar.elev)
+    # print(f"lat: {lat}, lon: {lon}")
+    # print(f"az: {az}, elev: {elev}")
+    # print(f"x: {x}, y: {y}, h: {h}")
+    return lat[0], lon[0]
 
 
 def applyPlateparToCentroids(ff_name, fps, meteor_meas, platepar, add_calstatus=False):
@@ -1070,69 +1098,69 @@ if __name__ == "__main__":
     
     import Utils.RMS2UFO
 
-    ### COMMAND LINE ARGUMENTS
-    # Init the command line arguments parser
-    arg_parser = argparse.ArgumentParser(description="Apply the platepar to the given FTPdetectinfo file.")
+    # ### COMMAND LINE ARGUMENTS
+    # # Init the command line arguments parser
+    # arg_parser = argparse.ArgumentParser(description="Apply the platepar to the given FTPdetectinfo file.")
 
-    arg_parser.add_argument('ftpdetectinfo_path', nargs=1, metavar='FTPDETECTINFO_PATH', type=str, \
-        help='Path to the FF file.')
+    # arg_parser.add_argument('ftpdetectinfo_path', nargs=1, metavar='FTPDETECTINFO_PATH', type=str, \
+    #     help='Path to the FF file.')
 
-    # Parse the command line arguments
-    cml_args = arg_parser.parse_args()
+    # # Parse the command line arguments
+    # cml_args = arg_parser.parse_args()
 
-    #########################
+    # #########################
 
-    ftpdetectinfo_path = cml_args.ftpdetectinfo_path[0]
-    ftpdetectinfo_path = findFTPdetectinfoFile(ftpdetectinfo_path)
+    # ftpdetectinfo_path = cml_args.ftpdetectinfo_path[0]
+    # ftpdetectinfo_path = findFTPdetectinfoFile(ftpdetectinfo_path)
 
-    # Extract the directory path
-    dir_path, ftp_detectinfo_file = os.path.split(os.path.abspath(ftpdetectinfo_path))
+    # # Extract the directory path
+    # dir_path, ftp_detectinfo_file = os.path.split(os.path.abspath(ftpdetectinfo_path))
 
-    if not ftp_detectinfo_file.endswith('.txt'):
-        print("Please provide a FTPdetectinfo file! It has to end with .txt")
-        sys.exit()
+    # if not ftp_detectinfo_file.endswith('.txt'):
+    #     print("Please provide a FTPdetectinfo file! It has to end with .txt")
+    #     sys.exit()
 
-    # Find the platepar file
-    platepar_file = None
-    for file_name in os.listdir(dir_path):
-        if 'platepar_' in file_name:
-            platepar_file = file_name
-            break
+    # # Find the platepar file
+    # platepar_file = None
+    # for file_name in os.listdir(dir_path):
+    #     if 'platepar_' in file_name:
+    #         platepar_file = file_name
+    #         break
 
-    if platepar_file is None:
-        print('ERROR! Could not find the platepar file!')
-        sys.exit()
-
-
-    # Apply the astrometry to the given FTPdetectinfo file
-    applyAstrometryFTPdetectinfo(dir_path, ftp_detectinfo_file, platepar_file)
+    # if platepar_file is None:
+    #     print('ERROR! Could not find the platepar file!')
+    #     sys.exit()
 
 
-    # Recompute the UFOOrbit file
-    Utils.RMS2UFO.FTPdetectinfo2UFOOrbitInput(dir_path, ftp_detectinfo_file, os.path.join(dir_path, \
-        platepar_file))
+    # # Apply the astrometry to the given FTPdetectinfo file
+    # applyAstrometryFTPdetectinfo(dir_path, ftp_detectinfo_file, platepar_file)
 
-    print('Done!')
+
+    # # Recompute the UFOOrbit file
+    # Utils.RMS2UFO.FTPdetectinfo2UFOOrbitInput(dir_path, ftp_detectinfo_file, os.path.join(dir_path, \
+    #     platepar_file))
+
+    # print('Done!')
 
 
 
     # sys.exit()
 
 
-    # # TEST CONVERSION FUNCTIONS
+    # TEST CONVERSION FUNCTIONS
 
-    # # Load the platepar
+    # Load the platepar
     # platepar = RMS.Formats.Platepar.Platepar()
-    # platepar.read("/home/dvida/Desktop/HR000A_20181214_170136_990012_detected/platepar_cmn2010.cal")
+    # platepar.read("/Users/lucbusquin/Projects/RMS_data/ArchivedFiles/US9999_20231221_011659_875432_detected/platepar_cmn2011.cal")
 
     # from RMS.Formats.FFfile import getMiddleTimeFF
     # from RMS.Astrometry.Conversions import date2JD, jd2Date
     # time = getMiddleTimeFF('FF_HR000A_20181215_015724_739_0802560.fits', 25)
 
-    # # Convert time to UT
-    # #time = jd2Date(date2JD(*time, UT_corr=platepar.UT_corr))
+    # Convert time to UT
+    #time = jd2Date(date2JD(*time, UT_corr=platepar.UT_corr))
 
-    # # Star
+    # Star
     # star_x = 435.0
     # star_y = 285.0
 
@@ -1166,3 +1194,6 @@ if __name__ == "__main__":
     #     np.array([date2JD(*time)]), platepar)
 
     # print('Star X, Y computed:', x_star, y_star)
+
+    # lat, lon = XyHt2Geo(platepar, star_x, star_y, 10000)
+    # print(f"lat: {lat}, lon: {lon}")
