@@ -62,7 +62,7 @@ echo "1" > $UPDATEINPROGRESSFILE
 git stash
 
 # Pull new code from github
-git pull
+# git pull
 
 
 ### Install potentially missing libraries ###

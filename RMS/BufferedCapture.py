@@ -33,8 +33,9 @@ from multiprocessing import Process, Event, Value, Array
 
 import cv2
 import numpy as np
+import socket
+import errno
 
-from RMS.Misc import ping
 from RMS.Routines.GstreamerCapture import GstVideoFile
 from RMS.Formats.ObservationSummary import getObsDBConn, addObsParam
 from RMS.RawFrameSave import RawFrameSaver
@@ -42,6 +43,15 @@ from RMS.Misc import RmsDateTime, mkdirP
 
 # Get the logger from the main module
 log = logging.getLogger("logger")
+log.propagate = False
+
+try:
+    # py3
+    from urllib.parse import urlparse
+except ImportError:
+    # py2
+    from urlparse import urlparse
+
 
 GST_IMPORTED = False
 try:
@@ -55,6 +65,27 @@ except ImportError as e:
 
 except ValueError as e:
     log.info('Could not import Gst: {}. Using OpenCV.'.format(e))
+
+# Define probe result constants
+class RtspProbeResult:
+    """
+    Constants representing possible RTSP probe results.
+    
+    SUCCESS: Connection successful
+    NETWORK_DOWN: Local network interface is down or unreachable
+    HOST_UNREACHABLE: Network up but target host cannot be reached
+    CONNECTION_REFUSED: Host is up but actively refusing RTSP connections
+    TIMEOUT: Connection attempt exceeded specified timeout
+    DNS_ERROR: Unable to resolve hostname to IP address
+    UNKNOWN_ERROR: Other unspecified connection errors
+    """
+    SUCCESS = "SUCCESS"
+    NETWORK_DOWN = "NETWORK_DOWN"          # No network connectivity
+    HOST_UNREACHABLE = "HOST_UNREACHABLE"  # Can't reach the host  
+    CONNECTION_REFUSED = "CONNECTION_REFUSED" # Host reachable but RTSP port closed
+    TIMEOUT = "TIMEOUT"                    # Connection attempt timed out
+    DNS_ERROR = "DNS_ERROR"                # Can't resolve hostname
+    UNKNOWN_ERROR = "UNKNOWN_ERROR"        # Other connection errors
 
 
 class BufferedCapture(Process):
@@ -504,7 +535,89 @@ class BufferedCapture(Process):
         else:
             log.error("No RTSP URL found in the input string: {}".format(input_string))
             raise ValueError("No RTSP URL found in the input string: {}".format(input_string))
+
+
+    def probeRtspService(self, max_attempts=500, probe_interval=10, timeout=1):
+        """
+        Tests if RTSP service is ready using socket connection.
+        Returns (bool, RtspProbeResult) tuple with success status and detailed error.
+        """
+        try:
+            # Parse RTSP URL to get host and port
+            device_url = self.extractRtspUrl(self.config.deviceID)
+            parsed = urlparse(device_url)
+            host = parsed.hostname
+            port = parsed.port or 554
+
+            last_error = None
             
+            for attempt in range(max_attempts):
+                try:
+                    # Try to resolve hostname first
+                    try:
+                        socket.gethostbyname(host)
+                    except socket.gaierror:
+                        last_error = RtspProbeResult.DNS_ERROR
+                        raise
+
+                    # Create socket with timeout
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(timeout)
+                    
+                    # Try to connect
+                    result = sock.connect_ex((host, port))
+                    sock.close()
+                    
+                    if result == 0:
+                        log.info("RTSP service ready after {} attempts".format(attempt + 1))
+                        return True, RtspProbeResult.SUCCESS
+                    
+                    # Analyze specific connection errors
+                    if result in (errno.ENETUNREACH, errno.ENETDOWN):
+                        last_error = RtspProbeResult.NETWORK_DOWN
+                    elif result in (errno.EHOSTUNREACH, errno.EHOSTDOWN):
+                        last_error = RtspProbeResult.HOST_UNREACHABLE
+                    elif result == errno.ECONNREFUSED:
+                        last_error = RtspProbeResult.CONNECTION_REFUSED
+                    elif result == errno.ETIMEDOUT:
+                        last_error = RtspProbeResult.TIMEOUT
+                    else:
+                        last_error = RtspProbeResult.UNKNOWN_ERROR
+                        
+                except socket.gaierror:
+                    last_error = RtspProbeResult.DNS_ERROR
+                except socket.timeout:
+                    last_error = RtspProbeResult.TIMEOUT
+                except socket.error as e:
+                    if e.errno in (errno.ENETUNREACH, errno.ENETDOWN):
+                        last_error = RtspProbeResult.NETWORK_DOWN
+                    elif e.errno in (errno.EHOSTUNREACH, errno.EHOSTDOWN):
+                        last_error = RtspProbeResult.HOST_UNREACHABLE
+                    else:
+                        last_error = RtspProbeResult.UNKNOWN_ERROR
+                    log.debug("RTSP probe attempt {} failed: {}".format(attempt + 1, e))
+                
+                error_messages = {
+                    RtspProbeResult.NETWORK_DOWN: "Network appears to be down",
+                    RtspProbeResult.HOST_UNREACHABLE: "Camera is unreachable",
+                    RtspProbeResult.CONNECTION_REFUSED: "RTSP service not accepting connections",
+                    RtspProbeResult.TIMEOUT: "Connection attempt timed out",
+                    RtspProbeResult.DNS_ERROR: "Cannot resolve camera hostname",
+                    RtspProbeResult.UNKNOWN_ERROR: "Unknown connection error"
+                }
+                
+                print('Trying to connect to camera RTSP service... (attempt {}) - {}'.format(
+                    attempt + 1, error_messages[last_error]))
+                time.sleep(probe_interval)
+                
+            log.error("RTSP service not responding after all attempts. Last error: {}".format(
+                error_messages[last_error]))
+            return False, last_error
+            
+        except Exception as e:
+            log.error("Error probing RTSP service: {}".format(e))
+            return False, RtspProbeResult.UNKNOWN_ERROR
+    
 
     def isGrayscale(self, frame):
         """
@@ -567,6 +680,76 @@ class BufferedCapture(Process):
         return full_path
 
 
+    def handleStateChange(self, pipeline, target_state, timeout=60):
+        """Handle GStreamer pipeline state changes with proper synchronization.
+        
+        Transitions pipeline through state sequence (NULL->READY->PAUSED->PLAYING),
+        ensuring each state change is complete before proceeding. Uses explicit synchronization
+        to prevent race conditions.
+
+        For live sources like RTSP, accepts both SUCCESS and NO_PREROLL as valid state changes.
+
+        Args:
+            pipeline: The GStreamer pipeline to change state
+            target_state: The target state to reach (usually Gst.State.PLAYING)
+            timeout: Maximum seconds to wait for each state change (default 60)
+
+        tuple: (success, start_time) where:
+            - success (bool): True if state change succeeded, False if any step failed
+            - start_time (float or None): Timestamp when PAUSED state was initiated, or None if not reached
+        """
+
+        try:
+            # Initialize start time
+            start_time = None
+
+            # Get current pipeline state
+            ret, current, pending = pipeline.get_state(0)
+            log.debug("Current pipeline state: {}, pending: {}".format(current.value_nick, pending.value_nick))
+
+            # Define the sequence of states we need to go through
+            target_sequence = [Gst.State.READY, Gst.State.PAUSED, Gst.State.PLAYING]
+
+            # Find where we are in the sequence (-1 if current state isn't in sequence)
+            current_index = target_sequence.index(current) if current in target_sequence else -1
+            target_index = target_sequence.index(target_state)
+            
+            # Step through each state change needed to reach target
+            for state in target_sequence[current_index + 1:target_index + 1]:
+                log.debug("Transitioning to {} state...".format(state.value_nick))
+                
+                # Force synchronization before state change to prevent race conditions
+                if not pipeline.sync_children_states():
+                    log.warning("Sync failed before {}".format(state.value_nick))
+
+                # Capture time just before camera starts capture
+                if state == Gst.State.PAUSED:
+                    start_time = time.time()
+
+                # Request state change and wait for completion
+                ret = pipeline.set_state(state)
+                ret, new_state, pending = pipeline.get_state(Gst.SECOND * timeout)
+                
+                # Both SUCCESS and NO_PREROLL are valid (NO_PREROLL happens with live sources)
+                if ret not in (Gst.StateChangeReturn.SUCCESS, Gst.StateChangeReturn.NO_PREROLL):
+                    log.error("Failed to change to state {}".format(state.value_nick))
+                    return False, None
+                
+                # Force synchronization after state change
+                if not pipeline.sync_children_states():
+                    log.warning("Sync failed after {}".format(state.value_nick))
+                
+                log.debug("Successfully transitioned to {} state".format(state.value_nick))
+                    
+            return True, start_time
+            
+        except Exception as e:
+            log.error("State change error: {}".format(str(e)))
+            import traceback
+            log.debug(traceback.format_exc())
+            return False, None
+
+
     def createGstreamDevice(self, video_format, gst_decoder='decodebin', 
                             video_file_dir=None, segment_duration_sec=30, max_retries=5, retry_interval=1):
         """
@@ -606,7 +789,7 @@ class BufferedCapture(Process):
             
         # Define the source up to the point where we want to branch off
         source_to_tee = (
-            "rtspsrc buffer-mode=1 {:s} "
+            "rtspsrc name=src buffer-mode=1 {:s} "
             "location=\"{:s}\" ! "
             "rtph264depay ! tee name=t"
             ).format(protocol_str, device_url)
@@ -637,68 +820,63 @@ class BufferedCapture(Process):
 
         # Set the pipeline to PLAYING state with retries
         for attempt in range(max_retries):
+            try:
+                log.info("Attempt {}: transitioning Pipeline to PLAYING state.".format(attempt + 1))
 
-            log.info("Attempt {}: transitioning Pipeline to PLAYING state.".format(attempt + 1))
+                # Make sure any previous pipeline is cleaned up
+                if hasattr(self, 'pipeline') and self.pipeline:
+                    self.releaseResources()
 
-            # Reset pipeline if one already exists
-            if self.pipeline:
-                self.pipeline.set_state(Gst.State.NULL)
-
-                # Waiting to ensure the pipeline is fully cleaned up
-                time.sleep(retry_interval)
-
-                # Clear the pipeline reference to avoid using a stale or invalid pipeline object
-                self.pipeline = None
-
-            # Parse and create the pipeline
-            self.pipeline = Gst.parse_launch(pipeline_str)
-
-            # If raw video saving is enabled, Connect the "format-location" signal to the 
-            # move_segment function
-            if video_file_dir is not None:
+                # Parse and create the pipeline
+                self.pipeline = Gst.parse_launch(pipeline_str)
+                if not self.pipeline:
+                    raise ValueError("Could not create pipeline")
                 
-                splitmuxsink = self.pipeline.get_by_name("splitmuxsink0")
-                splitmuxsink.connect("format-location", self.moveSegment)
+                # If raw video saving is enabled, Connect the "format-location" signal to the 
+                # move_segment function
+                if video_file_dir is not None:
+                    
+                    splitmuxsink = self.pipeline.get_by_name("splitmuxsink0")
+                    splitmuxsink.connect("format-location", self.moveSegment)
 
+                # Transition through states
+                log.info("Starting pipeline state transitions...")
 
-            # Set the pipeline to PLAYING state
-            self.pipeline.set_state(Gst.State.PLAYING)
+                success, start_time = self.handleStateChange(self.pipeline, Gst.State.PLAYING)
+                if not success:
+                    raise ValueError("Failed to transition pipeline to PLAYING state")
 
-            # Capture time
-            start_time = time.time()
-
-            # Wait for the state change to complete, with an increasing timeout for each attempt
-            max_timeout = Gst.SECOND * 60
-            current_timeout = min(Gst.SECOND * 5 * (attempt + 1), max_timeout)
-            state_change_return, current_state, _ = self.pipeline.get_state(current_timeout)
-
-            # Check if the state change was successful
-            if state_change_return != Gst.StateChangeReturn.FAILURE and current_state == Gst.State.PLAYING:
-                log.info("Pipeline is in PLAYING state.")
-
-                # Calculate camera latency from config parameters
-                total_latency = self.config.camera_buffer/self.config.fps + self.config.camera_latency
-
-                # Calculate stream start time
-                self.start_timestamp = start_time - total_latency
-
+                # Calculate start timestamp
+                if start_time is not None:
+                    self.start_timestamp = start_time - (self.config.camera_buffer/self.config.fps + self.config.camera_latency)
+                
                 # Log start time
                 start_time_str = (datetime.datetime.fromtimestamp(self.start_timestamp)
-                                  .strftime('%Y-%m-%d %H:%M:%S.%f'))
+                                    .strftime('%Y-%m-%d %H:%M:%S.%f'))
 
                 log.info("Start time is {:s}".format(start_time_str))
 
-                return self.pipeline.get_by_name("appsink")
+                # Get appsink for frame retrieval
+                appsink = self.pipeline.get_by_name("appsink")
+                if not appsink:
+                    raise ValueError("Could not get appsink from pipeline")
+                
+                log.info("Pipeline successfully created and started")
+                return appsink
+            
+            except Exception as e:
+                log.error(f"Attempt {attempt + 1} failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    log.info(f"Waiting {retry_interval} seconds before next attempt...")
+                    time.sleep(retry_interval)
+                    continue
+                else:
+                    log.error("All attempts to create pipeline failed")
+                    self.releaseResources()
+                    return False
 
-            # Log the failure and retry if attempts are left
-            log.error("Attempt {}: Pipeline did not transition to PLAYING state, current state is {}. \
-                      Retrying in {} seconds."
-                      .format(attempt + 1, current_state, retry_interval))
-
-            time.sleep(retry_interval)
-
-        log.error("Failed to set pipeline to PLAYING state after {} attempts.".format(max_retries))
         return False
+
 
 
     def initVideoDevice(self):
@@ -723,46 +901,25 @@ class BufferedCapture(Process):
         # Use a device as the video source
         else:
 
-            # If an analog camera is used, skip the ping
-            ip_cam = False
+            # If an analog camera is used, skip the probing
             if "rtsp" in str(self.config.deviceID):
-                ip_cam = True
-
-
-            if ip_cam:
-
-                ### If the IP camera is used, check first if it can be pinged
-
-                # Extract the IP address
-                ip = re.findall(r"[0-9]+(?:\.[0-9]+){3}", self.config.deviceID)
-
-                # Check if the IP address was found
-                if ip:
-                    ip = ip[0]
-
-                    # Try pinging 500 times
-                    ping_success = False
-
-                    for i in range(500):
-
-                        print('Trying to ping the IP camera...')
-                        ping_success = ping(ip)
-
-                        if ping_success:
-                            log.info("Camera IP ping successful! Waiting 5 seconds. ")
-
-                            # Wait for camera to finish booting up
-                            time.sleep(5)
-                            break
-
-                        time.sleep(1)
-
-                    if not ping_success:
-                        log.error("Can't ping the camera IP!")
-                        return False
-
-                else:
-                    log.error("Can't find the camera IP!")
+                success, probe_result = self.probeRtspService()
+                if not success:
+                    error_messages = {
+                        RtspProbeResult.NETWORK_DOWN: 
+                            "Cannot connect to camera - Please check your network connection",
+                        RtspProbeResult.HOST_UNREACHABLE: 
+                            "Cannot reach camera - Please check if camera is powered on and connected to network",
+                        RtspProbeResult.CONNECTION_REFUSED: 
+                            "Camera is reachable but RTSP service is not responding - Camera might still be booting",
+                        RtspProbeResult.TIMEOUT: 
+                            "Connection timeout - Network might be slow or unstable",
+                        RtspProbeResult.DNS_ERROR: 
+                            "Cannot resolve camera hostname - Please check network DNS settings",
+                        RtspProbeResult.UNKNOWN_ERROR: 
+                            "Unknown connection error - Please check logs for details"
+                    }
+                    log.error(f"Camera connection failed: {error_messages[probe_result]}")
                     return False
 
 
@@ -775,7 +932,7 @@ class BufferedCapture(Process):
                 log.info("GStreamer is not available. Switching to alternative.")
                 self.media_backend_override = True
 
-            if (self.config.media_backend == 'gst') and GST_IMPORTED:
+            if (self.config.media_backend == 'gst') and GST_IMPORTED and (self.media_backend_override == False):
                 
                 log.info("Initialize GStreamer Standalone Device.")
                 
@@ -812,6 +969,9 @@ class BufferedCapture(Process):
                         video_file_dir=raw_video_dir, segment_duration_sec=self.config.raw_video_duration,
                         max_retries=5, retry_interval=1
                         )
+
+                    if not self.device:
+                        raise ValueError("Could not create GStreamer pipeline.")
                     
                     log.info("GStreamer pipeline created!")   
                     
@@ -906,27 +1066,94 @@ class BufferedCapture(Process):
     def releaseResources(self):
         """Releases resources for GStreamer and OpenCV devices."""
 
+        # Stop and release the GStreamer pipeline
         if self.pipeline:
 
             try:
-                self.pipeline.set_state(Gst.State.NULL)
+                                
+                # 1. Post EOS and monitor
 
-                if abs(self.last_calculated_fps - self.config.fps) > 0.0005 and self.last_calculated_fps_n > 25*60*60:
-                    log.info('Config file fps appears to be inaccurate. Consider updating the config file!')
-                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}, resets: {}, startup status: {}"
-                         .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps, self.reset_count, self.startup_flag))
+                # Force sync all children states before EOS
+                if not self.pipeline.sync_children_states():
+                    log.warning("Initial children sync failed")
 
-                time.sleep(5)
-                log.info('GStreamer Video device released!')
-                conn = getObsDBConn(self.config)
-                addObsParam(conn, "media_backend", self.video_device_type)
-                conn.close()
+                # Send EOS (End of Stream) to initiate graceful shutdown
+                self.pipeline.send_event(Gst.Event.new_eos())
+                time.sleep(0.1)
+                
+                # 2. Stop RTSP source
+
+                # Sync again before accessing source - pipeline state might have changed after EOS
+                if not self.pipeline.sync_children_states():
+                    log.warning("Pre-source children sync failed")
+
+                # Get RTSP source element by name - 'src' is the name given to RTSP source when pipeline was created
+                # We need direct access to source element for proper RTSP cleanup (network disconnect)
+                src = self.pipeline.get_by_name('src')
+
+                if src:
+                    log.debug("Stopping RTSP source...")
+
+                    # Force sync before changing source state
+                    if not src.sync_state_with_parent():
+                        log.warning("Source sync with parent failed")
+
+                    # Flush any pending data to prevent hanging on network operations
+                    src.send_event(Gst.Event.new_flush_start())
+
+                    ret = src.set_state(Gst.State.NULL)
+                    if ret == Gst.StateChangeReturn.ASYNC:
+                        # If state change is async, wait up to 1 second for it to complete
+                        ret, state, pending = src.get_state(Gst.SECOND)
+                        log.debug("RTSP source final state: {}, pending: {}".format(state, pending))
+
+                else:
+                    log.debug("NO RTSP source found.")
+
+                # 3. Stop pipeline
+                log.debug("Stopping pipeline...")
+                # Set entire pipeline to NULL - this stops everything
+                ret = self.pipeline.set_state(Gst.State.NULL)
+
+                # Wait up to 1 second for pipeline to stop completely
+                ret, final_state, pending = self.pipeline.get_state(Gst.SECOND)
+                log.debug("Pipeline final state: {}".format(final_state))
+
+                 # Clear pipeline reference to allow proper cleanup   
+                self.pipeline = None
+                    
             except Exception as e:
-                log.error('Error releasing GStreamer pipeline: {}'.format(e))
+                log.error("Error releasing GStreamer pipeline: {}".format(str(e)))
+                # Emergency cleanup
+                if self.pipeline:
+                    self.pipeline.set_state(Gst.State.NULL)
+                    self.pipeline = None
+                    
+                # Log to database
                 conn = getObsDBConn(self.config)
                 addObsParam(conn, "media_backend", "gst not successfully released")
                 conn.close()
 
+            finally:
+                # If failed to stop the source first, use brute force to stop the pipeline
+                if self.pipeline:
+                    log.error("Attempting to brute force the GStreamer pipeline to NULL")
+                    self.pipeline.set_state(Gst.State.NULL)
+                    self.pipeline = None
+
+                if abs(self.last_calculated_fps - self.config.fps) > 0.0005 and self.last_calculated_fps_n > 25*60*60:
+                    log.info('Config file fps appears to be inaccurate. Consider updating the config file!')
+
+                log.info("Last calculated FPS: {:.6f} at frame {}, config FPS: {}, resets: {}, startup status: {}"
+                         .format(self.last_calculated_fps, self.last_calculated_fps_n, self.config.fps, self.reset_count, self.startup_flag))
+
+                log.info('GStreamer Video device released!')
+
+                conn = getObsDBConn(self.config)
+                addObsParam(conn, "media_backend", self.video_device_type)
+                conn.close()
+
+        # Release the CV2 device (stream or video file)
         if self.device:
 
             try:
@@ -942,22 +1169,6 @@ class BufferedCapture(Process):
                 conn.close()
             finally:
                 self.device = None  # Reset device to None after releasing
-
-
-        # Release the video device if running Gstreamer
-        if self.video_file is not None:
-
-            if GST_IMPORTED and (self.config.media_backend == 'gst'):
-
-                try:
-                    self.device.release()
-                    log.info('GStreamer Video device released!')
-
-                except Exception as e:
-                    log.error('Error releasing GStreamer device: {}'.format(e))
-
-                finally:
-                    self.device = None
 
 
     def releaseRawArrays(self):
@@ -1020,6 +1231,24 @@ class BufferedCapture(Process):
     def run(self):
         """ Main process function - initializes all process-specific resources and runs capture loop.
         """
+        # Set to highest non-root priority (nice = 0)
+        # try:
+        #     # Get initial nice value
+        #     initial_nice = os.nice(0)
+        #     print("BufferedCapture initial nice value: %d" % initial_nice)
+            
+        #     # Try to set high priority
+        #     os.nice(-1)
+            
+        #     # Verify new nice value
+        #     current_nice = os.nice(0)
+        #     print("BufferedCapture running with nice value: %d" % current_nice)
+            
+        # except OSError as e:
+        #     print("Error setting priority (try running with sudo): %s" % e)
+        # except Exception as e:
+        #     print("Unexpected error setting priority: %s" % e)
+            
         try:
             log.debug("Initializing process-specific resources...")
             
@@ -1081,30 +1310,6 @@ class BufferedCapture(Process):
                 log.info('The video source could not be opened!')
                 self.exit.set()
                 return False
-
-            # If we get here, we have a valid device and frame_shape
-            # Initialize raw frame arrays and saver if enabled
-            if self.config.save_frames and self.frame_shape is not None:
-                try:
-                    log.debug("Initializing raw frame arrays with shape: {}".format(self.frame_shape))
-
-                    self.initRawFrameArrays(self.frame_shape)
-
-                    # Initialize and start frame saver
-                    log.debug("Creating and starting RawFrameSaver...")
-                    self.raw_frame_saver = RawFrameSaver(self.saved_frames_dir, 
-                                                    self.sharedRawArray, self.startRawTime1, 
-                                                    self.sharedRawArray2, self.startRawTime2, 
-                                                    self.sharedTimestamps, self.sharedTimestamps2,
-                                                    self.config)
-                    self.raw_frame_saver.start()
-                    log.debug("Raw frame handling initialization complete")
-                    
-                except Exception as e:
-                    log.error("Failed to initialize raw frame handling: {}".format(e))
-                    log.debug(repr(traceback.format_exception(*sys.exc_info())))
-                    self.raw_frame_saver = None
-                    raise
 
             # Continue with main capture loop
             self.captureFrames()

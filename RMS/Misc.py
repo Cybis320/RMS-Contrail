@@ -331,7 +331,84 @@ def ping(host, count=1):
     return subprocess.call(command) == 0
 
 
+    def probeRtspService(self, max_attempts=500, probe_interval=10, timeout=1):
+        """
+        Tests if RTSP service is ready using socket connection.
+        Returns (bool, RtspProbeResult) tuple with success status and detailed error.
+        """
+        try:
+            # Parse RTSP URL to get host and port
+            device_url = self.extractRtspUrl(self.config.deviceID)
+            parsed = urlparse(device_url)
+            host = parsed.hostname
+            port = parsed.port or 554
 
+            last_error = None
+            
+            for attempt in range(max_attempts):
+                try:
+                    # Try to resolve hostname first
+                    try:
+                        socket.gethostbyname(host)
+                    except socket.gaierror:
+                        last_error = RtspProbeResult.DNS_ERROR
+                        raise
+
+                    # Create socket with timeout
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(timeout)
+                    
+                    # Try to connect
+                    result = sock.connect_ex((host, port))
+                    sock.close()
+                    
+                    if result == 0:
+                        log.info(f"RTSP service ready after {attempt + 1} attempts")
+                        return True, RtspProbeResult.SUCCESS
+                    
+                    # Analyze specific connection errors
+                    if result in (errno.ENETUNREACH, errno.ENETDOWN):
+                        last_error = RtspProbeResult.NETWORK_DOWN
+                    elif result in (errno.EHOSTUNREACH, errno.EHOSTDOWN):
+                        last_error = RtspProbeResult.HOST_UNREACHABLE
+                    elif result == errno.ECONNREFUSED:
+                        last_error = RtspProbeResult.CONNECTION_REFUSED
+                    elif result == errno.ETIMEDOUT:
+                        last_error = RtspProbeResult.TIMEOUT
+                    else:
+                        last_error = RtspProbeResult.UNKNOWN_ERROR
+                        
+                except socket.gaierror:
+                    last_error = RtspProbeResult.DNS_ERROR
+                except socket.timeout:
+                    last_error = RtspProbeResult.TIMEOUT
+                except socket.error as e:
+                    if e.errno in (errno.ENETUNREACH, errno.ENETDOWN):
+                        last_error = RtspProbeResult.NETWORK_DOWN
+                    elif e.errno in (errno.EHOSTUNREACH, errno.EHOSTDOWN):
+                        last_error = RtspProbeResult.HOST_UNREACHABLE
+                    else:
+                        last_error = RtspProbeResult.UNKNOWN_ERROR
+                    log.debug(f"RTSP probe attempt {attempt + 1} failed: {e}")
+                
+                error_messages = {
+                    RtspProbeResult.NETWORK_DOWN: "Network appears to be down",
+                    RtspProbeResult.HOST_UNREACHABLE: "Camera is unreachable",
+                    RtspProbeResult.CONNECTION_REFUSED: "RTSP service not accepting connections",
+                    RtspProbeResult.TIMEOUT: "Connection attempt timed out",
+                    RtspProbeResult.DNS_ERROR: "Cannot resolve camera hostname",
+                    RtspProbeResult.UNKNOWN_ERROR: "Unknown connection error"
+                }
+                
+                print(f'Trying to connect to camera RTSP service... (attempt {attempt + 1}) - {error_messages[last_error]}')
+                time.sleep(probe_interval)
+                
+            log.error(f"RTSP service not responding after all attempts. Last error: {error_messages[last_error]}")
+            return False, last_error
+            
+        except Exception as e:
+            log.error(f"Error probing RTSP service: {e}")
+            return False, RtspProbeResult.UNKNOWN_ERROR
 
 
 def randomCharacters(length):

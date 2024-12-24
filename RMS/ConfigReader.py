@@ -28,13 +28,20 @@ else:
     from ConfigParser import NoOptionError, RawConfigParser
     FileNotFoundError = IOError  # Map FileNotFoundError to IOError in Python 2
 
+# Used to determine if ML filtering is available
+TFLITE_AVAILABLE = False
+
 # Used to determine detection parameters which will change in ML filtering is available
 try:
     from tflite_runtime.interpreter import Interpreter
     TFLITE_AVAILABLE = True
 except ImportError:
-    TFLITE_AVAILABLE = False    
-
+    try:
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+        from tensorflow.lite.python.interpreter import Interpreter
+        TFLITE_AVAILABLE = True
+    except ImportError:
+        TFLITE_AVAILABLE = False
 
 
 def choosePlatform(win_conf, rpi_conf, linux_pc_conf):

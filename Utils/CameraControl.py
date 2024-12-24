@@ -71,11 +71,24 @@ import datetime
 
 # if not present, force update of the submodule
 
-if sys.version_info.major > 2:
-    import dvrip as dvr
-else:
-    # Python2 compatible version 
-    import Utils.CameraControl27 as dvr
+import dvrip as dvr
+
+
+class DVRIPError(Exception):
+    """Base exception class for DVRIP camera errors"""
+    pass
+
+class DVRIPCommandError(DVRIPError):
+    """Raised when a command returns an error code"""
+    pass
+
+class DVRIPNotSupportedError(DVRIPError):
+    """Raised when a command is not supported by the camera"""
+    pass
+
+class DVRIPConnectionError(DVRIPError):
+    """Raised when there are connection issues"""
+    pass
 
 
 def rebootCamera(cam):
@@ -86,16 +99,15 @@ def rebootCamera(cam):
     """
     print('rebooting, please wait....')
     cam.reboot()
-    retry = 0
-    while retry < 5:
-        sleep(5) # wait while camera starts
+
+    # Track login attempts
+    for retry in range(5):
+        sleep(5)
         if cam.login():
-            break
-        retry += 1
-    if retry < 5: 
-        print('reboot successful')
-    else:
-        print('camera nonresponsive, please wait 30s and reconnect')
+            print('reboot successful')
+            return True
+            
+    raise DVRIPConnectionError('Camera not responsive after reboot')
 
 
 def strIPtoHex(ip):
@@ -217,9 +229,18 @@ def getNetworkParams(cam, showit=True):
 
 
 def getIP(cam):
-    nc=cam.get_info("NetWork.NetCommon")
-    print(iptoString(nc['HostIP']))
-    return
+    """Get camera IP address.
+    
+    Args:
+        cam: DVRIPCam instance
+        
+    Returns:
+        str: IP address
+    """
+    nc = cam.get_info("NetWork.NetCommon")
+    ip_addr = iptoString(nc['HostIP'])
+    print(ip_addr)
+    return ip_addr
 
 
 def getEncodeParams(cam, showit=True):
@@ -518,27 +539,33 @@ def setCameraParam(cam, opts):
 
 
 def setOSD(cam, opts):
-    """ Set a parameter in the Gui Params section of the camera config
+    """Set OSD parameters.
+    
     Args:
-        cam - the camera 
-        opts - array of fields, subfields and the value to set
+        cam: DVRIPCam instance
+        opts: List of options
+        
+    Returns:
+        dict: Updated OSD settings
     """
-
     info = cam.get_info("AVEnc.VideoWidget")
     if len(opts) == 0:
         print('usage: setOSD on|off')
-        return
+        return None
 
     if opts[0] == 'on':
         info[0]["TimeTitleAttribute"]["EncodeBlend"] = True
         info[0]["ChannelTitleAttribute"]["EncodeBlend"] = True
-        print('Set osd enabled')
+        status = 'enabled'
     else:
         info[0]["TimeTitleAttribute"]["EncodeBlend"] = False 
         info[0]["ChannelTitleAttribute"]["EncodeBlend"] = False 
-        print('Set osd disabled')
+        status = 'disabled'
 
     cam.set_info("AVEnc.VideoWidget", info)
+    print(f'Set osd {status}')
+    return {'status': status, 'settings': info}
+
 
 
 def setColor(cam, opts):
@@ -639,7 +666,9 @@ def setParameter(cam, opts):
         opts - array of fields, subfields and the value to set
     """
     if len(opts) < 3:
-        print('Not enough parameters, need at least block, field, value')
+        raise DVRIPCommandError('Not enough parameters, need at least block, field, value')
+    if opts[0] not in ['Camera', 'Encode', 'Network', 'General']:
+        raise DVRIPNotSupportedError(f'Setting not currently supported for {opts[0]}')
     if opts[0] == 'Camera':
         setCameraParam(cam, opts)
     elif opts[0] == 'Encode':
@@ -654,61 +683,134 @@ def setParameter(cam, opts):
 
 
 def switchDayTime(cam):
-    """ Switches the camera to daytime mode. Reboots camera. """
+    """Switches the camera to daytime mode.
+    
+    Args:
+        cam: DVRIPCam instance
+        
+    Raises:
+        DVRIPCommandError: If any camera command fails
+        DVRIPConnectionError: If connection is lost during switching
+    """
+    try:
+        #setCameraParam(cam, 'Camera ExposureParam LeastTime 1000'.split()) # 1 millisecond
+        setCameraParam(cam, 'Camera DayNightColor 1'.split()) # Color mode
+        #setCameraParam(cam, 'Camera BLCMode 1'.split())
+        setCameraParam(cam, 'Camera ElecLevel 50'.split())
+        #setCameraParam(cam, 'Camera GainParam Gain 10'.split())
+        setCameraParam(cam, 'Camera BroadTrends AutoGain 1'.split())
+        
+        return {"mode": "day", "status": "success"}
+        
+    except (ConnectionError, socket.error) as e:
+        raise DVRIPConnectionError(f"Lost connection during day mode switch: {str(e)}")
+    except Exception as e:
+        raise DVRIPCommandError(f"Failed to switch to day mode: {str(e)}")
 
-    setCameraParam(cam, 'Camera ExposureParam LeastTime 1000'.split()) # 1 millisecond
-    setCameraParam(cam, 'Camera DayNightColor 1'.split()) # Color mode
-    setCameraParam(cam, 'Camera BLCMode 1'.split())
-    setCameraParam(cam, 'Camera ElecLevel 50'.split())
-    setCameraParam(cam, 'Camera GainParam Gain 10'.split())
-    setCameraParam(cam, 'Camera BroadTrends AutoGain 1'.split())
+
+def switchTwilight(cam):
+    """Switches the camera to twilight mode.
+    
+    Args:
+        cam: DVRIPCam instance
+        
+    Raises:
+        DVRIPCommandError: If any camera command fails
+        DVRIPConnectionError: If connection is lost during switching
+    """
+    try:
+        setCameraParam(cam, 'Camera DayNightColor 2'.split()) # Black and white mode
+        setCameraParam(cam, 'Camera ElecLevel 50'.split())
+        
+        return {"mode": "twilight", "status": "success"}
+        
+    except (ConnectionError, socket.error) as e:
+        raise DVRIPConnectionError(f"Lost connection during twilight mode switch: {str(e)}")
+    except Exception as e:
+        raise DVRIPCommandError(f"Failed to switch to twilight mode: {str(e)}")
 
 
 def switchNightTime(cam):
-    """ Switches the camera to nighttime mode. Resets settings done by switchDayTime above.
-        Reboots camera.
+    """Switches the camera to nighttime mode. Resets settings done by switchDayTime above.
+    
+    Args:
+        cam: DVRIPCam instance
+        
+    Raises:
+        DVRIPCommandError: If any camera command fails
+        DVRIPConnectionError: If connection is lost during switching
     """
-
-    setCameraParam(cam, 'Camera ExposureParam LeastTime 40000'.split()) # 40000 microseconds = 40ms
-    setCameraParam(cam, 'Camera DayNightColor 2'.split()) # Black and white mode
-    setCameraParam(cam, 'Camera BLCMode 0'.split())
-    setCameraParam(cam, 'Camera ElecLevel 100'.split())
-    setCameraParam(cam, 'Camera GainParam Gain 60'.split())
-    setCameraParam(cam, 'Camera BroadTrends AutoGain 0'.split())
+    try:
+        # setCameraParam(cam, 'Camera ExposureParam LeastTime 40000'.split()) # 40000 microseconds = 40ms
+        setCameraParam(cam, 'Camera DayNightColor 2'.split()) # Black and white mode
+        # setCameraParam(cam, 'Camera BLCMode 0'.split())
+        setCameraParam(cam, 'Camera ElecLevel 80'.split())
+        # setCameraParam(cam, 'Camera GainParam Gain 60'.split())
+        setCameraParam(cam, 'Camera BroadTrends AutoGain 0'.split())
+        
+        return {"mode": "night", "status": "success"}
+        
+    except (ConnectionError, socket.error) as e:
+        raise DVRIPConnectionError(f"Lost connection during night mode switch: {str(e)}")
+    except Exception as e:
+        raise DVRIPCommandError(f"Failed to switch to night mode: {str(e)}")
 
 
 def dvripCall(cam, cmd, opts):
-    """ retrieve or display the camera network settings
-
+    """Execute DVRIP camera commands with error handling.
+    
     Args:
-        cam  - the camera
-        cmd  - the command to execute
-        opts - optional list of parameters to be passed to SetParam
+        cam: DVRIPCam instance
+        cmd: Command to execute
+        opts: Optional parameters for commands
+        
+    Returns:
+        Command result depending on the specific command
+        
+    Raises:
+        DVRIPCommandError: If the command returns an error code
+        DVRIPNotSupportedError: If the command is not supported
+        DVRIPConnectionError: If there's a connection issue
     """
+    # Validate command
+    cmd_list = ['reboot', 'GetHostname', 'GetSettings', 'GetDeviceInformation', 
+                'GetNetConfig', 'GetCameraParams', 'GetEncodeParams', 'SetParam',
+                'SaveSettings', 'LoadSettings', 'SetColor', 'SetOSD', 'SetAutoReboot',
+                'GetIP', 'GetAutoReboot', 'CloudConnection', 'CameraTime',
+                'SwitchDayTime', 'SwitchTwilight', 'SwitchNightTime']
+                
+    if cmd not in cmd_list:
+        raise DVRIPNotSupportedError(f"Command '{cmd}' is not supported")
+
+    # Execute commands with proper error handling
     if cmd == 'GetHostname':
         nt, _, _ = getNetworkParams(cam, False)
         print(nt['HostName'])
+        return nt['HostName']
 
     elif cmd == 'GetNetConfig':
-        getNetworkParams(cam, True)
+        result = getNetworkParams(cam, True)
+        return result
 
     elif cmd == 'reboot':
-        rebootCamera(cam)
+        return rebootCamera(cam)
 
     elif cmd == 'GetIP':
-        getIP(cam)
+        return getIP(cam)
 
     elif cmd == 'GetAutoReboot':
-        getGeneralParams(cam, True)
+        return getGeneralParams(cam, True)
 
     elif cmd == 'CloudConnection':
-        manageCloudConnection(cam, opts)
+        if not opts:
+            raise DVRIPCommandError("CloudConnection requires parameters (on|off|get)")
+        return manageCloudConnection(cam, opts)
 
     elif cmd == 'GetCameraParams':
-        getCameraParams(cam, True)
+        return getCameraParams(cam, True)
 
     elif cmd == 'GetEncodeParams':
-        getEncodeParams(cam, True)
+        return getEncodeParams(cam, True)
 
     elif cmd == 'GetSettings':
         getNetworkParams(cam, True)
@@ -717,6 +819,7 @@ def dvripCall(cam, cmd, opts):
         getGuiParams(cam, True)
         getColorParams(cam, True)
         getGeneralParams(cam, True)
+        return "Settings retrieved successfully"
 
     elif cmd == 'SaveSettings':
         nc, dh, nt = getNetworkParams(cam, False)
@@ -726,9 +829,12 @@ def dvripCall(cam, cmd, opts):
         cp = getColorParams(cam, False)
         rb, lc = getGeneralParams(cam, False)
         saveToFile(nc, dh, nt, cs, vs, gu, cp, rb, lc)
+        return "Settings saved successfully"
 
     elif cmd == 'LoadSettings':
         nc, dh, nt, cs, vs, gu, cp, rb, lc = loadFromFile()
+        if None in (nc, dh, nt, cs, vs, gu, cp, rb, lc):
+            raise DVRIPCommandError("Failed to load settings - some files missing")
         cam.set_info("NetWork.NetCommon", nc)
         cam.set_info("NetWork.NetDHCP", dh)
         cam.set_info("NetWork.NetNTP", nt)
@@ -739,78 +845,124 @@ def dvripCall(cam, cmd, opts):
         cam.set_info("General.AutoMaintain", rb)
         cam.set_info("General.Location", lc)
         rebootCamera(cam)
+        return "Settings loaded successfully"
 
     elif cmd == 'SetParam':
-        setParameter(cam, opts)
+        if not opts or len(opts) < 3:
+            raise DVRIPCommandError("SetParam requires at least 3 parameters: block field value")
+        return setParameter(cam, opts)
 
     elif cmd == 'CameraTime':
+        if not opts:
+            raise DVRIPCommandError("CameraTime requires parameter (get|set)")
         if opts[0] == 'get':
-            print(cam.get_time())
+            time = cam.get_time()
+            print(time)
+            return time
         elif opts[0] == 'set':
             if cam.get_info("NetWork.NetNTP.Enable") is True:
-                print('cant set the camera time - NTP enabled')
-            else:
-                try:
-                    reqtime = datetime.datetime.strptime(opts[1], '%Y%m%d_%H%M%S')
-                except:
-                    reqtime = datetime.datetime.now()
-                cam.set_time(reqtime)
-                print('time set to', reqtime)
+                raise DVRIPCommandError("Cannot set time - NTP is enabled")
+            try:
+                reqtime = datetime.datetime.strptime(opts[1], '%Y%m%d_%H%M%S')
+            except:
+                reqtime = datetime.datetime.now()
+            cam.set_time(reqtime)
+            print('time set to', reqtime)
+            return reqtime
         else:
-            print('usage CameraTime get|set')
-
+            raise DVRIPCommandError('usage CameraTime get|set')
 
     elif cmd == 'SetColor':
-        setColor(cam, opts)
+        return setColor(cam, opts)
 
     elif cmd == 'SetOSD':
-        setOSD(cam, opts)
+        return setOSD(cam, opts)
 
     elif cmd == 'SetAutoReboot':
-        setAutoReboot(cam, opts)
+        return setAutoReboot(cam, opts)
 
     elif cmd == 'SwitchNightTime':
-        switchNightTime(cam)
+        return switchNightTime(cam)
+
+    elif cmd == 'SwitchTwilight':
+        return switchTwilight(cam)
     
     elif cmd == 'SwitchDayTime':
-        switchDayTime(cam)
+        return switchDayTime(cam)
     
     else:
         print('System Info')
-        ugi=cam.get_upgrade_info()
+        ugi = cam.get_upgrade_info()
         print(ugi['Hardware'])
+        return ugi['Hardware']
 
 
 def cameraControl(camera_ip, cmd, opts=''):
-    """CameraControl - main entry point to the module
-
+    """Control a DVRIP camera with error handling.
+    
     Args:
-        camera_ip (string): IPAddress of camera in dotted form eg 192.168.1.10
-        cmd (string): Command to be executed
-        opts (array of strings): Optional array of field, subfield and value for the SetParam command
+        camera_ip (str): IP address of camera in dotted form (e.g., '192.168.1.10')
+        cmd (str): Command to be executed
+        opts (list or str, optional): Optional parameters for SetParam command
+        
+    Returns:
+        Command result on success
+        
+    Raises:
+        DVRIPCommandError: If the command returns an error code
+        DVRIPNotSupportedError: If the command is not supported
+        DVRIPConnectionError: If there's a connection issue
     """
-    # Process the IP camera control command
-    cam = dvr.DVRIPCam(camera_ip)
-    if cam.login():
-        try:
-            dvripCall(cam, cmd, opts)
-        except Exception as e:
-            print("Error executing command: {}".format(e))
-            print("This command may not be supported.")
-    else:
-        print("Failure. Could not connect.")
-    cam.close()
-
+    cam = None
+    try:
+        # Convert opts to list if it's a string
+        if isinstance(opts, str):
+            opts = opts.split() if opts else []
+            
+        # Create camera instance and attempt login
+        cam = dvr.DVRIPCam(camera_ip)
+        
+        # Connect with timeout (the connect method handles the socket creation)
+        cam.connect(timeout=10)  # 10 second timeout
+            
+        if not cam.login():
+            raise DVRIPConnectionError(f"Failed to login to camera at {camera_ip}")
+            
+        # Execute the command
+        result = dvripCall(cam, cmd, opts)
+        return result
+                        
+    finally:
+        # Always ensure camera connection is closed
+        if cam:
+            cam.close()
 
 def cameraControlV2(config, cmd, opts=''):
+    """Extended camera control with config support.
+    
+    Args:
+        config: Configuration object
+        cmd: Command to execute
+        opts: Optional parameters
+    """
     if str(config.deviceID).isdigit():
-        print('Error: this utility only works with IP cameras')
-        exit(1)
+        raise ValueError('This utility only works with IP cameras')
     # extract IP from config file
     camera_ip = re.findall(r"[0-9]+(?:\.[0-9]+){3}", config.deviceID)[0]
 
-    cameraControl(camera_ip, cmd, opts)
-
+    try:
+        result = cameraControl(camera_ip, cmd, opts)
+        print("Command succeeded:", result)
+        return result
+        
+    except DVRIPError as e:
+        # Log and re-raise all DVRIP errors
+        print(f"Camera error: {e}")
+        raise
+    except Exception as e:
+        # Log and re-raise unexpected errors
+        print(f"Unexpected error: {e}")
+        raise
 
 if __name__ == '__main__':
     """Main function
@@ -823,7 +975,7 @@ if __name__ == '__main__':
     cmd_list = ['reboot', 'GetHostname', 'GetSettings','GetDeviceInformation', 'GetNetConfig',
         'GetCameraParams', 'GetEncodeParams', 'SetParam', 'SaveSettings', 'LoadSettings',
         'SetColor', 'SetOSD', 'SetAutoReboot', 'GetIP', 'GetAutoReboot', 'CloudConnection', 'CameraTime',
-        'SwitchDayTime', 'SwitchNightTime']
+        'SwitchDayTime', 'SwitchTwilight', 'SwitchNightTime']
     opthelp='optional parameters for SetParam for example Camera ElecLevel 70 \n' \
         'will set the AE Ref to 70.\n To see possibilities, execute GetSettings first. ' \
         'Call a function with no parameters to see the possibilities'
