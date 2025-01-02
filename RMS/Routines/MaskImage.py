@@ -16,7 +16,7 @@
 
 from __future__ import absolute_import, division, print_function
 
-import logging
+from RMS.Logger import getLogger
 import os
 import zipfile
 
@@ -26,7 +26,7 @@ import cv2
 from RMS.Routines.Image import loadImage
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 

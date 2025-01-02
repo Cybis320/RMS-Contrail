@@ -266,7 +266,6 @@ class Extractor(Process):
 
     def executeAll(self):
         """ Run the complete extraction procedure. """
-
         # Apply the mask to the compressed frames (maxpixel, avepixel)
         if self.mask is not None:
             self.compressed[0] = maskImage(self.compressed[0], self.mask)
@@ -315,7 +314,7 @@ class Extractor(Process):
         clips = self.extract(coeff)
         log.debug("[" + self.filename + "] Time for extracting: " + str(time.time() - t) + "s")
 
-         
+        
         t = time.time()
 
         # Save the extracted clips

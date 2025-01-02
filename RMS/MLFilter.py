@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image
 import traceback
 #import time
-import logging
+from RMS.Logger import getLogger
 import datetime
 import shutil
 
@@ -40,7 +40,7 @@ from RMS.Logger import initLogging
 import RMS.ConfigReader as cr
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 # Suffix for unfiltered FTPdetectinfo files

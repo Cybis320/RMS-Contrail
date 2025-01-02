@@ -17,7 +17,7 @@
 from __future__ import print_function, absolute_import, division
 
 import argparse
-import logging
+from RMS.Logger import getLogger
 from time import time
 import datetime
 import sys, os
@@ -62,7 +62,7 @@ VERBOSE_DEBUG = False
 
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 

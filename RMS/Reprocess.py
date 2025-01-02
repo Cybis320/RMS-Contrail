@@ -8,7 +8,7 @@ import os
 import sys
 import traceback
 import argparse
-import logging
+from RMS.Logger import getLogger
 import random
 import glob
 
@@ -45,7 +45,7 @@ from RMS.Misc import RmsDateTime
 
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 

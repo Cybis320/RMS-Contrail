@@ -11,7 +11,7 @@ import json
 import os
 import shutil
 import sys
-import logging
+from RMS.Logger import getLogger
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -41,8 +41,7 @@ from RMS.Misc import RmsDateTime
 RECALIBRATE_NEIGHBOURHOOD_SIZE = 3
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
-log.setLevel(logging.INFO)
+log = getLogger()
 
 def loadRecalibratedPlatepar(dir_path, config, file_list=None, type='meteor'):
     """

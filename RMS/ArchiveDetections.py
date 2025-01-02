@@ -3,7 +3,7 @@
 
 import os
 import sys
-import logging
+from RMS.Logger import getLogger
 import traceback
 
 
@@ -15,7 +15,7 @@ from Utils.StackFFs import stackFFs
 
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 def selectFiles(config, dir_path, ff_detected):

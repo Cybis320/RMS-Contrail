@@ -19,7 +19,7 @@ import os
 import sys
 import traceback
 import time
-import logging
+from RMS.Logger import getLogger
 import multiprocessing
 from math import floor
 import json
@@ -29,7 +29,7 @@ import cv2
 from RMS.Misc import mkdirP
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 class RawFrameSaver(multiprocessing.Process):

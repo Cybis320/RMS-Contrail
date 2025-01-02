@@ -20,7 +20,7 @@ import sys
 import traceback
 import time
 import datetime
-import logging
+from RMS.Logger import getLogger
 import multiprocessing
 from math import floor
 
@@ -40,7 +40,7 @@ from RMS.CompressionCy import compressFrames
 
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 class Compressor(multiprocessing.Process):

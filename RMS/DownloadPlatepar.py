@@ -2,7 +2,7 @@
 
 from __future__ import print_function, division, absolute_import
 
-import logging
+from RMS.Logger import getLogger
 import os
 from os.path import exists as file_exists
 
@@ -13,7 +13,7 @@ from RMS.UploadManager import _agentAuth
 from RMS.Misc import RmsDateTime
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 

@@ -19,7 +19,7 @@ These are the default settings hard coded into ConfigReader.py
 
 from __future__ import print_function, division, absolute_import
 
-import logging
+from RMS.Logger import getLogger
 import os
 from os.path import exists as file_exists
 
@@ -32,7 +32,7 @@ from RMS.Misc import RmsDateTime
 
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 

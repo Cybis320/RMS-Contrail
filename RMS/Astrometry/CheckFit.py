@@ -10,7 +10,7 @@ import os
 import random
 import shutil
 import sys
-import logging
+from RMS.Logger import getLogger
 
 import matplotlib.pyplot as plt # 
 import numpy as np
@@ -31,7 +31,7 @@ from RMS.Astrometry.CyFunctions import matchStars, subsetCatalog
 
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 def computeMinimizationTolerances(config, platepar, star_dict_len):

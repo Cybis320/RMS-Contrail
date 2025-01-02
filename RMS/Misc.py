@@ -6,7 +6,7 @@ import os
 import sys
 import shutil
 import errno
-import logging
+from RMS.Logger import getLogger
 import subprocess
 import random
 import string
@@ -36,7 +36,7 @@ if sys.version_info[0] < 3:
     FileNotFoundError = IOError
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 def mkdirP(path):

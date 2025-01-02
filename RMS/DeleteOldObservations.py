@@ -8,7 +8,6 @@ import platform
 import shutil
 import datetime
 import time
-import logging
 import glob
 import argparse
 import subprocess
@@ -17,11 +16,11 @@ import ephem
 
 from RMS.CaptureDuration import captureDuration
 from RMS.ConfigReader import loadConfigFromDirectory
-from RMS.Logger import initLogging
+from RMS.Logger import initLogging, getLogger
 from RMS.Misc import RmsDateTime
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 # Python 2 doesn't have the timestamp function, so make one
@@ -851,7 +850,7 @@ if __name__ == '__main__':
 
     # Initialize the logger
     initLogging(config)
-    log = logging.getLogger("logger")
+    log = getLogger()
 
     if not os.path.isdir(config.data_dir):
         log.info('Data Dir not found {}'.format(config.data_dir))

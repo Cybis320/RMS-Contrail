@@ -26,7 +26,6 @@ import random
 import signal
 import shutil
 import ctypes
-import logging
 import threading
 import multiprocessing
 import traceback
@@ -39,7 +38,7 @@ import numpy as np
 from Utils.LiveViewer import LiveViewer
 
 import RMS.ConfigReader as cr
-from RMS.Logger import initLogging
+from RMS.Logger import initLogging, getLogger
 from RMS.BufferedCapture import BufferedCapture
 from RMS.CaptureDuration import captureDuration
 from RMS.CameraModeSwitcher import cameraModeSwitcher
@@ -893,7 +892,7 @@ if __name__ == "__main__":
     initLogging(config)
 
     # Get the logger handle
-    log = logging.getLogger("logger")
+    log = getLogger()
 
 
     log.info("Program start")
@@ -1077,6 +1076,7 @@ if __name__ == "__main__":
                 else:
 
                     # Wait one more minute and try again to reboot
+                    log.info('Waiting 1 minute...')
                     time.sleep(60)
 
 

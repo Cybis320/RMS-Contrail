@@ -1,14 +1,14 @@
 import time
 import re
 import ephem
-import logging
+from RMS.Logger import getLogger
 import Utils.CameraControl as cc
 from RMS.Misc import RmsDateTime
 from enum import Enum
 from datetime import datetime, timedelta
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 class CameraMode(Enum):
     DAY = "day"

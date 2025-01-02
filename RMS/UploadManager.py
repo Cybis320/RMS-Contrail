@@ -8,7 +8,7 @@ import ctypes
 import multiprocessing
 import time
 import datetime
-import logging
+from RMS.Logger import getLogger
 
 import binascii
 import paramiko
@@ -30,7 +30,7 @@ if sys.version_info[0] < 3:
     FileNotFoundError = IOError
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 def _agentAuth(transport, username, rsa_private_key):

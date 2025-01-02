@@ -27,7 +27,7 @@ import dateutil
 import glob
 import sqlite3
 import multiprocessing
-import logging
+from RMS.Logger import getLogger
 import copy
 import uuid
 import random
@@ -74,7 +74,7 @@ import pyximport
 pyximport.install(setup_args={'include_dirs':[np.get_include()]})
 from RMS.Astrometry.CyFunctions import cyTrueRaDec2ApparentAltAz
 
-log = logging.getLogger("logger")
+log = getLogger()
 EM_RAISE = False
 
 """

@@ -15,7 +15,7 @@ import sys
 import copy
 import shutil
 import argparse
-import logging
+from RMS.Logger import getLogger
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -36,7 +36,7 @@ pyximport.install(setup_args={'include_dirs':[np.get_include()]})
 from RMS.Astrometry.CyFunctions import subsetCatalog
 
 
-log = logging.getLogger('logger')
+log = getLogger()
 
 
 def addPoint(img, xc, yc, radius):

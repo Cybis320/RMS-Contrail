@@ -14,7 +14,7 @@
 
 from __future__ import print_function
 
-import logging
+from RMS.Logger import getLogger
 import threading
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import json
@@ -37,7 +37,7 @@ class DVRIPCam(object):
     }
 
     def __init__(self, ip, **kwargs):
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger()
         self.ip = ip
         self.user = kwargs.get("user", "admin")
         hash_pass = kwargs.get("hash_pass")

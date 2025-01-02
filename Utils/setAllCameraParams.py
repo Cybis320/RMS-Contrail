@@ -4,7 +4,7 @@ import hashlib
 import threading
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
-import logging
+from RMS.Logger import getLogger
 import sys
 import binascii
 import ipaddress as ip
@@ -47,7 +47,7 @@ class DVRIPCam(object):
     }
 
     def __init__(self, ip, **kwargs):
-        self.logger = logging.getLogger(__name__)
+        self.logger = getLogger()
         self.ip = ip
         self.user = kwargs.get("user", "admin")
         hash_pass = kwargs.get("hash_pass")

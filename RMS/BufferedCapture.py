@@ -22,11 +22,11 @@ import ctypes
 import traceback
 
 # Set GStreamer debug level. Use '2' for warnings in production environments.
-os.environ['GST_DEBUG'] = '3'
+# os.environ['GST_DEBUG'] = '2'
 
 import re
 import time
-import logging
+from RMS.Logger import getLogger
 import datetime
 import os.path
 from multiprocessing import Process, Event, Value, Array
@@ -42,8 +42,8 @@ from RMS.RawFrameSave import RawFrameSaver
 from RMS.Misc import RmsDateTime, mkdirP
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
-log.propagate = False
+log = getLogger()
+# log.propagate = False
 
 try:
     # py3
@@ -112,7 +112,8 @@ class BufferedCapture(Process):
         """
         
         super(BufferedCapture, self).__init__()
-        
+        log.info("Initializing a BufferedCapture instance")
+
         # Store configuration and paths (immutable data is safe to pass to child process)
         self.config = config
         self.video_file = video_file
@@ -1734,7 +1735,7 @@ if __name__ == "__main__":
     initLogging(config)
 
     # Get the logger handle
-    log = logging.getLogger("logger")
+    log = getLogger()
 
     # Print the kind of media backend
     print("Station code: {}".format(config.stationID))

@@ -1,8 +1,6 @@
 
 import os
 import sys
-# Set GStreamer debug level. Use '2' for warnings in production environments.
-os.environ['GST_DEBUG'] = '3'
 
 
 import time
@@ -381,6 +379,8 @@ class GstVideoFile():
 if __name__ == "__main__":
 
     # Test capture from a camera
+    os.environ['GST_DEBUG'] = '3'
+
 
     device_url = "rtsp://192.168.42.10:554/user=admin&password=&channel=1&stream=0.sdp"
     gst_decoder = "nvh264dec"

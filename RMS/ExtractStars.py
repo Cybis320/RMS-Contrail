@@ -21,7 +21,7 @@ import time
 import sys
 import os
 import argparse
-import logging
+from RMS.Logger import getLogger
 
 import cv2
 import matplotlib.pyplot as plt
@@ -46,7 +46,7 @@ pyximport.install(setup_args={'include_dirs':[np.get_include()]})
 
 
 # Get the logger from the main module
-log = logging.getLogger("logger")
+log = getLogger()
 
 
 
