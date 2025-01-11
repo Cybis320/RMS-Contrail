@@ -62,6 +62,32 @@ class RmsDateTime:
         @staticmethod
         def utcnow():
             return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        
+
+def gstDebugLogger(category, level, file, function, line, obj, message, user_data):
+    """
+    Maps GStreamer debug levels to Python logging levels and logs
+    the message using the 'gstreamer' logger. If a GStreamer level
+    doesn't have a direct mapping, it defaults to Python DEBUG.
+    """
+    logger = logging.getLogger("gstreamer")
+
+    level_map = {
+        # Some examples—adjust if you want to map other GST debug levels:
+        0: logging.DEBUG,      # Gst.DebugLevel.NONE
+        1: logging.ERROR,      # Gst.DebugLevel.ERROR
+        2: logging.WARNING,    # Gst.DebugLevel.WARNING
+        3: logging.WARNING,    # Gst.DebugLevel.FIXME
+        4: logging.INFO,       # Gst.DebugLevel.INFO
+        5: logging.DEBUG,      # Gst.DebugLevel.DEBUG
+    }
+
+    # Convert GStreamer’s numeric level to Python logging’s level
+    py_level = level_map.get(level.value, logging.DEBUG)
+
+    # GStreamer log format
+    msg_str = f"GStreamer[{category.get_name()}] {file}:{line} - {function}() => {message.get()}"
+    logger.log(py_level, msg_str)
 
 
 #############################################################################

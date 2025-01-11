@@ -26,7 +26,7 @@ import traceback
 
 import re
 import time
-from RMS.Logger import getLogger
+from RMS.Logger import getLogger, gstDebugLogger
 import datetime
 import os.path
 from multiprocessing import Process, Event, Value, Array
@@ -1253,6 +1253,33 @@ class BufferedCapture(Process):
         try:
             log.debug("Initializing process-specific resources...")
             
+            # GStreamer debug setup
+            if GST_IMPORTED:
+                # Remove any old log functions so we don't double-register
+                while Gst.debug_remove_log_function(None):
+                    pass
+
+                # Activate debug system
+                Gst.debug_set_active(True)
+
+                # Dynamically pick threshold from the environment (GST_DEBUG) or default to WARNING
+                debug_env = os.environ.get("GST_DEBUG", "2")
+                level_map = {
+                    "0": Gst.DebugLevel.NONE,
+                    "1": Gst.DebugLevel.ERROR,
+                    "2": Gst.DebugLevel.WARNING,
+                    "3": Gst.DebugLevel.FIXME,  # Some treat as WARNING
+                    "4": Gst.DebugLevel.INFO,
+                    "5": Gst.DebugLevel.DEBUG
+                }
+                chosen_level = level_map.get(debug_env, Gst.DebugLevel.WARNING)
+                Gst.debug_set_default_threshold(chosen_level)
+
+                # Attach a custom GStreamer log function
+                Gst.debug_add_log_function(gstDebugLogger, None)
+
+                log.info("GStreamer logging set to level: {}".format(debug_env))
+
             # Initialize process-specific variables
             self.media_backend_override = False
             self.video_device_type = "cv2"
