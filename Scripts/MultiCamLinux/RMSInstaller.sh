@@ -31,7 +31,7 @@ sudo apt-get -y upgrade
 sudo apt-get install -y python3-tk libxslt1-dev python3-pil
 sudo apt-get install -y git mplayer python3 python3-dev python3-pip libblas-dev libatlas-base-dev \
 liblapack-dev at-spi2-core libopencv-dev libffi-dev libssl-dev socat ntp \
-libxml2-dev libxslt-dev imagemagick ffmpeg cmake 
+libxml2-dev libxslt-dev imagemagick ffmpeg cmake chrony
 sudo apt install -y python3-gi python3-gst-1.0 libgirepository1.0-dev libcairo2-dev gir1.2-gstreamer-1.0
 
 pip3 install --upgrade pip
@@ -45,23 +45,14 @@ virtualenv vRMS
 source ~/vRMS/bin/activate
 pip3 install -U pip
 pip install -r ~/source/RMS/requirements.txt
-pip install tflite-runtime    # missed from requirements due to python 3.11
 pip install PyQt5
-pip install pyqtgraph
 pip install pycairo
-pip install PyGObject
 cd ~/source/RMS
 #sudo apt install -y gstreamer1.0*  # fails in certain env's, manually install good, bad and libavcodec-dev
 sudo apt install -y gstreamer1.0-python3-dbg-plugin-loader
 sudo apt install -y gstreamer1.0-python3-plugin-loader
 sudo apt install -y gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
 sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-
-# Check what platform we are on, x86_64 platforms don't support NEON extensions that are ARM specific
-if [[ $(uname -m) == x86_64 ]]
-    then
-    ex +g/NEON/d -cwq opencv4_install.sh
-fi
 
 ./opencv4_install.sh ~/vRMS
 cd ~/source/RMS
