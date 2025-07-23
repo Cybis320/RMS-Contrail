@@ -262,7 +262,7 @@ def gstDebugLogger(category, level, file, function, line, obj, message, user_dat
     msg_str = message.get() if message else "No message"
     
     # Format and log the message
-    log_msg = "{} {}:{:d}:{}: {}".format(cat_name, file, line, function, msg_str)
+    log_msg = f"{cat_name} {file}:{line:d}:{function}: {msg_str}"
     logger.info(log_msg)
     return True
 
@@ -323,7 +323,7 @@ class CustomHandler(logging.handlers.TimedRotatingFileHandler):
         # This is the crucial step that changes the name of the NEXT log file.
         self.baseFilename = os.path.join(
             os.path.dirname(self.baseFilename),
-            "{}log_{}_{}.log".format(self.log_file_prefix, self.station_id, new_time_str)
+            f"{self.log_file_prefix}log_{self.station_id}_{new_time_str}.log"
         )
         
         # Open the new log file stream using the updated baseFilename.
@@ -469,10 +469,10 @@ def _listener_configurer(config, log_file_prefix, safedir, console_level=logging
     # Make directories
     print("Creating directory: " + config.data_dir)
     data_dir_status = mkdirP(config.data_dir)
-    print("   Success: {}".format(data_dir_status))
+    print(f"   Success: {data_dir_status}")
     print("Creating directory: " + log_path)
     log_path_status = mkdirP(log_path)
-    print("   Success: {}".format(log_path_status))
+    print(f"   Success: {log_path_status}")
 
     # If the log directory doesn't exist or is not writable, use the safe directory
     if safedir is not None:
@@ -489,7 +489,7 @@ def _listener_configurer(config, log_file_prefix, safedir, console_level=logging
 
     # Generate log filename with timestamp
     start_time_str = RmsDateTime.utcnow().strftime("%Y%m%d_%H%M%S")
-    logfile_name = "{}log_{}_{}.log".format(log_file_prefix, config.stationID, start_time_str)
+    logfile_name = f"{log_file_prefix}log_{config.stationID}_{start_time_str}.log"
     full_path = os.path.join(log_path, logfile_name)
 
     # If RMS is to reboot daily, set the rollover time to 25 hours to prevent log fracturing before a new
@@ -558,7 +558,7 @@ def _listener_process(queue, config, log_file_prefix, safedir, console_level=log
                 break
             queue_listener.handle(record)
         except Exception as e:
-            print("Error in listener process: {}".format(e))
+            print(f"Error in listener process: {e}")
             continue
 
     queue_listener.stop()

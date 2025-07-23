@@ -45,7 +45,7 @@ if sys.version_info[0] < 3:
             ssl._create_default_https_context = ssl._create_unverified_context
     except:
         # Print the error
-        print("Error: {}".format(sys.exc_info()[0]))
+        print(f"Error: {sys.exc_info()[0]}")
 
 else:
     import urllib.request
@@ -228,47 +228,47 @@ class EventContainer(object):
         """
 
         output = "# Required \n"
-        output += ("EventTime                : {}\n".format(self.dt))
-        output += ("TimeTolerance (s)        : {}\n".format(self.time_tolerance))
-        output += ("EventLat (deg +N)        : {:3.2f}\n".format(self.lat))
-        output += ("EventLatStd (deg)        : {:3.2f}\n".format(self.lat_std))
-        output += ("EventLon (deg +E)        : {:3.2f}\n".format(self.lon))
-        output += ("EventLonStd (deg)        : {:3.2f}\n".format(self.lon_std))
-        output += ("EventHt (km)             : {:3.2f}\n".format(self.ht))
-        output += ("EventHtStd (km)          : {:3.2f}\n".format(self.ht_std))
-        output += ("EventCartStd (km)          : {:3.2f}\n".format(self.cart_std))
-        output += ("CloseRadius(km)          : {:3.2f}\n".format(self.close_radius))
-        output += ("FarRadius (km)           : {:3.2f}\n".format(self.far_radius))
+        output += f"EventTime                : {self.dt}\n"
+        output += f"TimeTolerance (s)        : {self.time_tolerance}\n"
+        output += f"EventLat (deg +N)        : {self.lat:3.2f}\n"
+        output += f"EventLatStd (deg)        : {self.lat_std:3.2f}\n"
+        output += f"EventLon (deg +E)        : {self.lon:3.2f}\n"
+        output += f"EventLonStd (deg)        : {self.lon_std:3.2f}\n"
+        output += f"EventHt (km)             : {self.ht:3.2f}\n"
+        output += f"EventHtStd (km)          : {self.ht_std:3.2f}\n"
+        output += f"EventCartStd (km)          : {self.cart_std:3.2f}\n"
+        output += f"CloseRadius(km)          : {self.close_radius:3.2f}\n"
+        output += f"FarRadius (km)           : {self.far_radius:3.2f}\n"
         output += "\n"
         output += "# Optional second point      \n"
-        output += ("EventLat2 (deg +N)       : {:3.2f}\n".format(self.lat2))
-        output += ("EventLat2Std (deg)       : {:3.2f}\n".format(self.lat2_std))
-        output += ("EventLon2 (deg +E)       : {:3.2f}\n".format(self.lon2))
-        output += ("EventLon2Std (deg)       : {:3.2f}\n".format(self.lon2_std))
-        output += ("EventHt2 (km)            : {:3.2f}\n".format(self.ht2))
-        output += ("EventHtStd2 (km)         : {:3.2f}\n".format(self.ht2_std))
-        output += ("EventCartStd2 (km)         : {:3.2f}\n".format(self.cart2_std))
+        output += f"EventLat2 (deg +N)       : {self.lat2:3.2f}\n"
+        output += f"EventLat2Std (deg)       : {self.lat2_std:3.2f}\n"
+        output += f"EventLon2 (deg +E)       : {self.lon2:3.2f}\n"
+        output += f"EventLon2Std (deg)       : {self.lon2_std:3.2f}\n"
+        output += f"EventHt2 (km)            : {self.ht2:3.2f}\n"
+        output += f"EventHtStd2 (km)         : {self.ht2_std:3.2f}\n"
+        output += f"EventCartStd2 (km)         : {self.cart2_std:3.2f}\n"
         output += "\n"
         output += "# Or a trajectory instead    \n"
-        output += ("EventAzim (deg +E of N)  : {:3.2f}\n".format(self.azim))
-        output += ("EventAzimStd (deg)       : {:3.2f}\n".format(self.azim_std))
-        output += ("EventElev (deg)          : {:3.2f}\n".format(self.elev))
-        output += ("EventElevStd (deg):      : {:3.2f}\n".format(self.elev_std))
-        output += ("EventElevIsMax           : {:3.2f}\n".format(self.elev_is_max))
+        output += f"EventAzim (deg +E of N)  : {self.azim:3.2f}\n"
+        output += f"EventAzimStd (deg)       : {self.azim_std:3.2f}\n"
+        output += f"EventElev (deg)          : {self.elev:3.2f}\n"
+        output += f"EventElevStd (deg):      : {self.elev_std:3.2f}\n"
+        output += f"EventElevIsMax           : {self.elev_is_max:3.2f}\n"
         output += "\n"
         output += "# Control information        \n"
-        output += ("StationsRequired         : {}\n".format(self.stations_required))
-        output += ("uuid                     : {}\n".format(self.uuid))
-        output += ("RespondTo                : {}\n".format(self.respond_to))
+        output += f"StationsRequired         : {self.stations_required}\n"
+        output += f"uuid                     : {self.uuid}\n"
+        output += f"RespondTo                : {self.respond_to}\n"
         output += "# Trajectory information     \n"
-        output += ("Start Distance (km)      : {:3.2f}\n".format(self.start_distance / 1000))
-        output += ("Start Angle              : {:3.2f}\n".format(self.start_angle))
-        output += ("End Distance (km)        : {:3.2f}\n".format(self.end_distance / 1000))
-        output += ("End Angle                : {:3.2f}\n".format(self.end_angle))
+        output += f"Start Distance (km)      : {self.start_distance / 1000:3.2f}\n"
+        output += f"Start Angle              : {self.start_angle:3.2f}\n"
+        output += f"End Distance (km)        : {self.end_distance / 1000:3.2f}\n"
+        output += f"End Angle                : {self.end_angle:3.2f}\n"
         output += "# Station information        \n"
-        output += ("Field of view RA         : {:3.2f}\n".format(self.fovra))
-        output += ("Field of view Dec        : {:3.2f}\n".format(self.fovdec))
-        output += ("Suffix                   : {}\n".format(self.suffix))
+        output += f"Field of view RA         : {self.fovra:3.2f}\n"
+        output += f"Field of view Dec        : {self.fovdec:3.2f}\n"
+        output += f"Suffix                   : {self.suffix}\n"
         output += "\n"
         output += "END"
         output += "\n"
@@ -573,14 +573,14 @@ class EventContainer(object):
             start, end, closest = start / 1000, end / 1000, closest / 1000
 
             if start > 1000 or end > 1000 or closest > 0.2:
-                log.error("Original             Az, El {:.3f},{:.3f} degrees".format(ob_ev.azim, ob_ev.elev))
-                log.error("Final                Az, El {:.3f},{:.3f} degrees".format(ch_az, ch_el))
-                log.error("Final    Start Lat,Lon,Alt  {:.3f},{:.3f},{:.3f}".format(s.lat, s.lon, s.ht))
-                log.error("Original Start Lat,Lon,Alt  {:.3f},{:.3f},{:.3f}".format(ob_ev.lat, ob_ev.lon, ob_ev.ht))
-                log.error("Original End   Lat,Lon,Alt  {:.3f},{:.3f},{:.3f}".format(ob_ev.lat2, ob_ev.lon2, ob_ev.ht2))
-                log.error("Final    End   Lat,Lon,Alt  {:.3f},{:.3f},{:.3f}".format(s.lat2, s.lon2, s.ht2))
+                log.error(f"Original             Az, El {ob_ev.azim:.3f},{ob_ev.elev:.3f} degrees")
+                log.error(f"Final                Az, El {ch_az:.3f},{ch_el:.3f} degrees")
+                log.error(f"Final    Start Lat,Lon,Alt  {s.lat:.3f},{s.lon:.3f},{s.ht:.3f}")
+                log.error(f"Original Start Lat,Lon,Alt  {ob_ev.lat:.3f},{ob_ev.lon:.3f},{ob_ev.ht:.3f}")
+                log.error(f"Original End   Lat,Lon,Alt  {ob_ev.lat2:.3f},{ob_ev.lon2:.3f},{ob_ev.ht2:.3f}")
+                log.error(f"Final    End   Lat,Lon,Alt  {s.lat2:.3f},{s.lon2:.3f},{s.ht2:.3f}")
                 log.error("Distance from original start to trajectory")
-                log.error("Start, End, Closest, Elev {:.2f},{:.2f},{:.2f},{:.2f}".format(start, end, closest, ch_el))
+                log.error(f"Start, End, Closest, Elev {start:.2f},{end:.2f},{closest:.2f},{ch_el:.2f}")
             pass
 
         return population
@@ -671,27 +671,27 @@ class EventContainer(object):
         if angDif(min_obs_az, min_max_az) > 1 or angDif(min_obs_az, obs_max_az) > 1:
 
             log.error("Error in Azimuth calculations")
-            log.error("Observation at lat,lon,ht {:3.5f},{:3.5f},{:.0f}".format(obs_lat, obs_lon, obs_ht))
-            log.error("Propagate fwds, bwds {:.0f},{:.0f} metres".format(fwd_range, bwd_range))
-            log.error("At az, az_rev, el {:.4f} ,{:.4f} , {:.4f}".format(self.azim, revAz(self.azim) , self.elev))
-            log.error("Start lat,lon,ht {:3.5f},{:3.5f},{:.0f}".format(self.lat, self.lon, self.ht * 1000))
-            log.error("End   lat,lon,ht {:3.5f},{:3.5f},{:.0f}".format(self.lat2, self.lon2, self.ht2 * 1000))
-            log.error("Minimum height to Observed height az,el {},{}".format(min_obs_az, min_obs_el))
-            log.error("Minimum height to Maximum height az,el {},{}".format(min_max_az, min_max_el))
-            log.error("Observed height to Maximum height az,el {},{}".format(obs_max_az, obs_max_el))
+            log.error(f"Observation at lat,lon,ht {obs_lat:3.5f},{obs_lon:3.5f},{obs_ht:.0f}")
+            log.error(f"Propagate fwds, bwds {fwd_range:.0f},{bwd_range:.0f} metres")
+            log.error(f"At az, az_rev, el {self.azim:.4f} ,{revAz(self.azim):.4f} , {self.elev:.4f}")
+            log.error(f"Start lat,lon,ht {self.lat:3.5f},{self.lon:3.5f},{self.ht * 1000:.0f}")
+            log.error(f"End   lat,lon,ht {self.lat2:3.5f},{self.lon2:3.5f},{self.ht2 * 1000:.0f}")
+            log.error(f"Minimum height to Observed height az,el {min_obs_az},{min_obs_el}")
+            log.error(f"Minimum height to Maximum height az,el {min_max_az},{min_max_el}")
+            log.error(f"Observed height to Maximum height az,el {obs_max_az},{obs_max_el}")
 
         # Check that el from the minimum to the observation height as the same as the minimum to the maximum height
         # And the minimum to the observation height is the same as the observation to the maximum height
         if angDif(min_obs_el, min_max_el) > 1 or angDif(min_obs_el, obs_max_el) > 1:
             log.error("Error in Elevation calculations")
-            log.error("Traj from observation at lat,lon,ht {:3.5f},{:3.5f},{:.0f}".format(obs_lat, obs_lon, obs_ht))
-            log.error("Propagate fwds, bwds {:.0f},{:.0f} metres".format(fwd_range, bwd_range))
-            log.error("At az, az_rev, el {:.4f} ,{:.4f} , {:.4f}".format(self.azim, revAz(self.azim), self.elev))
-            log.error("Start lat,lon,ht {:3.5f},{:3.5f},{:.0f}".format(self.lat, self.lon, self.ht * 1000))
-            log.error("End   lat,lon,ht {:3.5f},{:3.5f},{:.0f}".format(self.lat2, self.lon2, self.ht2 * 1000))
-            log.error("Minimum height to Observed height az,el {},{}".format(min_obs_az, min_obs_el))
-            log.error("Minimum height to Maximum height az,el {},{}".format(min_max_az, min_max_el))
-            log.error("Observed height to Maximum height az,el {},{}".format(obs_max_az, obs_max_el))
+            log.error(f"Traj from observation at lat,lon,ht {obs_lat:3.5f},{obs_lon:3.5f},{obs_ht:.0f}")
+            log.error(f"Propagate fwds, bwds {fwd_range:.0f},{bwd_range:.0f} metres")
+            log.error(f"At az, az_rev, el {self.azim:.4f} ,{revAz(self.azim):.4f} , {self.elev:.4f}")
+            log.error(f"Start lat,lon,ht {self.lat:3.5f},{self.lon:3.5f},{self.ht * 1000:.0f}")
+            log.error(f"End   lat,lon,ht {self.lat2:3.5f},{self.lon2:3.5f},{self.ht2 * 1000:.0f}")
+            log.error(f"Minimum height to Observed height az,el {min_obs_az},{min_obs_el}")
+            log.error(f"Minimum height to Maximum height az,el {min_max_az},{min_max_el}")
+            log.error(f"Observed height to Maximum height az,el {obs_max_az},{obs_max_el}")
 
     def latLonlatLonToLatLonAzEl(self):
 
@@ -738,9 +738,9 @@ class EventMonitor(multiprocessing.Process):
         self.exit = multiprocessing.Event()
 
         log.info("EventMonitor is starting")
-        log.info("Monitoring {} ".format(self.syscon.event_monitor_webpage))
-        log.info("At {:3.2f} minute intervals".format(self.syscon.event_monitor_check_interval))
-        log.info("Reporting data to {}/{}".format(self.syscon.hostname, self.syscon.event_monitor_remote_dir))
+        log.info(f"Monitoring {self.syscon.event_monitor_webpage} ")
+        log.info(f"At {self.syscon.event_monitor_check_interval:3.2f} minute intervals")
+        log.info(f"Reporting data to {self.syscon.hostname}/{self.syscon.event_monitor_remote_dir}")
 
     def createDB(self):
 
@@ -861,9 +861,9 @@ class EventMonitor(multiprocessing.Process):
 
         log.error("Attempting to recover from database error")
         if self.delEventMonitorDB():
-            log.warning("Deleted EventMonitor database at {}".format(self.event_monitor_db_path))
+            log.warning(f"Deleted EventMonitor database at {self.event_monitor_db_path}")
         else:
-            log.warning("No EventMonitor database found at {}".format(self.event_monitor_db_path))
+            log.warning(f"No EventMonitor database found at {self.event_monitor_db_path}")
         time.sleep(20)
         self.createDB()
         log.info("Database recovered")
@@ -936,7 +936,7 @@ class EventMonitor(multiprocessing.Process):
 
         sql_command = ""
         sql_command += "ALTER TABLE event_monitor  \n"
-        sql_command += "ADD {} {}; ".format(column, coltype)
+        sql_command += f"ADD {column} {coltype}; "
 
         try:
 
@@ -966,7 +966,7 @@ class EventMonitor(multiprocessing.Process):
         sql_command = ""
         sql_command += "SELECT COUNT(*) AS COL"
         sql_command += " FROM pragma_table_info('event_monitor')"
-        sql_command += " WHERE name='{}'  \n".format(column)
+        sql_command += f" WHERE name='{column}'  \n"
 
         try:
             return (conn.cursor().execute(sql_command).fetchone())[0] != 0
@@ -1035,24 +1035,24 @@ class EventMonitor(multiprocessing.Process):
         sql_statement = ""
         sql_statement += "SELECT COUNT(*) FROM event_monitor \n"
         sql_statement += "WHERE \n"
-        sql_statement += "EventTime = '{}'              AND \n".format(event.dt)
-        sql_statement += "EventLat = '{}'               AND \n".format(event.lat)
-        sql_statement += "EventLon = '{}'               AND \n".format(event.lon)
-        sql_statement += "EventHt = '{}'                AND \n".format(event.ht)
-        sql_statement += "EventLatStd = '{}'            AND \n".format(event.lat_std)
-        sql_statement += "EventLonStd = '{}'            AND \n".format(event.lon_std)
-        sql_statement += "EventHtStd = '{}'             AND \n".format(event.ht_std)
-        sql_statement += "EventLat2 = '{}'              AND \n".format(event.lat2)
-        sql_statement += "EventLon2 = '{}'              AND \n".format(event.lon2)
-        sql_statement += "EventHt2 = '{}'               AND \n".format(event.ht2)
-        sql_statement += "EventLat2Std = '{}'           AND \n".format(event.lat2_std)
-        sql_statement += "EventLon2Std = '{}'           AND \n".format(event.lon2_std)
-        sql_statement += "EventHt2Std = '{}'            AND \n".format(event.ht2_std)
-        sql_statement += "FarRadius = '{}'              AND \n".format(event.far_radius)
-        sql_statement += "CloseRadius = '{}'            AND \n".format(event.close_radius)
-        sql_statement += "TimeTolerance = '{}'          AND \n".format(event.time_tolerance)
-        sql_statement += "StationsRequired = '{}'       AND \n".format(event.stations_required)
-        sql_statement += "RespondTo = '{}'                  \n".format(event.respond_to)
+        sql_statement += f"EventTime = '{event.dt}'              AND \n"
+        sql_statement += f"EventLat = '{event.lat}'               AND \n"
+        sql_statement += f"EventLon = '{event.lon}'               AND \n"
+        sql_statement += f"EventHt = '{event.ht}'                AND \n"
+        sql_statement += f"EventLatStd = '{event.lat_std}'            AND \n"
+        sql_statement += f"EventLonStd = '{event.lon_std}'            AND \n"
+        sql_statement += f"EventHtStd = '{event.ht_std}'             AND \n"
+        sql_statement += f"EventLat2 = '{event.lat2}'              AND \n"
+        sql_statement += f"EventLon2 = '{event.lon2}'              AND \n"
+        sql_statement += f"EventHt2 = '{event.ht2}'               AND \n"
+        sql_statement += f"EventLat2Std = '{event.lat2_std}'           AND \n"
+        sql_statement += f"EventLon2Std = '{event.lon2_std}'           AND \n"
+        sql_statement += f"EventHt2Std = '{event.ht2_std}'            AND \n"
+        sql_statement += f"FarRadius = '{event.far_radius}'              AND \n"
+        sql_statement += f"CloseRadius = '{event.close_radius}'            AND \n"
+        sql_statement += f"TimeTolerance = '{event.time_tolerance}'          AND \n"
+        sql_statement += f"StationsRequired = '{event.stations_required}'       AND \n"
+        sql_statement += f"RespondTo = '{event.respond_to}'                  \n"
 
         # does a similar event exist
         # query gets the number of rows matching, not the actual rows
@@ -1125,16 +1125,12 @@ class EventMonitor(multiprocessing.Process):
 
             sql_statement += "VALUES "
             sql_statement += "(                            \n"
-            sql_statement += "'{}',{},                     \n".format(event.dt, event.time_tolerance)
-            sql_statement += "{},  {}, {}, {}, {}, {}, {}, \n".format(event.lat, event.lat_std, event.lon, event.lon_std,
-                                                                      event.ht, event.ht_std, event.cart_std)
-            sql_statement += "{},  {},                     \n".format(event.close_radius, event.far_radius)
-            sql_statement += "{},  {}, {}, {}, {}, {}, {}, \n".format(event.lat2, event.lat2_std, event.lon2,
-                                                                      event.lon2_std, event.ht2, event.ht2_std, event.cart2_std)
-            sql_statement += "{},  {}, {}, {}, {} ,        \n".format(event.azim, event.azim_std, event.elev,
-                                                                      event.elev_std,
-                                                                      qry_elev_is_max)
-            sql_statement += "{},  {}, '{}', '{}', '{}' , '{}', \n".format(0, 0,uuid.uuid4(), event.respond_to, event.stations_required, event.require_FR)
+            sql_statement += f"'{event.dt}',{event.time_tolerance},                     \n"
+            sql_statement += f"{event.lat},  {event.lat_std}, {event.lon}, {event.lon_std}, {event.ht}, {event.ht_std}, {event.cart_std}, \n"
+            sql_statement += f"{event.close_radius},  {event.far_radius},                     \n"
+            sql_statement += f"{event.lat2},  {event.lat2_std}, {event.lon2}, {event.lon2_std}, {event.ht2}, {event.ht2_std}, {event.cart2_std}, \n"
+            sql_statement += f"{event.azim},  {event.azim_std}, {event.elev}, {event.elev_std}, {qry_elev_is_max} ,        \n"
+            sql_statement += f"{0},  {0}, '{uuid.uuid4()}', '{event.respond_to}', '{event.stations_required}' , '{event.require_FR}', \n"
             sql_statement += "CURRENT_TIMESTAMP ) \n"
 
             try:
@@ -1149,7 +1145,7 @@ class EventMonitor(multiprocessing.Process):
                 log.info("Add event failed")
                 self.recoverFromDatabaseError()
                 return False
-            log.info("Added event at {} to the database".format(event.dt))
+            log.info(f"Added event at {event.dt} to the database")
             return True
         else:
             return False
@@ -1168,14 +1164,14 @@ class EventMonitor(multiprocessing.Process):
         sql_statement += "UPDATE event_monitor                 \n"
         sql_statement += "SET                                  \n"
         sql_statement += "processedstatus = 1,                 \n"
-        sql_statement += "timecompleted   = CURRENT_TIMESTAMP  \n".format(RmsDateTime.utcnow())
+        sql_statement += "timecompleted   = CURRENT_TIMESTAMP  \n"
         sql_statement += "                                     \n"
         sql_statement += "WHERE                                \n"
-        sql_statement += "uuid = '{}'                          \n".format(event.uuid)
+        sql_statement += f"uuid = '{event.uuid}'                          \n"
         try:
             self.db_conn.cursor().execute(sql_statement)
             self.db_conn.commit()
-            log.info("Event at {} marked as processed".format(event.dt))
+            log.info(f"Event at {event.dt} marked as processed")
         except:
             log.info("Database error")
             self.recoverFromDatabaseError()
@@ -1197,7 +1193,7 @@ class EventMonitor(multiprocessing.Process):
         sql_statement += "    WHERE                                            \n"
         sql_statement += "    processedstatus = 1                              \n"
         sql_statement += "    AND                                              \n"
-        sql_statement += "    uuid   = '{}'                                    \n".format(uuid)
+        sql_statement += f"    uuid   = '{uuid}'                                    \n"
 
         try:
             return (self.db_conn.cursor().execute(sql_statement).fetchone())[0] != 0
@@ -1224,7 +1220,7 @@ class EventMonitor(multiprocessing.Process):
         sql_statement += "    WHERE                                            \n"
         sql_statement += "    uploadedstatus = 1                               \n"
         sql_statement += "    AND                                              \n"
-        sql_statement += "    uuid   = '{}'                                    \n".format(uuid)
+        sql_statement += f"    uuid   = '{uuid}'                                    \n"
 
         try:
             return (self.db_conn.cursor().execute(sql_statement).fetchone())[0] != 0
@@ -1251,17 +1247,17 @@ class EventMonitor(multiprocessing.Process):
         sql_statement = ""
         sql_statement += "UPDATE event_monitor  \n"
         sql_statement += "SET                   \n"
-        sql_statement += "filesuploaded  = '{}',\n".format(files_uploaded)
+        sql_statement += f"filesuploaded  = '{files_uploaded}',\n"
         sql_statement += "uploadedstatus = 1    \n"
         sql_statement += "                      \n"
         sql_statement += "WHERE                 \n"
-        sql_statement += "uuid = '{}'           \n".format(event.uuid)
+        sql_statement += f"uuid = '{event.uuid}'           \n"
 
         try:
             cursor = self.db_conn.cursor()
             cursor.execute(sql_statement)
             self.db_conn.commit()
-            log.info("Event at {} marked as uploaded".format(event.dt))
+            log.info(f"Event at {event.dt} marked as uploaded")
         except:
             log.info("Database error")
 
@@ -1280,7 +1276,7 @@ class EventMonitor(multiprocessing.Process):
         sql_statement = ""
         sql_statement += "UPDATE event_monitor     \n"
         sql_statement += "SET                      \n"
-        sql_statement += "receivedbyserver =   '{}'\n".format("1")
+        sql_statement += f"receivedbyserver =   '{'1'}'\n"
         sql_statement += "                         \n"
         sql_statement += "WHERE                    \n"
         sql_statement += "uuid = '{}'              \n".format(uuid)
@@ -1311,7 +1307,7 @@ class EventMonitor(multiprocessing.Process):
 
             except:
                 # Return an empty list
-                log.info("EventMonitor found no page at {}".format(self.syscon.event_monitor_webpage))
+                log.info(f"EventMonitor found no page at {self.syscon.event_monitor_webpage}")
                 return events
         else:
             f = open(os.path.expanduser("~/RMS_data/event_watchlist.txt"), "r")
@@ -1343,7 +1339,7 @@ class EventMonitor(multiprocessing.Process):
                     event.setValue(variable_name, value)  # and put into this event container
                 except:
                     log.error("Unable to read line from webpage...")
-                    log.error("{}".format(line))
+                    log.error(f"{line}")
 
             else:
                 if "END" in line:
@@ -1427,7 +1423,7 @@ class EventMonitor(multiprocessing.Process):
 
             if os.path.isfile(os.path.join(os.path.expanduser(self.config.config_file_name), file_name)):
                 file_list.append(str(os.path.join(os.path.expanduser(self.config.config_file_name), file_name)))
-                log.info("Was looking for {}, returning {} as fallback .config file".format(file_name, self.config.config_file_name))
+                log.info(f"Was looking for {file_name}, returning {self.config.config_file_name} as fallback .config file")
                 return file_list
         return []
 
@@ -1531,7 +1527,7 @@ class EventMonitor(multiprocessing.Process):
 
                     if len(fits_list) == 0:
                         # If fits_list is empty then return an empty list
-                        log.info("No fits files in {}".format(directory))
+                        log.info(f"No fits files in {directory}")
                         return file_list
                     else:
                         # Initialise last_fits_file with the first from the list
@@ -1688,13 +1684,13 @@ class EventMonitor(multiprocessing.Process):
         """
 
         if self.eventUploaded(event.uuid):
-            log.warning("Call to doUpload for already uploaded event {}".format(event.dt))
+            log.warning(f"Call to doUpload for already uploaded event {event.dt}")
 
         if self.eventProcessed(event.uuid):
-            log.warning("Call to doUpload for already processed event {}".format(event.dt))
+            log.warning(f"Call to doUpload for already processed event {event.dt}")
 
         event_monitor_directory = os.path.expanduser(os.path.join(self.syscon.data_dir, "EventMonitor"))
-        upload_filename = "{}_{}_{}".format(evcon.stationID, event.dt, sanitise(event.suffix))
+        upload_filename = f"{evcon.stationID}_{event.dt}_{sanitise(event.suffix)}"
         # Try and bake the camera network name and group name into the path structure of the archive
         if evcon.network_name is not None and evcon.camera_group_name is not None:
             #create path for this_event_directory
@@ -1709,7 +1705,7 @@ class EventMonitor(multiprocessing.Process):
                                 .format(sanitise(evcon.network_name),sanitise(evcon.camera_group_name), this_event_directory))
         else:
             this_event_directory = os.path.join(event_monitor_directory, upload_filename, sanitise(evcon.stationID))
-            log.info("Network and group not defined so creating {}".format(this_event_directory))
+            log.info(f"Network and group not defined so creating {this_event_directory}")
 
         # get rid of the eventdirectory, should never be needed
         if not keep_files:
@@ -1725,7 +1721,7 @@ class EventMonitor(multiprocessing.Process):
         pack_size = 0
         for file in file_list:
             pack_size += os.path.getsize(file)
-        log.info("File pack ({:.0f}MB) assembly started".format(pack_size/1024/1024))
+        log.info(f"File pack ({pack_size/1024/1024:.0f}MB) assembly started")
 
         # Don't upload things which are too large
         if pack_size > 1000*1024*1024:

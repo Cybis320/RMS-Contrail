@@ -80,7 +80,7 @@ UWO_MAGICK_ASGARD = 38037846
 def getCacheID(first_frame, size):
     """ Get the frame chunk ID. """
 
-    return "first:{:d},size:{:d}".format(int(first_frame), int(size))
+    return f"first:{int(first_frame):d},size:{int(size):d}"
 
 
 def computeFramesToRead(read_nframes, total_frames, chunk_frames, first_frame):
@@ -202,12 +202,12 @@ class InputTypeFRFF(InputType):
         self.byteswap = False
 
         if self.single_ff:
-            log.debug('Using file: {}'.format(self.dir_path))
+            log.debug(f'Using file: {self.dir_path}')
         else:
             if use_fr_files:
-                log.debug('Using FF and/or FR files from: {}'.format(self.dir_path))
+                log.debug(f'Using FF and/or FR files from: {self.dir_path}')
             else:
-                log.debug('Using FF files from: {}'.format(self.dir_path))
+                log.debug(f'Using FF files from: {self.dir_path}')
 
 
         # List of FF and FR file names
@@ -863,7 +863,7 @@ class InputTypeVideo(InputType):
             print("Loading the full video into memory...")
 
             memory_size_mb = self.nrows*self.ncols*self.total_frames/1024/1024
-            print("Memory needed: {:.2f} MB".format(memory_size_mb))
+            print(f"Memory needed: {memory_size_mb:.2f} MB")
 
             self.video_frames = self.loadFullVideo()
 
@@ -960,7 +960,7 @@ class InputTypeVideo(InputType):
 
         
         # Print the total number of read frames in the same line
-        print(' - loaded: {:d}'.format(ff_struct_fake.nframes), flush=True)
+        print(f' - loaded: {ff_struct_fake.nframes:d}', flush=True)
 
         # If no frames have been read, return an empty structure
         if ff_struct_fake.nframes == 0:
@@ -1084,7 +1084,7 @@ class InputTypeVideo(InputType):
 
         for i in range(self.total_frames):
 
-            print('Loading frame: {:4d}/{:4d}'.format(i, self.total_frames), end='\r', flush=True)
+            print(f'Loading frame: {i:4d}/{self.total_frames:4d}', end='\r', flush=True)
 
             frame = self.loadVideoFrame()
 
@@ -1558,7 +1558,7 @@ class InputTypeImages(object):
             self.config.width = img.shape[1]
             print()
             print("WARNING! The image resolution differs from the resolution set in the config file.")
-            print("Image resolution set to {:d} x {:d} px".format(self.config.width, self.config.height))
+            print(f"Image resolution set to {self.config.width:d} x {self.config.height:d} px")
             
 
 

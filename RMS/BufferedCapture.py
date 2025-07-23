@@ -67,10 +67,10 @@ try:
     GST_IMPORTED = True
 
 except ImportError as e:
-    log.info('Could not import gi: {}. Using OpenCV.'.format(e))
+    log.info(f'Could not import gi: {e}. Using OpenCV.')
 
 except ValueError as e:
-    log.info('Could not import Gst: {}. Using OpenCV.'.format(e))
+    log.info(f'Could not import Gst: {e}. Using OpenCV.')
 
 
 # Define probe result constants
@@ -200,7 +200,7 @@ class BufferedCapture(Process):
 
         # Wait for the capture to join for 60 seconds, then terminate
         waiting_to_join = 60
-        log.info("Waiting up to {} seconds for capture to join...".format(waiting_to_join))
+        log.info(f"Waiting up to {waiting_to_join} seconds for capture to join...")
         
         # Track how many seconds we actually waited
         seconds_waited = 0
@@ -214,9 +214,9 @@ class BufferedCapture(Process):
         
         # Log the outcome based on final state
         if not self.is_alive():
-            log.info("Capture joined successfully after {} seconds".format(seconds_waited))
+            log.info(f"Capture joined successfully after {seconds_waited} seconds")
         else:
-            log.info("Timed out after waiting {} seconds, capture thread still alive".format(seconds_waited))
+            log.info(f"Timed out after waiting {seconds_waited} seconds, capture thread still alive")
             log.info("Sending interrupt signal for graceful shutdown...")
             
             try:
@@ -236,7 +236,7 @@ class BufferedCapture(Process):
             except ProcessLookupError:
                 log.info("Process already terminated")
             except Exception as e:
-                log.error("Error during graceful shutdown: {}".format(e))
+                log.error(f"Error during graceful shutdown: {e}")
                 log.info("Falling back to terminate()")
                 self.terminate()
             
@@ -282,7 +282,7 @@ class BufferedCapture(Process):
                     return False
                 
         except Exception as e:
-            log.error('Error checking device status: {}'.format(e))
+            log.error(f'Error checking device status: {e}')
             return False
 
 
@@ -335,7 +335,7 @@ class BufferedCapture(Process):
                 sample_interval = 4096
 
             # Determine if the values converge. Skipping the first few noisy frames
-            if ((x - 25)%sample_interval == 0) or (x == self.startup_frames):
+            if ((x - 25) % sample_interval == 0) or (x == self.startup_frames):
 
                 m_err = abs(m - self.expected_m)
                 delta_m_err = (m_err - self.last_m_err)/(x - self.last_m_err_n)
@@ -367,7 +367,7 @@ class BufferedCapture(Process):
 
                     log.debug("Exiting startup logic at {:.1f}% of startup sequence, Expected fps: {:.6f}, "
                              "calculated fps at this point: {:.6f}, residual m error: {:.1f} ns, sample interval: {}"
-                             .format(100*x/self.startup_frames, 1e9/self.expected_m, 1e9/m, m_err, sample_interval))
+                             f" {100*x/self.startup_frames:.1f}%, nom={1e9/self.expected_m:.1f}ns, obs={1e9/m:.1f}ns, err={m_err:.2%}, si={sample_interval}")
 
                     # This will temporarily exit startup
                     self.startup_frames = 0
@@ -530,7 +530,7 @@ class BufferedCapture(Process):
                 # Sanity check for pts value
                 max_expected_ns = 24*60*60*1e9  # 24 hours in nanoseconds
                 if not (0 < gst_timestamp_ns <= max_expected_ns):
-                    log.info("Unexpected PTS value: {}.".format(gst_timestamp_ns))
+                    log.info(f"Unexpected PTS value: {gst_timestamp_ns}.")
                     return False, None, None
 
                 ret, map_info = buffer.map(Gst.MapFlags.READ)
@@ -583,8 +583,8 @@ class BufferedCapture(Process):
 
         # If no match is found, return None or handle as appropriate
         else:
-            log.error("No RTSP URL found in the input string: {}".format(input_string))
-            raise ValueError("No RTSP URL found in the input string: {}".format(input_string))
+            log.error(f"No RTSP URL found in the input string: {input_string}")
+            raise ValueError(f"No RTSP URL found in the input string: {input_string}")
     
 
     def probeRtspService(self, max_attempts=720, probe_interval=10, timeout=1):
@@ -646,7 +646,7 @@ class BufferedCapture(Process):
                     sock.close()
                     
                     if result == 0:
-                        log.info("RTSP service ready after {} attempts".format(attempt + 1))
+                        log.info(f"RTSP service ready after {attempt + 1} attempts")
                         return True, RtspProbeResult.SUCCESS
                     
                     # Analyze specific connection errors
@@ -672,7 +672,7 @@ class BufferedCapture(Process):
                         last_error = RtspProbeResult.HOST_UNREACHABLE
                     else:
                         last_error = RtspProbeResult.UNKNOWN_ERROR
-                    log.debug("RTSP probe attempt {} failed: {}".format(attempt + 1, e))
+                    log.debug(f"RTSP probe attempt {attempt + 1} failed: {e}")
                 
                 error_messages = {
                     RtspProbeResult.NETWORK_DOWN: "Network appears to be down",
@@ -683,16 +683,14 @@ class BufferedCapture(Process):
                     RtspProbeResult.UNKNOWN_ERROR: "Unknown connection error"
                 }
                 
-                print('Trying to connect to camera RTSP service... (attempt {}) - {}'.format(
-                    attempt + 1, error_messages[last_error]))
+                print(f'Trying to connect to camera RTSP service... (attempt {attempt + 1}) - {error_messages[last_error]}')
                 time.sleep(probe_interval)
                 
-            log.error("RTSP service not responding after all attempts. Last error: {}".format(
-                error_messages[last_error]))
+            log.error(f"RTSP service not responding after all attempts. Last error: {error_messages[last_error]}")
             return False, last_error
             
         except Exception as e:
-            log.error("Error probing RTSP service: {}".format(e))
+            log.error(f"Error probing RTSP service: {e}")
             return False, RtspProbeResult.UNKNOWN_ERROR
                 
 
@@ -769,8 +767,8 @@ class BufferedCapture(Process):
                 return frame
             
         except Exception as e:
-            log.error('Error in grayscale conversion: {}'.format(e))
-            log.debug('Frame shape: {}'.format(frame.shape if frame is not None else None))
+            log.error(f'Error in grayscale conversion: {e}')
+            log.debug(f'Frame shape: {frame.shape if frame is not None else None}')
             return None
 
 
@@ -790,13 +788,13 @@ class BufferedCapture(Process):
         # Segment name is based on timestamp recorded during last segment save
         segment_time = UTCFromTimestamp.utcfromtimestamp(self.last_segment_savetime)
         self.last_segment_savetime = time.time()
-        segment_filename = segment_time.strftime("{}_%Y%m%d_%H%M%S_video.mkv".format(self.config.stationID))
+        segment_filename = segment_time.strftime(f"{self.config.stationID}_%Y%m%d_%H%M%S_video.mkv")
         segment_subpath = os.path.join(self.config.data_dir, self.config.video_dir, segment_time.strftime("%Y/%Y%m%d-%j/%Y%m%d-%j_%H"))
 
         # Create full path for the segment
         mkdirP(segment_subpath)
         segment_full_path = os.path.join(segment_subpath, segment_filename)
-        log.info("Created new video segment #{} at: {}".format(fragment_id, segment_full_path))
+        log.info(f"Created new video segment #{fragment_id} at: {segment_full_path}")
 
         # Return full path to splitmux's callback
         return segment_full_path
@@ -827,7 +825,7 @@ class BufferedCapture(Process):
 
             # Get current pipeline state
             ret, current, pending = pipeline.get_state(0)
-            log.debug("Current pipeline state: {}, pending: {}".format(current.value_nick, pending.value_nick))
+            log.debug(f"Current pipeline state: {current.value_nick}, pending: {pending.value_nick}")
 
             # Define the sequence of states we need to go through
             target_sequence = [Gst.State.READY, Gst.State.PAUSED, Gst.State.PLAYING]
@@ -838,11 +836,11 @@ class BufferedCapture(Process):
             
             # Step through each state change needed to reach target
             for state in target_sequence[current_index + 1:target_index + 1]:
-                log.debug("Transitioning to {} state...".format(state.value_nick))
+                log.debug(f"Transitioning to {state.value_nick} state...")
                 
                 # Force synchronization before state change to prevent race conditions
                 if not pipeline.sync_children_states():
-                    log.warning("Sync failed before {}".format(state.value_nick))
+                    log.warning(f"Sync failed before {state.value_nick}")
 
                 # Capture time just before camera starts capture
                 if state == Gst.State.PAUSED:
@@ -854,7 +852,7 @@ class BufferedCapture(Process):
                 
                 # Both SUCCESS and NO_PREROLL are valid (NO_PREROLL happens with live sources)
                 if ret not in (Gst.StateChangeReturn.SUCCESS, Gst.StateChangeReturn.NO_PREROLL):
-                    log.error("Failed to change to state {}".format(state.value_nick))
+                    log.error(f"Failed to change to state {state.value_nick}")
                     return False, None
                 
                 # Force synchronization after state change

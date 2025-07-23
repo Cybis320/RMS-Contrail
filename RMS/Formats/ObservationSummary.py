@@ -76,7 +76,7 @@ def roundWithoutTrailingZero(value, no):
     """
 
     value = round(value,no)
-    return str("{0:g}".format(value))
+    return str(f"{value:g}")
 
 def getObservationDurationNightTime(config, start_time):
     """Get the duration of an observation session not in continuous capture mode.
@@ -112,7 +112,7 @@ def getObservationDurationContinuous(config, start_time):
 
     # convert start_time to a python object
     if DEBUG_PRINT:
-        print("Passed a start time of {}".format(start_time))
+        print(f"Passed a start time of {start_time}")
 
     # Initialize sun and observer
     o = ephem.Observer()
@@ -123,12 +123,12 @@ def getObservationDurationContinuous(config, start_time):
     s.compute()
     while o.next_setting(s).datetime() < o.next_rising(s).datetime():
         if DEBUG_PRINT:
-            print("{} is not at night time".format(start_time))
+            print(f"{start_time} is not at night time")
         start_time +=datetime.timedelta(minutes=1)
         o.date = start_time
         s.compute()
     if DEBUG_PRINT:
-        print("Advanced time to {}".format(o.date))
+        print(f"Advanced time to {o.date}")
 
     # Compute duration
     try:
@@ -143,9 +143,9 @@ def getObservationDurationContinuous(config, start_time):
         end_time_ephem = None
 
     if DEBUG_PRINT:
-        print("start_time_ephem {}".format(start_time_ephem))
-        print("duration_ephem {:.1f} hours".format(duration_ephem / 3600))
-        print("end_time_ephem {}".format(end_time_ephem))
+        print(f"start_time_ephem {start_time_ephem}")
+        print(f"duration_ephem {duration_ephem/3600:.1f} hours")
+        print(f"end_time_ephem {end_time_ephem}")
 
     return start_time_ephem, duration_ephem, end_time_ephem
 
@@ -403,7 +403,7 @@ def timestampFromNTP(addr='time.cloudflare.com'):
         print("NTP request timed out")
         return None, None
     except Exception as e:
-        print("NTP request failed: {}".format(e))
+        print(f"NTP request failed: {e}")
         return None, None
     if data:
 
@@ -424,7 +424,7 @@ def timestampFromNTP(addr='time.cloudflare.com'):
         remote_clock_measured_processing_time = (remote_clock_time_transmit_timestamp - remote_clock_time_receive_timestamp)
 
         if DEBUG_PRINT:
-            print("Rx Fractional {}, Tx fractional {}".format(remote_clock_time_receive_timestamp_fractional_seconds, remote_clock_time_transmit_timestamp_fractional_seconds))
+            print(f"Rx Fractional {remote_clock_time_receive_timestamp_fractional_seconds}, Tx fractional {remote_clock_time_transmit_timestamp_fractional_seconds}")
         # Next calculation assumes that remote and local clock are running at identical rates
         estimated_network_delay = local_clock_measured_response_time - remote_clock_measured_processing_time
         if estimated_network_delay < 0:
@@ -519,7 +519,7 @@ def addObsParam(conn, key, value):
 
     sql_statement += "      VALUES "
     sql_statement += "      (                            \n"
-    sql_statement += "      CURRENT_TIMESTAMP,'{}','{}'   \n".format(key, value)
+    sql_statement += f"      CURRENT_TIMESTAMP,'{key}','{value}'   \n"
     sql_statement += "      )"
 
     if conn is None:
@@ -572,17 +572,17 @@ def getEphemTimesFromCaptureDirectory(config, capture_directory):
 
     capture_directory_full_path = os.path.join(config.data_dir, config.captured_dir, capture_directory)
     if DEBUG_PRINT:
-        print("Capture directory full path: {}".format(capture_directory_full_path))
+        print(f"Capture directory full path: {capture_directory_full_path}")
     night_config = parse(os.path.join(capture_directory_full_path,".config"))
     if DEBUG_PRINT:
-        print("Making a time from {}".format(capture_directory))
+        print(f"Making a time from {capture_directory}")
     capture_directory_start_time = filenameToDatetimeStr(os.path.basename(capture_directory))
     if DEBUG_PRINT:
         print("Capture directory start time: {}".format(capture_directory_start_time))
-        print("Type is {}".format(type(capture_directory_start_time)))
+        print(f"Type is {type(capture_directory_start_time)}")
     capture_directory_start_time = datetime.datetime.strptime(capture_directory_start_time, "%Y-%m-%d %H:%M:%S.%f")
     if DEBUG_PRINT:
-        print("Capture directory start time: {}".format(capture_directory_start_time))
+        print(f"Capture directory start time: {capture_directory_start_time}")
     start_time, duration, end_time = getObservationDuration(night_config, capture_directory_start_time)
 
     return start_time, duration, end_time
@@ -603,7 +603,7 @@ def getNextStartTime(conn, time_point, tz_naive=True):
     sql_statement = ""
     sql_statement += "SELECT Value from records \n"
     sql_statement += "      WHERE Key = 'start_time' \n"
-    sql_statement += "      AND Value > '{}'\n".format(time_point)
+    sql_statement += f"      AND Value > '{time_point}'\n"
     sql_statement += "      ORDER BY TimeStamp asc \n"
 
     # print(sql_statement)
@@ -955,10 +955,10 @@ def retrieveObservationData(conn, config, night_directory=None, ordering=None):
 
     obs_start_time, obs_duration, obs_end_time = getEphemTimesFromCaptureDirectory(config, night_directory)
 
-    # print("Night directory was {}".format(night_directory))
-    # print("Observation start time was {}".format(obs_start_time))
-    # print("Observation duration was {}".format(obs_duration))
-    # print("Observation end time was {}".format(obs_end_time))
+    # print(f"Night directory was {night_directory}")
+    # print(f"Observation start time was {obs_start_time}")
+    # print(f"Observation duration was {obs_duration}")
+    # print(f"Observation end time was {obs_end_time}")
 
     if ordering is None:
         # Be sure to add a comma after each list entry, IDE will not pick up this error as Python will concatenate
@@ -987,16 +987,16 @@ def retrieveObservationData(conn, config, night_directory=None, ordering=None):
                     'media_backend','protocol_in_use','jitter_quality','dropped_frame_rate']
 
     # Use this print call to check the ordering
-    # print("Ordering {}".format(ordering))
+    # print(f"Ordering {ordering}")
 
     next_start_time = getNextStartTime(conn, obs_end_time)
-    # print("Observation start time was {}".format(obs_start_time))
-    # print("Next start time was {}".format(next_start_time))
+    # print(f"Observation start time was {obs_start_time}")
+    # print(f"Next start time was {next_start_time}")
 
     sql_statement = ""
     sql_statement += "SELECT Key, Value from records \n"
-    sql_statement += "           WHERE TimeStamp >= '{}' \n".format(obs_start_time)
-    sql_statement += "           AND   TimeStamp <= '{}' \n".format(next_start_time)
+    sql_statement += f"           WHERE TimeStamp >= '{obs_start_time}' \n"
+    sql_statement += f"           AND   TimeStamp <= '{next_start_time}' \n"
     sql_statement += "           GROUP BY KEY \n"
     sql_statement += "           ORDER BY \n"
     sql_statement += "              CASE Key \n"
@@ -1004,10 +1004,10 @@ def retrieveObservationData(conn, config, night_directory=None, ordering=None):
     # This SQL applies an ordering to all the keys in the ordering list. Any extra keys will be at the end.
     count = 1
     for ordering_key in ordering:
-        sql_statement += "                  WHEN '{:s}' THEN {:03d} \n".format(ordering_key,count)
+        sql_statement += f"                  WHEN '{ordering_key:s}' THEN {count:03d} \n"
         count += 1
 
-    sql_statement += "                  ELSE {:03d} \n".format(count)
+    sql_statement += f"                  ELSE {count:03d} \n"
     sql_statement += "              END"
 
     # print(sql_statement)
@@ -1041,7 +1041,7 @@ def serialize(config, format_nicely=True, as_json=False, night_directory = None)
             # Handle as float
             try:
                 value_as_float = float(value)
-                output += "{}:{:s} \n".format(key, roundWithoutTrailingZero(value_as_float, 3))
+                output += f"{key}:{roundWithoutTrailingZero(value_as_float, 3)} \n"
             except:
                 pass
         else:
@@ -1049,19 +1049,19 @@ def serialize(config, format_nicely=True, as_json=False, night_directory = None)
                 # Convert to a time
                 time_object = time.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
                 value_as_time = time.strftime("%Y-%m-%d %H:%M:%S", time_object)
-                output += "{}:{:s} \n".format(key, value_as_time)
+                output += f"{key}:{value_as_time} \n"
 
             except:
                 try:
                 # Convert to a time
                     time_object = time.strptime(value, "%H:%M:%S.%f")
                     value_as_time = time.strftime("%H:%M:%S", time_object)
-                    output += "{}:{:s} \n".format(key, value_as_time)
+                    output += f"{key}:{value_as_time} \n"
                     # if it didn't work, then handle as a string
                 except:
                     pass
                     try:
-                        output += "{}:{:s} \n".format(key, value)
+                        output += f"{key}:{value} \n"
                     except:
                         # If we can't output as a string, then move on
                         pass
@@ -1227,10 +1227,10 @@ def finalizeObservationSummary(config, night_data_dir, platepar=None):
     if os.path.exists(platepar_path):
         platepar = Platepar()
         platepar.read(platepar_path, use_flat=config.use_flat)
-        addObsParam(obs_db_conn, "camera_pointing_az", format("{:.2f} degrees".format(platepar.az_centre)))
-        addObsParam(obs_db_conn, "camera_pointing_alt", format("{:.2f} degrees".format(platepar.alt_centre)))
-        addObsParam(obs_db_conn, "camera_fov_h","{:.2f}".format(platepar.fov_h))
-        addObsParam(obs_db_conn, "camera_fov_v","{:.2f}".format(platepar.fov_v))
+        addObsParam(obs_db_conn, "camera_pointing_az", f"{platepar.az_centre:.2f} degrees")
+        addObsParam(obs_db_conn, "camera_pointing_alt", f"{platepar.alt_centre:.2f} degrees")
+        addObsParam(obs_db_conn, "camera_fov_h", f"{platepar.fov_h:.2f}")
+        addObsParam(obs_db_conn, "camera_fov_v", f"{platepar.fov_v:.2f}")
         addObsParam(obs_db_conn, "camera_lens", estimateLens(platepar.fov_h))
 
     addObsParam(obs_db_conn, "continuous_capture", config.continuous_capture)
@@ -1278,10 +1278,10 @@ if __name__ == "__main__":
     dir_list.sort(reverse=True)
     latest_dir = os.path.join(capture_directory, dir_list[0])
     start_time, duration, end_time = getEphemTimesFromCaptureDirectory(config, latest_dir)
-    print("For directory {}".format(latest_dir))
-    print("Start time was {}".format(start_time))
-    print("Duration time was {:.2f} hours".format(duration/3600))
-    print("End time was {}".format(end_time))
+    print(f"For directory {latest_dir}")
+    print(f"Start time was {start_time}")
+    print(f"Duration time was {duration/3600:.2f} hours")
+    print(f"End time was {end_time}")
 
 
 

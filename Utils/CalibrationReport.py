@@ -403,10 +403,9 @@ def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar
 
     # Add info text in the corner
     info_text = ff_dict[max_jd] + '\n' \
-        + "Matched stars within {:.1f} px radius: {:d}/{:d} \n".format(match_radius, max_matched_stars, \
-            len(star_dict[max_jd])) \
-        + "Median distance = {:.2f} px\n".format(np.median(distances)) \
-        + "Catalog lim mag = {:.1f}".format(lim_mag)
+        + f"Matched stars within {match_radius:.1f} px radius: {max_matched_stars:d}/{len(star_dict[max_jd]):d} \n" \
+        + f"Median distance = {np.median(distances):.2f} px\n" \
+        + f"Catalog lim mag = {lim_mag:.1f}"
 
     plt.text(10, 10, info_text, bbox=dict(facecolor='black', alpha=0.5), va='top', ha='left', fontsize=4, \
         color='w', family='monospace')
@@ -433,11 +432,11 @@ def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar
     # Compute the rotation wrt. horizon
     rot_horizon = rotationWrtHorizon(platepar)
 
-    fov_centre_text = "Azim  = {:6.2f}$\\degree$\n".format(azim_centre) \
-                    + "Alt   = {:6.2f}$\\degree$\n".format(alt_centre) \
-                    + "Rot h = {:6.2f}$\\degree$\n".format(rot_horizon) \
-                    + "FOV h = {:6.2f}$\\degree$\n".format(fov_h) \
-                    + "FOV v = {:6.2f}$\\degree$".format(fov_v) \
+    fov_centre_text = f"Azim  = {azim_centre:6.2f}$\\degree$\n" \
+                    + f"Alt   = {alt_centre:6.2f}$\\degree$\n" \
+                    + f"Rot h = {rot_horizon:6.2f}$\\degree$\n" \
+                    + f"FOV h = {fov_h:6.2f}$\\degree$\n" \
+                    + f"FOV v = {fov_v:6.2f}$\\degree$" \
 
     plt.text(10, platepar.Y_res - 10, fov_centre_text, bbox=dict(facecolor='black', alpha=0.5), \
         va='bottom', ha='left', fontsize=4, color='w', family='monospace')
@@ -538,10 +537,9 @@ def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar
         y_min_w = y_min - 3
         y_max_w = y_max + 3
 
-        photometry_info = "Platepar: {:+.1f}*LSP + {:.2f} +/- {:.2f}".format(platepar.mag_0, \
-            platepar.mag_lev, platepar.mag_lev_stddev) \
-            + "\nVignetting coeff = {:.5f}".format(platepar.vignetting_coeff) \
-            + "\nGamma = {:.2f}".format(platepar.gamma)
+        photometry_info = f"Platepar: {platepar.mag_0:+.1f}*LSP + {platepar.mag_lev:.2f} +/- {platepar.mag_lev_stddev:.2f}" \
+            + f"\nVignetting coeff = {platepar.vignetting_coeff:.5f}" \
+            + f"\nGamma = {platepar.gamma:.2f}"
 
         # Plot the photometry calibration from the platepar
         logsum_arr = np.linspace(x_min_w, x_max_w, 10)
@@ -549,13 +547,13 @@ def generateCalibrationReport(config, night_dir_path, match_radius=2.0, platepar
             color='k', alpha=0.5)
 
         # Plot the fitted photometry calibration
-        fit_info = "Fit: {:+.1f}*LSP + {:.2f} +/- {:.2f}".format(-2.5, photom_offset, fit_stddev)
+        fit_info = f"Fit: {-2.5:+.1f}*LSP + {photom_offset:.2f} +/- {fit_stddev:.2f}"
         ax_p.plot(logsum_arr, logsum_arr + photom_offset, label=fit_info, linestyle='--', color='b',
             alpha=0.75)
 
         ax_p.legend()
 
-        ax_p.set_ylabel("Catalog magnitude ({:s})".format(mag_band_str))
+        ax_p.set_ylabel(f"Catalog magnitude ({mag_band_str})")
         ax_p.set_xlabel("Uncalibrated magnitude")
 
         # Set wider axis limits

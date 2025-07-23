@@ -71,7 +71,7 @@ def loadImageCalibration(dir_path, config, dtype=None, byteswap=False):
     if mask_path:
         mask = MaskImage.loadMask(mask_path)
 
-        log.debug('Loaded mask: {:s}'.format(mask_path))
+        log.debug(f'Loaded mask: {mask_path:s}')
 
         # If the mask is all white, set it to None
         if (mask is not None) and np.all(mask.img == 255):
@@ -103,7 +103,7 @@ def loadImageCalibration(dir_path, config, dtype=None, byteswap=False):
 
         if dark is not None:
             print('Loaded dark:', dark_path)
-            log.info('Loaded dark: {:s}'.format(dark_path))
+            log.info(f'Loaded dark: {dark_path:s}')
 
 
 
@@ -129,7 +129,7 @@ def loadImageCalibration(dir_path, config, dtype=None, byteswap=False):
 
         if flat_struct is not None:
             print('Loaded flat:', flat_path)
-            log.info('Loaded flat: {:s}'.format(flat_path))
+            log.info(f'Loaded flat: {flat_path:s}')
 
 
 
@@ -460,7 +460,7 @@ def getThresholdedStripe3DPoints(config, img_handle, frame_min, frame_max, rho, 
     
     if debug: 
         strip_indices_time = time() - t_stripe
-        print('  - Stripe indices time: {:.4f} s'.format(strip_indices_time))
+        print(f'  - Stripe indices time: {strip_indices_time:.4f} s')
 
 
     # If centroiding should be done, prepare everything for cutting out parts of the image for photometry
@@ -486,7 +486,7 @@ def getThresholdedStripe3DPoints(config, img_handle, frame_min, frame_max, rho, 
 
         if debug:
             centroid_prep_time = time() - t_centroid_prep
-            print('  - Centroiding prep time: {:.4f} s'.format(centroid_prep_time))
+            print(f'  - Centroiding prep time: {centroid_prep_time:.4f} s')
 
 
     # If the FF files is given, extract the points from FF after threshold
@@ -727,40 +727,40 @@ def getThresholdedStripe3DPoints(config, img_handle, frame_min, frame_max, rho, 
                 total_tracked_time += centroid_prep_time
 
             print('  - Frame conditioning time:')
-            print('    - Mean:  {:.4f} +/- {:.4f} s'.format(np.mean(frame_conditioning_times), np.std(frame_conditioning_times)))
-            print('    - Total: {:.4f} s'.format(np.sum(frame_conditioning_times)))
+            print(f'    - Mean:  {np.mean(frame_conditioning_times):.4f} +/- {np.std(frame_conditioning_times):.4f} s')
+            print(f'    - Total: {np.sum(frame_conditioning_times):.4f} s')
             total_tracked_time += np.sum(frame_conditioning_times)
 
             print('  - Thresholding time:')
-            print('    - Mean:  {:.4f} +/- {:.4f} s'.format(np.mean(thresholding_times), np.std(thresholding_times)))
-            print('    - Total: {:.4f} s'.format(np.sum(thresholding_times)))
+            print(f'    - Mean:  {np.mean(thresholding_times):.4f} +/- {np.std(thresholding_times):.4f} s')
+            print(f'    - Total: {np.sum(thresholding_times):.4f} s')
             total_tracked_time += np.sum(thresholding_times)
 
             print('  - Morphology time:')
-            print('    - Mean:  {:.4f} +/- {:.4f} s'.format(np.mean(morph_times), np.std(morph_times)))
-            print('    - Total: {:.4f} s'.format(np.sum(morph_times)))
+            print(f'    - Mean:  {np.mean(morph_times):.4f} +/- {np.std(morph_times):.4f} s')
+            print(f'    - Total: {np.sum(morph_times):.4f} s')
             total_tracked_time += np.sum(morph_times)
 
             print('  - Extract stripe time:')
-            print('    - Mean:  {:.4f} +/- {:.4f} s'.format(np.mean(extract_stripe_times), np.std(extract_stripe_times)))
-            print('    - Total: {:.4f} s'.format(np.sum(extract_stripe_times)))
+            print(f'    - Mean:  {np.mean(extract_stripe_times):.4f} +/- {np.std(extract_stripe_times):.4f} s')
+            print(f'    - Total: {np.sum(extract_stripe_times):.4f} s')
             total_tracked_time += np.sum(extract_stripe_times)
             
             if centroiding:
                 print('  - Centroiding time:')
-                print('    - Mean:  {:.4f} +/- {:.4f} s'.format(np.mean(centroiding_times), np.std(centroiding_times)))
-                print('    - Total: {:.4f} s'.format(np.sum(centroiding_times)))
+                print(f'    - Mean:  {np.mean(centroiding_times):.4f} +/- {np.std(centroiding_times):.4f} s')
+                print(f'    - Total: {np.sum(centroiding_times):.4f} s')
                 total_tracked_time += np.sum(centroiding_times)
 
             print('  - Nonzero time:')
-            print('    - Mean:  {:.4f} +/- {:.4f} s'.format(np.mean(nonzero_times), np.std(nonzero_times)))
-            print('    - Total: {:.4f} s'.format(np.sum(nonzero_times)))
+            print(f'    - Mean:  {np.mean(nonzero_times):.4f} +/- {np.std(nonzero_times):.4f} s')
+            print(f'    - Total: {np.sum(nonzero_times):.4f} s')
             total_tracked_time += np.sum(nonzero_times)
 
-            print('  - Concatenate time: {:.6f} s'.format(concatenate_time))
+            print(f'  - Concatenate time: {concatenate_time:.6f} s')
             total_tracked_time += concatenate_time
 
-            print('  - TOTAL: {:.4f} s'.format(total_tracked_time))
+            print(f'  - TOTAL: {total_tracked_time:.4f} s')
 
 
 

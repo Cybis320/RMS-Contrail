@@ -157,7 +157,7 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
             except shutil.SameFileError:
                 pass
             except FileNotFoundError:
-                log.warning('file {} not found '.format(os.path.join(source_dir, file_name)))
+                log.warning(f'file {os.path.join(source_dir, file_name)} not found ')
         else:
             try:
                 shutil.copy2(os.path.join(source_dir, file_name), os.path.join(dest_dir, file_name))
@@ -176,7 +176,7 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
                 except shutil.SameFileError:
                     pass
                 except FileNotFoundError:
-                    log.warning('file {} not found'.format(file_path))
+                    log.warning(f'file {file_path} not found')
             else:
                 try:
                     shutil.copy2(file_path, os.path.join(dest_dir, os.path.basename(file_path)))
@@ -512,7 +512,7 @@ def formatScientific(val, dec_places):
 
     """
     
-    s = '{val:0.{dec_places:d}e}'.format(val=val, dec_places=dec_places)
+    s = f'{val:0.{dec_places:d}e}'
 
     # Handle NaN values
     if 'nan' in s:
@@ -520,7 +520,7 @@ def formatScientific(val, dec_places):
 
     m, e = s.split('e')
 
-    return r'{m:s}\times 10^{{{e:d}}}'.format(m=m, e=int(e))
+    return rf'{m}\times 10^{{{int(e)}}}'
 
 
 
@@ -611,7 +611,7 @@ def sanitise(unsanitised, lower = False, space_substitution = "", log_changes = 
                 sanitised += c
     sanitised = sanitised.lower() if lower else sanitised
     if unsanitised != sanitised and log_changes:
-        log.info("String {} was sanitised to {}".format(unsanitised, sanitised))
+        log.info(f"String {unsanitised} was sanitised to {sanitised}")
 
     return sanitised
 
@@ -697,7 +697,7 @@ def niceFormat(string, delim=":", extra_space=5):
         field_name = line.split(delim)[0].strip()
         value = line[len(field_name) + 1:]
         padding = " " * (extra_space + max_to_delim - len(field_name))
-        formatted_string += "{:s}{:s}{:s} {:s}\n".format(field_name, padding, delim, value)
+        formatted_string += f"{field_name}{padding}{delim} {value}\n"
 
     return formatted_string
 
@@ -804,7 +804,7 @@ def obfuscatePassword(url):
                 return re.sub(pattern, r'\1****\3', url)
         return url
     except Exception as e:
-        log.error("Error in obfuscate_password: %s", str(e))
+        log.error(f"Error in obfuscate_password: {str(e)}")
         return "[URL_REDACTED_DUE_TO_ERROR]"
 
 
@@ -883,7 +883,7 @@ def tarWithProgress(source_dir, tar_path, compression='bz2', remove_source=False
             log.info("Nothing to archive")
             return False
 
-        log.info("Found {:d} files to archive".format(total_files))
+        log.info(f"Found {total_files:d} files to archive")
                 
         # 2. Create tarball -----------------------------------------------------
         mode = 'w:bz2' if compression == 'bz2' else 'w:gz'
@@ -895,7 +895,7 @@ def tarWithProgress(source_dir, tar_path, compression='bz2', remove_source=False
                 
                 # Check if the file is outside the base directory
                 if rel.startswith(os.pardir):
-                    raise ValueError("{} is outside {}".format(fpath, base_dir))
+                    raise ValueError(f"{fpath} is outside {base_dir}")
                 
                 arcname = os.path.join(os.path.basename(base_dir), rel)
                 tar.add(fpath, arcname=arcname)
@@ -904,8 +904,7 @@ def tarWithProgress(source_dir, tar_path, compression='bz2', remove_source=False
                 pct = int(processed * 100.0/total_files)
                 if pct >= last_pct + 5:
                     last_pct = (pct//5)*5
-                    print("Archiving progress: {}% ({}/{})".format(
-                          last_pct, processed, total_files))
+                    print(f"Archiving progress: {last_pct}% ({processed}/{total_files})")
         
         # 3. Verify -------------------------------------------------------------
         log.info("Verifying archive integrity...")
@@ -918,24 +917,21 @@ def tarWithProgress(source_dir, tar_path, compression='bz2', remove_source=False
         with tarfile.open(tar_path, read_mode) as tst:
             archive_files = len(tst.getnames())
             if archive_files < total_files:
-                log.error("Archive verification failed: wanted >={} files, found {}".format(
-                          total_files, archive_files))
+                log.error(f"Archive verification failed: wanted >={total_files} files, found {archive_files}")
                 return False
-            log.info("Archive verified successfully: contains {} files".format(
-                     archive_files))
-            print("Archive verified successfully: contains {} files".format(
-                  archive_files))
+            log.info(f"Archive verified successfully: contains {archive_files} files")
+            print(f"Archive verified successfully: contains {archive_files} files")
 
         # 4. Optional cleanup ---------------------------------------------------
         if remove_source and file_list is None and source_dir:
-            log.info("Removing source directory {} ...".format(source_dir))
+            log.info(f"Removing source directory {source_dir} ...")
             shutil.rmtree(source_dir)
             log.info("Source directory removed")
 
         return True
 
     except Exception as e:
-        log.error("Error creating archive: {}".format(e))
+        log.error(f"Error creating archive: {e}")
         log.error("".join(traceback.format_exception(*sys.exc_info())))
         return False
 

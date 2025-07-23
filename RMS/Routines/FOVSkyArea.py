@@ -37,8 +37,8 @@ def fovSkyArea(platepar, mask=None, side_points=20):
     if mask is not None:
         if (mask.img.shape[0] != platepar.Y_res) or (mask.img.shape[1] != platepar.X_res):
             print("The mask has the wrong shape, so it will be ignored!")
-            print("     Mask     = {:d}x{:d}".format(mask.img.shape[1], mask.img.shape[0]))
-            print("     Platepar = {:d}x{:d}".format(platepar.X_res, platepar.Y_res))
+            print(f"     Mask     = {mask.img.shape[1]:d}x{mask.img.shape[0]:d}")
+            print(f"     Platepar = {platepar.X_res:d}x{platepar.Y_res:d}")
             mask = None
 
     # If the mask is not given, make a dummy mask with all white pixels
@@ -169,13 +169,13 @@ if __name__ == "__main__":
     mask = None
     if cml_args.mask is not None:
         mask = loadMask(cml_args.mask)
-        print("Mask file: {:s}".format(cml_args.mask))
+        print(f"Mask file: {cml_args.mask}")
 
 
     # Compute the FOV area
     fov_area_sq_deg = fovSkyArea(pp, mask=mask, side_points=cml_args.side_points)
 
-    print("Platepar file: {:s}".format(cml_args.platepar))
-    print("Resolution: {:d} x {:d}".format(pp.X_res, pp.Y_res))
-    print("FOV area: {:.2f} square degrees".format(fov_area_sq_deg))
+    print(f"Platepar file: {cml_args.platepar}")
+    print(f"Resolution: {pp.X_res:d} x {pp.Y_res:d}")
+    print(f"FOV area: {fov_area_sq_deg:.2f} square degrees")
 

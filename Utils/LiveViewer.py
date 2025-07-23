@@ -152,7 +152,7 @@ class LiveViewer(multiprocessing.Process):
                     # If an FF files could not be loaded on the first run, show an empty image
                     if first_run:
                         img = np.zeros((720, 1280))
-                        text = "The FF file {:s} could not be loaded.".format(ff_name)
+                        text = f"The FF file {ff_name} could not be loaded."
 
                     # Otherwise, just wait one more pause interval
                     else:
@@ -186,7 +186,7 @@ class LiveViewer(multiprocessing.Process):
 
             # If there are no FF files in the directory, show an empty image
             if (not len(ff_list)) and (not len(new_ffs)) and (not showing_empty):
-                text = "No FF files found in the given directory as of yet: {:s}".format(self.dir_path)
+                text = f"No FF files found in the given directory as of yet: {self.dir_path}"
                 img = np.zeros((720, 1280))
                 showing_empty = None
 
@@ -244,13 +244,13 @@ class LiveViewer(multiprocessing.Process):
                     
                 except:
                     img = np.zeros((720, 1280), dtype='uint8')
-                    text = "The image {:s} could not be loaded.".format(self.dir_path)
+                    text = f"The image {self.dir_path} could not be loaded."
 
             else:
                 # If an FF files could not be loaded on the first run, show an empty image
                 if first_run:
                     img = np.zeros((720, 1280), dtype='uint8')
-                    text = "The image {:s} could not be loaded.".format(self.dir_path)
+                    text = f"The image {self.dir_path} could not be loaded."
 
                 # Otherwise, just wait one more pause interval
                 else:

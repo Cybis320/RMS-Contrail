@@ -61,7 +61,7 @@ def plotFOVSkyMap(platepars, configs, out_dir, north_up=False, show_pointing=Fal
         else:
             mask = None
 
-        print("Computing FOV for {:s}".format(pp.station_code))
+        print(f"Computing FOV for {pp.station_code}")
 
         # Compute the edges of the
         side_points_latlon = fovArea(pp, mask=mask, area_ht=ref_ht, side_points=50, elev_limit=0)
@@ -119,11 +119,11 @@ def plotFOVSkyMap(platepars, configs, out_dir, north_up=False, show_pointing=Fal
                     rot -= 180
 
         if show_pointing:
-            fov_label += "\n az:{:.1f} el:{:.1f}".format(pp.az_centre, pp.alt_centre)
+            fov_label += f"\n az:{pp.az_centre:.1f} el:{pp.alt_centre:.1f}"
             label_size -= 1
 
         if show_fov:
-            fov_label += "\n{:.1f} x {:.1f}, {:.1f} sq deg".format(pp.fov_h, pp.fov_v, fov_area)
+            fov_label += f"\n{pp.fov_h:.1f} x {pp.fov_v:.1f}, {fov_area:.1f} sq deg"
             label_size -= 1
 
 
@@ -135,17 +135,17 @@ def plotFOVSkyMap(platepars, configs, out_dir, north_up=False, show_pointing=Fal
                     label_size -= 1
                 except:
                     ip = ""
-                fov_label += "\n{}".format(ip)
+                fov_label += f"\n{ip}"
             if show_coordinates:
                 if c.latitude > 0:
-                    lat = "N{:.6f}".format(0 + c.latitude)
+                    lat = f"N{0 + c.latitude:.6f}"
                 else:
-                    lat = "S{:.6f}".format(0 - c.latitude)
+                    lat = f"S{0 - c.latitude:.6f}"
                 if c.longitude > 0:
-                    lon = "E{:.6f}".format(0 + c.longitude)
+                    lon = f"E{0 + c.longitude:.6f}"
                 else:
-                    lon = "W{:.6f}".format(0 - c.longitude)
-                fov_label += "\n{} {}".format(lat, lon)
+                    lon = f"W{0 - c.longitude:.6f}"
+                fov_label += f"\n{lat} {lon}"
 
         # Plot the station name at the middle of the FOV
         ax.text(np.radians(pp.az_centre), pp.alt_centre, fov_label, va='center', ha='center',
@@ -175,7 +175,7 @@ def plotFOVSkyMap(platepars, configs, out_dir, north_up=False, show_pointing=Fal
     if os.path.isdir(plot_path):
         plot_path = os.path.join(plot_path, "fov_sky_map.png")
     plt.savefig(plot_path, dpi=150)
-    print("FOV sky map saved to: {:s}".format(plot_path))
+    print(f"FOV sky map saved to: {plot_path}")
 
 
 if __name__ == "__main__":
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
     cml_args.dir_path = os.path.expanduser(cml_args.dir_path)
     if not os.path.isdir(cml_args.dir_path):
-        print("Input directory {:s} does not exist, quitting.".format(cml_args.dir_path))
+        print(f"Input directory {cml_args.dir_path} does not exist, quitting.")
         quit()
 
     if cml_args.output_file_name is None:
@@ -248,7 +248,7 @@ if __name__ == "__main__":
         output_file_name = cml_args.output_file_name[0]
 
     if not os.path.isdir(output_file_name) and not os.path.isdir(os.path.dirname(output_file_name)):
-        print("Output directory {:s} does not exist, quitting.".format(os.path.dirname(output_file_name)))
+        print(f"Output directory {os.path.dirname(output_file_name)} does not exist, quitting.")
         quit()
 
 
@@ -271,22 +271,22 @@ if __name__ == "__main__":
             # If the station
             # code already exists, skip it
             if pp.station_code in platepars:
-                print("Skipping already added station: {:s}".format(pp_path))
+                print(f"Skipping already added station: {pp_path}")
                 continue
 
             print()
-            print("Loaded platepar for {:s}: {:s}".format(pp.station_code, pp_path))
+            print(f"Loaded platepar for {pp.station_code}: {pp_path}")
             platepars[pp.station_code] = pp
 
             if cml_args.show_ip:
                 if os.path.exists(config_path):
                     configs[pp.station_code] = cr.parse(config_path)
-                    print("Loaded config for   {:s}: {:s}".format(pp.station_code, config_path))
+                    print(f"Loaded config for   {pp.station_code}: {config_path}")
 
             # Also add a mask if it's available
             if config.mask_file in file_list:
                 masks[pp.station_code] = loadMask(os.path.join(dir_path, config.mask_file))
-                print("Loaded mask for     {:s}: {:s}".format(pp.station_code, pp_path))
+                print(f"Loaded mask for     {pp.station_code}: {pp_path}")
 
 
 

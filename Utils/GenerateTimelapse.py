@@ -85,10 +85,10 @@ def generateTimelapse(dir_path, keep_images=False, fps=None, output_file=None, h
 
     if os.path.exists(dir_tmp_path):
         shutil.rmtree(dir_tmp_path)
-        log.info("Directory removal complete: {}".format(dir_tmp_path))
+        log.info(f"Directory removal complete: {dir_tmp_path}")
 		
     mkdirP(dir_tmp_path)
-    log.info("Created directory : {}".format(dir_tmp_path))
+    log.info(f"Created directory : {dir_tmp_path}")
     
     log.info("Preparing files for the timelapse...")
     c = 0
@@ -121,7 +121,7 @@ def generateTimelapse(dir_path, keep_images=False, fps=None, output_file=None, h
         camid = file_split[i]
 
         # Make a filename for the image, continuous count %04d
-        img_file_name = 'temp_{:04d}.jpg'.format(c)
+        img_file_name = f'temp_{c:04d}.jpg'
 
         img = ff.maxpixel
 
@@ -142,8 +142,7 @@ def generateTimelapse(dir_path, keep_images=False, fps=None, output_file=None, h
 
         # Print elapsed time
         if c % 30 == 0:
-            print("{:>5d}/{:>5d}, Elapsed: {:s}".format(c, len(ff_list), \
-                str(RmsDateTime.utcnow() - t1)), end="\r")
+            print(f"{c:>5d}/{len(ff_list):>5d}, Elapsed: {str(RmsDateTime.utcnow() - t1)}", end="\r")
             sys.stdout.flush()
 
 
@@ -167,7 +166,7 @@ def generateTimelapse(dir_path, keep_images=False, fps=None, output_file=None, h
             + " -movflags faststart -threads 2 -g 15 -vf \"hqdn3d=4:3:6:4.5,lutyuv=y=gammaval(0.77)\" " \
             + mp4_path
 
-        log.info("Creating timelapse using {}...".format(software_name))
+        log.info(f"Creating timelapse using {software_name}...")
         log.info(com)
         subprocess.call([com], shell=True)
 
@@ -196,7 +195,7 @@ def generateTimelapse(dir_path, keep_images=False, fps=None, output_file=None, h
     #Delete temporary directory and files inside
     if os.path.exists(dir_tmp_path) and not keep_images:
         shutil.rmtree(dir_tmp_path)
-        log.info("Directory removal complete: {}".format(dir_tmp_path))
+        log.info(f"Directory removal complete: {dir_tmp_path}")
 		
     log.info("Total time: %s", RmsDateTime.utcnow() - t1)
 
@@ -264,8 +263,8 @@ def _timestampFromName(fname):
     """
     m = IMAGE_PATTERN.match(os.path.basename(fname))
     if not m:
-        raise ValueError("Bad filename: {}".format(fname))
-    stamp = "{}{}{}".format(m.group("date"), m.group("time"), m.group("msec"))
+        raise ValueError(f"Bad filename: {fname}")
+    stamp = f"{m.group('date')}{m.group('time')}{m.group('msec')}"
     return datetime.strptime(stamp, "%Y%m%d%H%M%S%f")  # no tzinfo
 
 
@@ -294,7 +293,7 @@ def _parse(fname):
     """
     m = IMAGE_PATTERN.match(os.path.basename(fname))
     if not m:
-        raise ValueError("Cannot parse name: {}".format(fname))
+        raise ValueError(f"Cannot parse name: {fname}")
 
     station = m.group("station")
     # Ignore milliseconds here; keep them if you ever need sub-second precision
@@ -597,7 +596,7 @@ def generateTimelapseFromFrames(image_files,
     output_dir = os.path.dirname(video_path)
     output_filename = os.path.basename(video_path)
     output_name, output_ext = os.path.splitext(output_filename)
-    temp_video_path = os.path.join(output_dir, "{}_temp{}".format(output_name, output_ext))
+    temp_video_path = os.path.join(output_dir, f"{output_name}_temp{output_ext}")
     
     # Process a valid first image to get dimensions
     # Try up to 10 images to find a valid one for dimensions
@@ -645,7 +644,7 @@ def generateTimelapseFromFrames(image_files,
         ffmpeg_path = os.path.join(os.path.dirname(__file__), "ffmpeg.exe")
 
         if not os.path.exists(ffmpeg_path):
-            log.warning("ffmpeg.exe not found in the expected location: {}".format(ffmpeg_path))
+            log.warning(f"ffmpeg.exe not found in the expected location: {ffmpeg_path}")
             return None, None
 
     else:
@@ -680,7 +679,7 @@ def generateTimelapseFromFrames(image_files,
     ffmpeg_cmd = [ffmpeg_path, "-y", "-nostdin",
                   "-f", "rawvideo", 
                   "-vcodec", "rawvideo",
-                  "-s", "{}x{}".format(width, height),
+                  "-s", f"{width}x{height}",
                   "-pix_fmt", pix_fmt,
                   "-r", str(fps),
                   "-i", "-",
@@ -696,27 +695,26 @@ def generateTimelapseFromFrames(image_files,
                   "-g", "120",
                   temp_video_path]           # Use temporary path
     
-    log.info("Starting ffmpeg process for {}...".format(video_path))
-    log.info("Video mode: {}".format('Color' if use_color else 'Grayscale'))
+    log.info(f"Starting ffmpeg process for {video_path}...")
+    log.info(f"Video mode: {'Color' if use_color else 'Grayscale'}")
     ffmpeg_process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
     
     # Initialize timestamp JSON data
     timestamp_data = {}
     
     # Process frames
-    log.info("Processing {} frames...".format(len(image_files)))
+    log.info(f"Processing {len(image_files)} frames...")
     processed_count = 0
     skipped_count = 0
     
     for index, img_path in enumerate(image_files):
         if index % 100 == 0:
-            print("Processing frame {}/{} ({:.1f}%)"
-                  .format(index, len(image_files), (index/len(image_files)*100.0)))
+            print(f"Processing frame {index}/{len(image_files)} ({index/len(image_files)*100.0:.1f}%)")
         
         # Load image with error handling
         image = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
         if image is None:
-            log.warning("Warning: Skipping corrupted or unreadable image: {}".format(img_path))
+            log.warning(f"Warning: Skipping corrupted or unreadable image: {img_path}")
             skipped_count += 1
             continue  # Skip this frame
         
@@ -741,7 +739,7 @@ def generateTimelapseFromFrames(image_files,
             cv2.putText(image, text, position, font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
             
         except Exception as e:
-            log.warning("Warning: Error processing metadata for {}: {}".format(img_path, e))
+            log.warning(f"Warning: Error processing metadata for {img_path}: {e}")
         
         # Handle color conversion based on target mode
         try:
@@ -761,22 +759,21 @@ def generateTimelapseFromFrames(image_files,
             processed_count += 1
             
         except Exception as e:
-            log.error("Warning: Error processing image {}: {}".format(img_path, e))
+            log.error(f"Warning: Error processing image {img_path}: {e}")
             skipped_count += 1
     
     # Create a temporary timestamp JSON file
     timestamp_path = video_path.replace(MP4_SUFFIX, TS_JSON_SUFFIX)
-    temp_timestamp_path = os.path.join(output_dir, "{}_temp_timestamps.json".format(output_name))
+    temp_timestamp_path = os.path.join(output_dir, f"{output_name}_temp_timestamps.json")
     
     try:
         with open(temp_timestamp_path, 'w') as f:
             json.dump(timestamp_data, f, indent=2)
     except Exception as e:
-        log.warning("Warning: Error saving timestamp data: {}".format(e))
+        log.warning(f"Warning: Error saving timestamp data: {e}")
     
     # Finalize video
-    log.info("All frames processed. Successfully processed: {}, Skipped: {}"
-             .format(processed_count, skipped_count))
+    log.info(f"All frames processed. Successfully processed: {processed_count}, Skipped: {skipped_count}")
     log.info("Finalizing video...")
     
     try:
@@ -784,7 +781,7 @@ def generateTimelapseFromFrames(image_files,
         return_code = ffmpeg_process.wait(timeout=300)  # Wait up to 5 minutes
         
         if return_code != 0:
-            log.warning("Warning: ffmpeg process exited with code {}".format(return_code))
+            log.warning(f"Warning: ffmpeg process exited with code {return_code}")
     except subprocess.TimeoutExpired:
         log.warning("Warning: ffmpeg process did not complete within timeout, terminating...")
         ffmpeg_process.terminate()
@@ -805,14 +802,14 @@ def generateTimelapseFromFrames(image_files,
             
             # Rename video file
             os.rename(temp_video_path, video_path)
-            log.info("Video created successfully: {} ({:.2f} MB)".format(video_path, video_size_mb))
+            log.info(f"Video created successfully: {video_path} ({video_size_mb:.2f} MB)")
             
             # Rename timestamp file if it exists
             if os.path.exists(temp_timestamp_path):
                 if os.path.exists(timestamp_path):
                     os.remove(timestamp_path)
                 os.rename(temp_timestamp_path, timestamp_path)
-                log.info("Timestamp data saved to: {}".format(timestamp_path))
+                log.info(f"Timestamp data saved to: {timestamp_path}")
         
             # Handle cleanup based on specified mode
             if cleanup_mode == 'delete':
@@ -831,7 +828,7 @@ def generateTimelapseFromFrames(image_files,
                     # Create a temporary tar file
                     temp_tar_path = tar_path + ".tmp"
                     
-                    log.info("Creating {} archive of {}...".format(compression, base_name))
+                    log.info(f"Creating {compression} archive of {base_name}...")
                     
                     # Determine if we should remove the source files based on cleanup_mode
                     remove_source = cleanup_mode == 'tar'
@@ -848,7 +845,7 @@ def generateTimelapseFromFrames(image_files,
                         if os.path.exists(tar_path):
                             os.remove(tar_path)
                         os.rename(temp_tar_path, tar_path)
-                        log.info("Archive created successfully at: {}".format(tar_path))
+                        log.info(f"Archive created successfully at: {tar_path}")
                         if remove_source:
                             # Remove source files if archive creation was successful
                             deleteFilesAndEmptyDirs(image_files, stop_at=frames_root)
@@ -864,7 +861,7 @@ def generateTimelapseFromFrames(image_files,
                                 pass
                     
                 except Exception as e:
-                    log.error("Error in archiving process: {}".format(e))
+                    log.error(f"Error in archiving process: {e}")
                     # Clean up temporary tar file if it exists
                     if os.path.exists(temp_tar_path):
                         try:
@@ -873,8 +870,8 @@ def generateTimelapseFromFrames(image_files,
                             pass
 
         except Exception as e:
-            log.error("Error finalizing files: {}".format(e))
-            log.info("Temporary file remains at: {}".format(temp_video_path))
+            log.error(f"Error finalizing files: {e}")
+            log.info(f"Temporary file remains at: {temp_video_path}")
         
         return video_path, timestamp_path
    
@@ -885,7 +882,7 @@ def generateTimelapseFromFrames(image_files,
             if os.path.exists(temp_file):
                 try:
                     os.remove(temp_file)
-                    log.info("Removed incomplete temporary file: {}".format(temp_file))
+                    log.info(f"Removed incomplete temporary file: {temp_file}")
                 except:
                     pass
         return None, None
@@ -925,22 +922,22 @@ def main():
     # Set default output path if not specified
     if not args.output:
         input_dir_name = os.path.basename(os.path.normpath(args.input_dir))
-        args.output = os.path.join(os.path.dirname(args.input_dir), "{}_timelapse.mp4".format(input_dir_name))
+        args.output = os.path.join(os.path.dirname(args.input_dir), f"{input_dir_name}_timelapse.mp4")
     
     # Print configuration
     print("Timelapse Generator Configuration:")
-    print("  Input directory: {}".format(args.input_dir))
-    print("  Output video: {}".format(args.output))
-    print("  FPS: {}".format(args.fps))
-    print("  CRF value: {}".format(args.crf))
-    print("  Cleanup mode: {}".format(args.cleanup))
+    print(f"  Input directory: {args.input_dir}")
+    print(f"  Output video: {args.output}")
+    print(f"  FPS: {args.fps}")
+    print(f"  CRF value: {args.crf}")
+    print(f"  Cleanup mode: {args.cleanup}")
     if args.cleanup == 'tar':
-        print("  Compression: {}".format(args.compression))
-    print("  Video mode: {}".format('Grayscale' if args.grayscale else 'Color'))
+        print(f"  Compression: {args.compression}")
+    print(f"  Video mode: {'Grayscale' if args.grayscale else 'Color'}")
     
     # Record start time
     start_time = datetime.now()
-    print("Starting process at: {}".format(start_time))
+    print(f"Starting process at: {start_time}")
     
 
 
@@ -959,7 +956,7 @@ def main():
             )
 
         except Exception as e:
-            print("Error generating timelapse: {}".format(e))
+            print(f"Error generating timelapse: {e}")
             traceback.print_exc()
             return 1
 
@@ -979,14 +976,14 @@ def main():
             # Record and print completion time and duration
             end_time = datetime.now()
             duration = end_time - start_time
-            print("Process completed at: {}".format(end_time))
-            print("Total processing time: {}".format(duration))
+            print(f"Process completed at: {end_time}")
+            print(f"Total processing time: {duration}")
 
             # Print file sizes if successful
             if video_path and os.path.exists(video_path):
                 video_size = os.path.getsize(video_path) / (1024 * 1024)
 
-                print("Output video size: {:.2f} MB".format(video_size))
+                print(f"Output video size: {video_size:.2f} MB")
 
                 # Check if tar was created
                 if args.cleanup == 'tar':
@@ -996,10 +993,10 @@ def main():
 
                     if os.path.exists(tar_path):
                         tar_size = os.path.getsize(tar_path) / (1024 * 1024)  # Convert to MB
-                        print("Archive size: {:.2f} MB".format(tar_size))
+                        print(f"Archive size: {tar_size:.2f} MB")
 
         except Exception as e:
-            print("Error generating timelapse: {}".format(e))
+            print(f"Error generating timelapse: {e}")
             traceback.print_exc()
             return 1
     

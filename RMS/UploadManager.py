@@ -60,14 +60,14 @@ def existsRemoteDirectory(sftp,path):
             if sftp_return[0] == 'd':
                 return True
             else:
-                log.error("{} must be a directory, but was not.".format(path))
-                log.error("stat returns {}".format(sftp_return))
+                log.error(f"{path} must be a directory, but was not.")
+                log.error(f"stat returns {sftp_return}")
                 return False
         else:
             return False
         
     except:
-        log.error("Failure whilst checking that directory {} exists".format(path))
+        log.error(f"Failure whilst checking that directory {path} exists")
         return False
 
 def createRemoteDirectory(sftp, path):
@@ -101,7 +101,8 @@ def createRemoteDirectory(sftp, path):
         path = ''
         for i, folder in enumerate(folders):
 
-            # Join the path (if it's the first folder, don't add a slash in front to avoid make it absolute)
+            # Join the path (if it's the first folder, don't add a slash in front
+            # to avoid making it absolute)
             if (i == 0) and (not is_abspath):
                 path = folder
             else:
@@ -110,15 +111,15 @@ def createRemoteDirectory(sftp, path):
             # Check if the directory exists
             try:
                 sftp.stat(path)
-                log.debug("Directory '{}' already exists.".format(path))
+                log.debug(f"Directory '{path}' already exists.")
 
             except FileNotFoundError:
 
                 sftp.mkdir(path)
-                log.debug("Directory '{}' created.".format(path))
+                log.debug(f"Directory '{path}' created.")
             
             except Exception as e:
-                log.error("Unable to stat directory '{}': {}".format(path, e))
+                log.error(f"Unable to stat directory '{path}': {e}")
                 return False
         
         return True
@@ -127,7 +128,7 @@ def createRemoteDirectory(sftp, path):
     except Exception as e:
 
         # Log the exception (assuming a logging setup is in place)
-        log.error("Unable to create directory '{0}': {1}".format(path, e))
+        log.error(f"Unable to create directory '{path}': {e}")
         return False
 
 
@@ -144,8 +145,8 @@ def getSSHClient(hostname,
     Handles key-based authentication first, then falls back to the SSH agent.
     Returns an SSH client or None.
     """
-    log.debug("Paramiko version: {}".format(paramiko.__version__))
-    log.debug("Establishing SSH connection to: {}:{}...".format(hostname, port))
+    log.debug(f"Paramiko version: {paramiko.__version__}")
+    log.debug(f"Establishing SSH connection to: {hostname}:{port}...")
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -168,20 +169,20 @@ def getSSHClient(hostname,
             transport = ssh.get_transport()
             if transport and keepalive_interval > 0:
                 transport.set_keepalive(keepalive_interval)
-                log.debug("Keepalive set to {} seconds".format(keepalive_interval))
+                log.debug(f"Keepalive set to {keepalive_interval} seconds")
 
             return ssh
 
         except paramiko.SSHException as e:
-            log.warning("SSH error with provided key: {}".format(str(e)))
+            log.warning(f"SSH error with provided key: {str(e)}")
         except ValueError:
             log.warning("Key validation error.")
         except paramiko.AuthenticationException:
             log.warning("Server rejected our key - it may not be authorized")
         except IOError as e:
-            log.warning("IO error with key file: {}".format(str(e)))
+            log.warning(f"IO error with key file: {str(e)}")
         except Exception as e:
-            log.warning("Unexpected error with key file: {}".format(str(e)))
+            log.warning(f"Unexpected error with key file: {str(e)}")
 
     # Try agent-based authentication if key auth fails
     try:
@@ -200,7 +201,7 @@ def getSSHClient(hostname,
     except paramiko.AuthenticationException:
         log.warning("Agent authentication failed. No valid authorized keys found.")
     except Exception as e:
-        log.warning("SSH connection failed during agent fallback: {}".format(str(e)))
+        log.warning(f"SSH connection failed during agent fallback: {str(e)}")
     
     return None
 
@@ -229,7 +230,7 @@ def getSFTPClient(ssh):
         return sftp
 
     except Exception as e:
-        log.error("Failed to open SFTP connection: {}".format(e))
+        log.error(f"Failed to open SFTP connection: {e}")
         return None
 
 
@@ -264,18 +265,19 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
         The files are uploaded only if they do not already exist on the server, or if they are of 
         different size than the local files.
 
-        The RSA private key is used for authentication. If the key is not found, the function will try to
-        use the keys from the SSH agent (if available). Passphrase-protected keys are not supported.
+        The RSA private key is used for authentication. If the key is not found, the function
+        will try to use the keys from the SSH agent (if available). Passphrase-protected keys
+        are not supported.
 
     Arguments:
         hostname: [str] Server name or IP address.
         username: [str] Username used for connecting to the server.
         dir_local: [str] Path to the local directory where the local files are located.
-        dir_remote: [str] Path on the server where the files will be stored. It can be relative to the user's
-            home directory, or an absolute path.
-        file_list: [list or strings] A list of files to be uploaded to the server. These should only be
-            file names, not full paths. The full path is constructed from the dir_local (on the local 
-            machine) and the dir_remote (on the server).
+        dir_remote: [str] Path on the server where the files will be stored. It can be
+            relative to the user's home directory, or an absolute path.
+        file_list: [list or strings] A list of files to be uploaded to the server. These
+            should only be file names, not full paths. The full path is constructed from the
+            dir_local (on the local machine) and the dir_remote (on the server).
 
     Keyword arguments:
         port: [int] SSH port. 22 by default.
@@ -292,7 +294,8 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
         return True
 
     # Connect and use paramiko SFTP to negotiate SSH2 across the connection
-    # The whole thing is in a try block because if an error occurs, the connection will be closed at the end
+    # The whole thing is in a try block because if an error occurs, the connection
+    # will be closed at the end
 
     ssh = None
     sftp = None
@@ -312,7 +315,7 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
 
         # Optionally ensure remote directory exists
         if allow_dir_creation:
-            log.debug("Checking/creating remote dir '{}'".format(dir_remote))
+            log.debug(f"Checking/creating remote dir '{dir_remote}'")
             if not existsRemoteDirectory(sftp, dir_remote):
                 createRemoteDirectory(sftp, dir_remote)
 
@@ -320,7 +323,7 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
         try:
             sftp.stat(dir_remote)
         except Exception as e:
-            log.error("Remote directory '{}' does not exist or is not accessible: {}".format(dir_remote, e))
+            log.error(f"Remote directory '{dir_remote}' does not exist or is not accessible: {e}")
             return False
 
         # Go through all files
@@ -335,13 +338,15 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
             # Path to the remote file
             remote_file = dir_remote + '/' + os.path.basename(fname)
 
-            # Check if the remote file already exists and skip it if it has the same size as the local file
+            # Check if the remote file already exists and skip it if it has the same
+            # size as the local file
             try:
                 remote_info = sftp.lstat(remote_file)
                 
                 # If the remote and the local file are of the same size, skip it
                 if local_file_size == remote_info.st_size:
-                    log.debug("The file '{}' already exists on the server and is the same size. Skipping.".format(remote_file))
+                    log.debug(f"The file '{remote_file}' already exists on the server "
+                              f"and is the same size. Skipping.")
                     continue
             
             except IOError as e:
@@ -369,8 +374,9 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
                     
                     # Only update when the percentage changes by at least update_interval
                     # Also prevent duplicate 100% messages
-                    if (percent_complete >= tracker.last_percent + update_interval and tracker.last_percent < 100.0) \
-                        or (percent_complete == 100.0 and tracker.last_percent != 100.0):
+                    if ((percent_complete >= tracker.last_percent + update_interval and 
+                         tracker.last_percent < 100.0) or 
+                        (percent_complete == 100.0 and tracker.last_percent != 100.0)):
                         
                         elapsed_time = time.time() - tracker.start_time
                         
@@ -380,61 +386,51 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
                             
                             # Format as MB/s if over 1024 KB/s
                             if transfer_rate > 1024:
-                                transfer_rate_str = "{:.2f} MB/s".format(transfer_rate/1024)
+                                transfer_rate_str = f"{transfer_rate/1024:.2f} MB/s"
                             else:
-                                transfer_rate_str = "{:.2f} KB/s".format(transfer_rate)
+                                transfer_rate_str = f"{transfer_rate:.2f} KB/s"
                             
                             # Estimate time remaining
                             if percent_complete > 0 and percent_complete < 100.0:
-                                time_remaining = (elapsed_time/percent_complete)*(100 - percent_complete)
+                                time_remaining = ((elapsed_time/percent_complete) * 
+                                                (100 - percent_complete))
                                 # Format time remaining
                                 if time_remaining > 60:
-                                    time_str = "{:.1f} min remaining".format(time_remaining/60)
+                                    time_str = f"{time_remaining/60:.1f} min remaining"
                                 else:
-                                    time_str = "{:.0f} sec remaining".format(time_remaining)
+                                    time_str = f"{time_remaining:.0f} sec remaining"
                                 
-                                print('[{:.1f}%] Uploading: {} ({}/{}) @ {} - {}'.format(
-                                    percent_complete,
-                                    os.path.basename(local_file),
-                                    formatSize(tracker.uploaded_bytes),
-                                    formatSize(tracker.total_bytes),
-                                    transfer_rate_str,
-                                    time_str,
-                                    end=''
-                                ))
+                                print(f'[{percent_complete:.1f}%] Uploading: '
+                                      f'{os.path.basename(local_file)} '
+                                      f'({formatSize(tracker.uploaded_bytes)}/'
+                                      f'{formatSize(tracker.total_bytes)}) @ '
+                                      f'{transfer_rate_str} - {time_str}', end='')
                             else:
                                 # At 100%, show "complete" instead of remaining time
                                 if percent_complete == 100.0:
-                                    print('[100.0%] Upload complete: {} ({}/{}) @ {}'.format(
-                                        os.path.basename(local_file),
-                                        formatSize(tracker.uploaded_bytes),
-                                        formatSize(tracker.total_bytes),
-                                        transfer_rate_str
-                                    ))
+                                    print(f'[100.0%] Upload complete: '
+                                          f'{os.path.basename(local_file)} '
+                                          f'({formatSize(tracker.uploaded_bytes)}/'
+                                          f'{formatSize(tracker.total_bytes)}) @ '
+                                          f'{transfer_rate_str}')
                                 else:
-                                    print('[{:.1f}%] Uploading: {} ({}/{}) @ {}'.format(
-                                        percent_complete,
-                                        os.path.basename(local_file),
-                                        formatSize(tracker.uploaded_bytes),
-                                        formatSize(tracker.total_bytes),
-                                        transfer_rate_str,
-                                        end=''
-                                    ))
+                                    print(f'[{percent_complete:.1f}%] Uploading: '
+                                          f'{os.path.basename(local_file)} '
+                                          f'({formatSize(tracker.uploaded_bytes)}/'
+                                          f'{formatSize(tracker.total_bytes)}) @ '
+                                          f'{transfer_rate_str}', end='')
                         
                         else:
-                            print('[{:.1f}%] Uploading: {} ({}/{})'.format(
-                                percent_complete,
-                                os.path.basename(local_file),
-                                formatSize(tracker.uploaded_bytes),
-                                formatSize(tracker.total_bytes), 
-                                end=''
-                            ))
+                            print(f'[{percent_complete:.1f}%] Uploading: '
+                                  f'{os.path.basename(local_file)} '
+                                  f'({formatSize(tracker.uploaded_bytes)}/'
+                                  f'{formatSize(tracker.total_bytes)})', end='')
                         
                         tracker.last_percent = percent_complete
             
             # Upload the file to the server if it isn't already there
-            log.info('Starting upload of ' \
-                     + local_file + ' ({}) to '.format(formatSize(local_file_size)) + remote_file)
+            log.info(f'Starting upload of {local_file} '
+                     f'({formatSize(local_file_size)}) to {remote_file}')
             sftp.put(local_file, remote_file, callback=progressCallback)
             log.debug("Upload completed, verifying...")
 
@@ -443,16 +439,17 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
             
             # If the remote and the local file are of the same size, skip it
             if local_file_size != remote_info.st_size:
-                log.error('File verification failed: local size {} != remote size {}'.format(
-                    formatSize(local_file_size), formatSize(remote_info.st_size)))
+                log.error(f'File verification failed: local size '
+                          f'{formatSize(local_file_size)} != remote size '
+                          f'{formatSize(remote_info.st_size)}')
                 return False
 
-            log.debug("File upload verified: {:s}".format(remote_file))
+            log.debug(f"File upload verified: {remote_file}")
             
         return True
 
     except Exception as e:
-        log.error("Exception during SFTP upload: {}".format(e), exc_info=True)
+        log.error(f"Exception during SFTP upload: {e}", exc_info=True)
         return False
 
     finally:
@@ -468,18 +465,18 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
 def formatSize(size_bytes):
     """Format a size in bytes into a human-readable string"""
     if size_bytes < 1024:
-        return "{} B".format(size_bytes)
+        return f"{size_bytes} B"
     elif size_bytes < 1024*1024:
-        return "{:.2f} KB".format(size_bytes/1024)
+        return f"{size_bytes/1024:.2f} KB"
     elif size_bytes < 1024*1024*1024:
-        return "{:.2f} MB".format(size_bytes/(1024*1024))
+        return f"{size_bytes/(1024*1024):.2f} MB"
     else:
-        return "{:.2f} GB".format(size_bytes/(1024*1024*1024))
+        return f"{size_bytes/(1024*1024*1024):.2f} GB"
 
 class UploadManager(multiprocessing.Process):
     def __init__(self, config):
-        """ Uploads all processed data which has not yet been uploaded to the server. The files will be tried 
-            to be uploaded every 15 minutes, until successful. 
+        """ Uploads all processed data which has not yet been uploaded to the server.
+            The files will be tried to be uploaded every 15 minutes, until successful.
         
         """
 
@@ -494,15 +491,19 @@ class UploadManager(multiprocessing.Process):
         self.file_queue_lock = self._mgr.Lock()
 
         # Construct the path to the queue backup file
-        self.upload_queue_file_path = os.path.join(self.config.data_dir, self.config.upload_queue_file)
+        self.upload_queue_file_path = os.path.join(self.config.data_dir, 
+                                                   self.config.upload_queue_file)
 
         self.exit = multiprocessing.Event()
         self.upload_in_progress = multiprocessing.Value(ctypes.c_bool, False)
 
-        # These timing variables must be shared between processes using multiprocessing.Value() because
+        # These timing variables must be shared between processes using
+        # multiprocessing.Value() because:
         # 
-        # - When upload_manager.start() is called, it creates a NEW process with its own memory space
-        # - The parent process (StartCapture) and child process (UploadManager) have separate instances
+        # - When upload_manager.start() is called, it creates a NEW process
+        #   with its own memory space
+        # - The parent process (StartCapture) and child process (UploadManager)
+        #   have separate instances
         # - Parent calls addFiles() and delayNextUpload() to control timing
         # - Child runs the upload loop and checks these timing variables
         # - Without shared memory, parent's timing changes are invisible to child process
@@ -534,7 +535,8 @@ class UploadManager(multiprocessing.Process):
         """ Stops the upload manager.
         
         Keyword arguments:
-            timeout: [int] Maximum time to wait for the upload manager to stop, in seconds. Default is 60 seconds.
+            timeout: [int] Maximum time to wait for the upload manager to stop,
+                in seconds. Default is 60 seconds.
         """
 
         self.exit.set()
@@ -543,16 +545,15 @@ class UploadManager(multiprocessing.Process):
             log.info("UploadManager stopped successfully.")
             return
         
-        log.warning("UploadManager did not stop within the timeout period of {} seconds.".format(timeout))
+        log.warning(f"UploadManager did not stop within the timeout period of {timeout} seconds.")
         self.terminate()
 
         short_wait = 5
         self.join(short_wait)
         if self.is_alive():
             log.error(
-                "UploadManager still alive after terminate() & %d more seconds. "
-                "It may be stuck in a non-interruptible blocking call.",
-                short_wait
+                f"UploadManager still alive after terminate() & {short_wait} more seconds. "
+                "It may be stuck in a non-interruptible blocking call."
             )
         else:
             log.info("UploadManager terminated (after forced terminate).")
@@ -589,7 +590,8 @@ class UploadManager(multiprocessing.Process):
 
 
     def getFileList(self):
-        """ Safely get a snapshot of all items in the queue, preserving order, with thread/process lock. """
+        """ Safely get a snapshot of all items in the queue, preserving order,
+            with thread/process lock. """
 
         items = []
 
@@ -603,7 +605,7 @@ class UploadManager(multiprocessing.Process):
                 except Empty:
                     break
                 except Exception as e:
-                    log.error("Unexpected error while draining file_queue: {}".format(e), exc_info=True)
+                    log.error(f"Unexpected error while draining file_queue: {e}", exc_info=True)
                     break
 
             # Restore the queue
@@ -638,7 +640,7 @@ class UploadManager(multiprocessing.Process):
 
                     # Make sure the file for upload exists
                     if not os.path.isfile(file_name):
-                        log.warning("Local file not found: {:s}".format(file_name))
+                        log.warning(f"Local file not found: {file_name}")
                         log.warning("Skipping it...")
                         continue
 
@@ -662,8 +664,9 @@ class UploadManager(multiprocessing.Process):
         """ Save the list of file to upload to disk, for bookkeeping in case of a power failure. 
     
         Keyword arguments:
-            overwrite: [bool] If True, the holding file will be overwritten. Otherwise (default), the entries
-                that are not in the file will be added at the end of the file.
+            overwrite: [bool] If True, the holding file will be overwritten.
+                Otherwise (default), the entries that are not in the file will be
+                added at the end of the file.
         """
 
         # Convert the queue to a list
@@ -682,7 +685,8 @@ class UploadManager(multiprocessing.Process):
 
         else:
 
-            # Load the list from the file and make sure to write only the entries not already in the file
+            # Load the list from the file and make sure to write only the entries
+            # not already in the file
 
             # Get a list of entries in the holding file
             existing_list = []
@@ -692,7 +696,7 @@ class UploadManager(multiprocessing.Process):
                         file_name = file_name.replace('\n', '').replace('\r', '')
                         existing_list.append(file_name)
             except FileNotFoundError:
-                log.warning("Upload queue file not found: {:s}".format(self.upload_queue_file_path))
+                log.warning(f"Upload queue file not found: {self.upload_queue_file_path}")
                 log.warning("Creating a new upload queue file.")
 
                 # If the file does not exist, create it
@@ -709,11 +713,11 @@ class UploadManager(multiprocessing.Process):
 
 
     def uploadData(self, retries=5):
-        """ Pulls the upload list from a file, tries to upload the file, and if it fails it saves the list of 
-            failed files to disk. 
+        """ Pulls the upload list from a file, tries to upload the file, and if it
+            fails it saves the list of failed files to disk.
 
         Keyword arguments:
-            retries: [int] Number of tried to upload a file before giving up.
+            retries: [int] Number of tries to upload a file before giving up.
         """
 
         # Skip uploading if the upload is already in progress
@@ -747,12 +751,20 @@ class UploadManager(multiprocessing.Process):
             # Separate the path to the file and the file name
             data_path, f_name = os.path.split(file_name)
 
-            # Upload the file via SFTP (use the lowercase version of the station ID as the username)
-            upload_status = uploadSFTP(self.config.hostname, self.config.stationID.lower(), data_path, \
-                self.config.remote_dir, [f_name], rsa_private_key=self.config.rsa_private_key, 
-                port=self.config.host_port)
+            # Upload the file via SFTP (use the lowercase version of the station ID
+            # as the username)
+            upload_status = uploadSFTP(
+                self.config.hostname, 
+                self.config.stationID.lower(), 
+                data_path,
+                self.config.remote_dir, 
+                [f_name], 
+                rsa_private_key=self.config.rsa_private_key,
+                port=self.config.host_port
+            )
 
-            # If the upload was successful, rewrite the holding file, which will remove the uploaded file
+            # If the upload was successful, rewrite the holding file, which will
+            # remove the uploaded file
             if upload_status:
                 log.info('Upload successful!')
                 self.saveQueue(overwrite=True)
@@ -761,7 +773,7 @@ class UploadManager(multiprocessing.Process):
             # If the upload failed, put the file back on the list and wait a bit
             else:
 
-                log.warning('Uploading failed! Retry {:d} of {:d}'.format(tries + 1, retries))
+                log.warning(f'Uploading failed! Retry {tries + 1:d} of {retries:d}')
 
                 tries += 1 
                 with self.file_queue_lock:
@@ -787,8 +799,9 @@ class UploadManager(multiprocessing.Process):
 
             if delay > 0:
                 # Log the delay
-                next_time_str = UTCFromTimestamp.utcfromtimestamp(self.next_runtime.value).strftime('%Y-%m-%d %H:%M:%S')
-                log.info("Upload delayed for {:.1f} min until {:s} UTC".format(delay/60, next_time_str))
+                next_time_str = (UTCFromTimestamp.utcfromtimestamp(self.next_runtime.value)
+                                .strftime('%Y-%m-%d %H:%M:%S'))
+                log.info(f"Upload delayed for {delay/60:.1f} min until {next_time_str} UTC")
             else:
                 # Log that the upload will run immediately
                 log.info("Upload will run immediately")

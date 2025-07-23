@@ -123,7 +123,7 @@ def extractStars(img, img_median=None, mask=None, gamma=1.0, max_star_candidates
 
     # Skip the image if there are too many maxima to process
     if num_objects > max_star_candidates:
-        log.warning('Too many candidate stars to process! {:d}/{:d}'.format(num_objects, max_star_candidates))
+        log.warning(f'Too many candidate stars to process! {num_objects:d}/{max_star_candidates:d}')
         return False
 
     # Find centres of mass of each labeled objects
@@ -227,8 +227,7 @@ def extractStarsAuto(img, mask=None,
         if len(x_data) < min_stars_detect:
 
             if verbose:
-                print("Skipping, the number of stars {:d} outside {:d} - {:d} range".format(
-                    len(x_data), min_stars_detect, max_stars_detect))
+                print(f"Skipping, the number of stars {len(x_data):d} outside {min_stars_detect:d} - {max_stars_detect:d} range")
             
             continue
         
@@ -471,11 +470,7 @@ def extractStarsImgHandle(img_handle,
         print("Num frames:", img_handle.chunk_frames)
         print("Number of stars:", len(x_arr))
         for x, y, a, i, f, bg, s, satcnt in zip(x_arr, y_arr, amplitude, intensity, fwhm, background, snr, saturated_count):
-            print("{:7.2f} {:7.2f} {:9d} {:6d} {:5.2f} {:6d} {:5.2f} {:6d}".format(
-                round(y, 2), round(x, 2), 
-                int(a), int(i), f, int(bg), s, int(satcnt)
-                )
-            )
+            print(f"{round(y, 2):7.2f} {round(x, 2):7.2f} {int(a):9d} {int(i):6d} {f:5.2f} {int(bg):6d} {s:5.2f} {int(satcnt):6d}")
 
 
         star_list.append(
@@ -860,7 +855,7 @@ def extractStarsAndSave(config, ff_dir):
     if dir_name.startswith(config.stationID):
         prefix = dir_name
     else:
-        prefix = "{:s}_{:s}".format(config.stationID, dir_name)
+        prefix = f"{config.stationID:s}_{dir_name:s}"
 
     # Generate the name for the CALSTARS file
     calstars_name = 'CALSTARS_' + prefix + '.txt'
@@ -873,7 +868,7 @@ def extractStarsAndSave(config, ff_dir):
     if workpool is not None:
         workpool.deleteBackupFiles()
 
-    log.info('Total time taken: {:.2f} s'.format(time.time() - time_start))
+    log.info(f'Total time taken: {time.time() - time_start:.2f} s')
 
 
     return star_list
@@ -935,8 +930,7 @@ if __name__ == "__main__":
         print(ff_name)
         print('  ROW     COL       amp  intens FWHM Bg SNR SatCount')
         for x, y, max_ampl, level, fwhm, background, snr, saturated_count in star_data:
-            print(' {:7.2f} {:7.2f} {:6d} {:6d} {:5.2f} {:6d} {:5.2f} {:6d}'.format(round(y, 2), round(x, 2), int(max_ampl), \
-                int(level), fwhm, int(background), snr, saturated_count))
+            print(f' {round(y, 2):7.2f} {round(x, 2):7.2f} {int(max_ampl):6d} {int(level):6d} {fwhm:5.2f} {int(background):6d} {snr:5.2f} {saturated_count:6d}')
 
 
         x2, y2, amplitude, intensity, fwhm_data, background, snr, saturated_count = np.array(star_data).T
@@ -967,7 +961,7 @@ if __name__ == "__main__":
     # Show the histogram of PSF FWHMs
     if cml_args.showstd:
 
-        print('Median FWHM: {:.3f}'.format(np.median(fwhm_list)))
+        print(f'Median FWHM: {np.median(fwhm_list):.3f}')
 
         # Compute the bin number
         nbins = int(np.ceil(np.sqrt(len(fwhm_list))))

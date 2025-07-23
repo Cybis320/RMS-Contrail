@@ -127,13 +127,7 @@ class RawFrameSaver(multiprocessing.Process):
             else:
                 file_extension = '.jpg'
 
-            filename = "{0}_{1}_{2:03d}{3}{4}".format(
-                str(self.config.stationID).zfill(3),
-                date_string,
-                millis,
-                mode_suffix,
-                file_extension
-            )
+            filename = f"{str(self.config.stationID).zfill(3)}_{date_string}_{millis:03d}{mode_suffix}{file_extension}"
 
             # Full path for saving the file
             frame_dir_path = os.path.join(self.saved_frames_dir, timed_dir_string)
@@ -148,10 +142,10 @@ class RawFrameSaver(multiprocessing.Process):
                 else:
                     cv2.imwrite(frame_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.config.jpgs_quality])
 
-                log.info("Frame saved: {0}".format(filename))
+                log.info(f"Frame saved: {filename}")
 
             except Exception as e:
-                log.error("Could not save frame to disk: {0}".format(e))
+                log.error(f"Could not save frame to disk: {e}")
 
             self.total_saved_frames += 1
 
@@ -237,7 +231,7 @@ class RawFrameSaver(multiprocessing.Process):
                     time.sleep(0.1)
                     continue
                 
-                log.debug("Saving raw frame block with start time at: {:s}".format(str(startTime)))
+                log.debug(f"Saving raw frame block with start time at: {str(startTime)}")
 
                 t = time.time()
 
@@ -250,7 +244,7 @@ class RawFrameSaver(multiprocessing.Process):
                 else:
                     self.start_time2.value = 0
 
-                log.debug("Raw frame block saving time: {:.3f} s".format(time.time() - t))
+                log.debug(f"Raw frame block saving time: {time.time() - t:.3f} s")
 
             log.debug('Raw frame saver run exit')
             time.sleep(1.0)
@@ -261,7 +255,7 @@ class RawFrameSaver(multiprocessing.Process):
             self.exit.set()
             self.run_exited.set()
         except Exception as e:
-            log.error("Error in RawFrameSaver process: {}".format(e))
+            log.error(f"Error in RawFrameSaver process: {e}")
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
             self.exit.set()
             self.run_exited.set()

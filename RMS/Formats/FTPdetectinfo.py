@@ -29,7 +29,8 @@ if sys.version_info[0] < 3:
 
 
 def validDefaultFTPdetectinfo(file_name):
-    """ Given a name of a file, check if it's the default FTPdetectinfo file (without any extensions). 
+    """ Given a name of a file, check if it's the default FTPdetectinfo file
+        (without any extensions).
     """
 
     if file_name.startswith("FTPdetectinfo") and file_name.endswith('.txt') and \
@@ -42,8 +43,8 @@ def validDefaultFTPdetectinfo(file_name):
     return False
 
 
-def writeFTPdetectinfo(meteor_list, ff_directory, file_name, cal_directory, cam_code, fps, calibration=None,
-    celestial_coords_given=False):
+def writeFTPdetectinfo(meteor_list, ff_directory, file_name, cal_directory, cam_code, fps,
+                       calibration=None, celestial_coords_given=False):
     """ Writes a FTPdetectinfo file from the list of detected meteors. 
     
     Arguments:
@@ -56,10 +57,11 @@ def writeFTPdetectinfo(meteor_list, ff_directory, file_name, cal_directory, cam_
         fps: [float] frames per second of the camera
 
     Keyword arguments:
-        calibration: [str] String to write when the data is calibrated. None by default, which will write 
-            'Uncalibrated' in the file.
-        celestial_coords_given: [bool] If True, meteor picks in meteor_list should contain (frame, x, y, ra, 
-            dec, azim, elev, intens), if False it should contain (frame, x, y, intens).
+        calibration: [str] String to write when the data is calibrated. None by default,
+            which will write 'Uncalibrated' in the file.
+        celestial_coords_given: [bool] If True, meteor picks in meteor_list should contain
+            (frame, x, y, ra, dec, azim, elev, intens), if False it should contain
+            (frame, x, y, intens).
 
     Return:
         None
@@ -84,8 +86,8 @@ def writeFTPdetectinfo(meteor_list, ff_directory, file_name, cal_directory, cam_
         total_meteors = len(meteor_list)
         ftpdetect_file.write("Meteor Count = " + str(total_meteors).zfill(6) + "\n")
         ftpdetect_file.write("-----------------------------------------------------\n")
-        ftpdetect_file.write("Processed with RMS 1.0 " + commit_time + " " + str(sha) + " on " \
-            + str(RmsDateTime.utcnow()) + " UTC\n")
+        ftpdetect_file.write(f"Processed with RMS 1.0 {commit_time} {str(sha)} on "
+                           f"{str(RmsDateTime.utcnow())} UTC\n")
         ftpdetect_file.write("-----------------------------------------------------\n")
         ftpdetect_file.write("FF  folder = " + ff_directory + "\n")
         ftpdetect_file.write("CAL folder = " + cal_directory + "\n")
@@ -122,34 +124,12 @@ def writeFTPdetectinfo(meteor_list, ff_directory, file_name, cal_directory, cam_
                 ang_vel = 0.0
 
             # Write detection header
-            detection_header = "{:>4s} {:0>4d} {:0>4d} {:07.2f} 000.0 000.0  00.0 {:>5.1f} {:06.1f} {:06.1f}\n".format(
-                str(cam_code),
-                int(meteor_No),
-                int(len(centroids)),
-                round(float(fps), 2),
-                round(ang_vel, 1),
-                round(rho, 1),
-                round(theta, 1),
-            )
+            detection_header = (f"{str(cam_code):>4s} {int(meteor_No):0>4d} "
+                              f"{int(len(centroids)):0>4d} {round(float(fps), 2):07.2f} "
+                              f"000.0 000.0  00.0 {round(ang_vel, 1):>5.1f} "
+                              f"{round(rho, 1):06.1f} {round(theta, 1):06.1f}\n")
             ftpdetect_file.write(detection_header)
 
-
-
-            # Define the format string for detection lines
-            detection_line_str = (
-                "{:09.4f} "     # Frame
-                "{:07.2f} "     # X
-                "{:07.2f} "     # Y
-                "{:010.6f} "    # RA
-                "{:+010.6f} "   # Dec
-                "{:010.6f} "    # Azim
-                "{:+010.6f} "   # Elev
-                "{:09d} "       # Level
-                "{:+06.2f} "    # Mag
-                "{:06d} "       # Background
-                "{:05.2f} "     # SNR
-                "{:06d}\n"      # Saturated count
-            )
 
             # Write individual detection points
             for line in centroids:
@@ -230,31 +210,23 @@ def writeFTPdetectinfo(meteor_list, ff_directory, file_name, cal_directory, cam_
                     dec = elev = 0.0  # For formatting with sign
 
                 # Prepare the detection line
-                detection_line = detection_line_str.format(
-                    frame,
-                    x,
-                    y,
-                    ra,
-                    dec,
-                    azim,
-                    elev,
-                    level,
-                    mag,
-                    background,
-                    snr,
-                    saturated_count,
-                )
+                detection_line = (f"{frame:09.4f} {x:07.2f} {y:07.2f} {ra:010.6f} "
+                                 f"{dec:+010.6f} {azim:010.6f} {elev:+010.6f} "
+                                 f"{level:09d} {mag:+06.2f} {background:06d} "
+                                 f"{snr:05.2f} {saturated_count:06d}\n")
 
                 ftpdetect_file.write(detection_line)
 
 
 def findFTPdetectinfoFile(path):
-    """ Finds the FTPdetectinfo file in directory if path is a directory, otherwise will return the path """
+    """ Finds the FTPdetectinfo file in directory if path is a directory,
+        otherwise will return the path """
 
     if os.path.isfile(path):
         return path
 
-    ftpdetectinfo_files = [filename for filename in sorted(os.listdir(path)) if 'FTPdetectinfo_' in filename]
+    ftpdetectinfo_files = [filename for filename in sorted(os.listdir(path))
+                          if 'FTPdetectinfo_' in filename]
 
     # Remove backup files from list
     filtered_ftpdetectinfo_files = []
@@ -294,9 +266,10 @@ def readFTPdetectinfo(ff_directory, file_name, ret_input_format=False):
         file_name: [str] Name of the FTPdetectinfo file.
 
     Keyword arguments:
-        ret_input_format: [bool] If True, the list that can be written back using writeFTPdetectinfo is 
-            returned. False returns the expanded list containing everything that was read from the file (this
-            is the default behavior, thus it's False by default)
+        ret_input_format: [bool] If True, the list that can be written back using
+            writeFTPdetectinfo is returned. False returns the expanded list containing
+            everything that was read from the file (this is the default behavior, thus
+            it's False by default)
 
     Return:
         [tuple]: Two options, see ret_input_format.
@@ -311,7 +284,8 @@ def readFTPdetectinfo(ff_directory, file_name, ret_input_format=False):
         entry_counter = 0
         meteor_list = []
         meteor_meas = []
-        cam_code = meteor_No = n_segments = fps = hnr = mle = binn = px_fm = rho = phi = None
+        cam_code = meteor_No = n_segments = fps = hnr = mle = binn = None
+        px_fm = rho = phi = None
         background = snr = saturated_count = None
         calib_status = 0
 
@@ -330,8 +304,8 @@ def readFTPdetectinfo(ff_directory, file_name, ret_input_format=False):
 
                 # Add the read meteor info to the final list
                 if meteor_meas:
-                    meteor_list.append([ff_name, cam_code, meteor_No, n_segments, fps, hnr, mle, binn, \
-                        px_fm, rho, phi, meteor_meas])
+                    meteor_list.append([ff_name, cam_code, meteor_No, n_segments, fps,
+                                       hnr, mle, binn, px_fm, rho, phi, meteor_meas])
 
                 # Reset the line counter to 0
                 entry_counter = 0
@@ -355,8 +329,9 @@ def readFTPdetectinfo(ff_directory, file_name, ret_input_format=False):
             # Read the meteor parameters
             if entry_counter == 3:
                 cam_code, meteor_No, n_segments, fps, hnr, mle, binn, px_fm, rho, phi = line.split()
-                meteor_No, n_segments, fps, hnr, mle, binn, px_fm, rho, phi = list(map(float, [meteor_No, \
-                    n_segments, fps, hnr, mle, binn, px_fm, rho, phi]))
+                meteor_No, n_segments, fps, hnr, mle, binn, px_fm, rho, phi = list(
+                    map(float, [meteor_No, n_segments, fps, hnr, mle, binn, px_fm, rho, phi])
+                )
 
             # Read meteor measurements
             if entry_counter > 3:
@@ -401,8 +376,8 @@ def readFTPdetectinfo(ff_directory, file_name, ret_input_format=False):
 
         # Add the last entry to the list
         if meteor_meas:
-            meteor_list.append([ff_name, cam_code, meteor_No, n_segments, fps, hnr, mle, binn, px_fm, 
-                rho, phi, meteor_meas])
+            meteor_list.append([ff_name, cam_code, meteor_No, n_segments, fps, hnr,
+                              mle, binn, px_fm, rho, phi, meteor_meas])
 
 
         # If the return in the format suitable for the writeFTPdetectinfo function, reformat the output list
@@ -411,8 +386,7 @@ def readFTPdetectinfo(ff_directory, file_name, ret_input_format=False):
             output_list = []
 
             for entry in meteor_list:
-                ff_name, cam_code, meteor_No, n_segments, fps, hnr, mle, binn, px_fm, rho, phi, \
-                    meteor_meas = entry
+                ff_name, cam_code, meteor_No, n_segments, fps, hnr, mle, binn, px_fm, rho, phi, meteor_meas = entry
 
                 # Remove the calibration status from the list of centroids
                 meteor_meas = [line[1:] for line in meteor_meas]

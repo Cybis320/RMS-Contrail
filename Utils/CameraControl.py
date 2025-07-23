@@ -184,7 +184,7 @@ def loadFromFile():
     for filename, config_name in config_files.items():
         file_path = os.path.join('./camerasettings/', filename)
         if not os.path.exists(file_path):
-            log.info("Warning: {} not found. Skipping.".format(filename))
+            log.info(f"Warning: {filename} not found. Skipping.")
             configs[config_name] = None
             continue
 
@@ -359,7 +359,7 @@ def setEncodeParam(cam, opts):
         params[0]['MainFormat'][fld] = val
 
     cam.set_info("Simplify.Encode", params)
-    log.info('Set {} {} to {}'.format(fld, subfld, val))
+    log.info(f'Set {fld} {subfld} to {val}')
 
 
 def setNetworkParam(cam, opts):
@@ -435,7 +435,7 @@ def setVideoFormatParam(cam, opts):
             log.info('VideoFormat must be PAL or NTSC')
             return
         cam.set_info("General.Location.VideoFormat", val)
-        log.info("Video Format set to {}".format(val))
+        log.info(f"Video Format set to {val}")
 
     else:
         log.info('usage: SetParam General VideoFormat PAL')
@@ -469,16 +469,16 @@ def setCameraParam(cam, opts):
             log.info('Invalid ClearFog subfield. Use "enable" or "level".')
             return
 
-        log.info('Set Camera.ClearFog.[0].{} to {}'.format(subfld, val))
+        log.info(f'Set Camera.ClearFog.[0].{subfld} to {val}')
         cam.set_info("Camera.ClearFog.[0]", {subfld: val})
 
     # these fields are stored in the ParamEx.[0] block
     elif fld == 'Style':
         val = opts[2]
         if val not in styleFlds:
-            log.info('style must be one of {}'.format(styleFlds))
+            log.info(f'style must be one of {styleFlds}')
             return
-        log.info('Set Camera.ParamEx.[0].{} to {}'.format(fld, val))
+        log.info(f'Set Camera.ParamEx.[0].{fld} to {val}')
         cam.set_info("Camera.ParamEx.[0]", {fld: val})
 
     elif fld == 'BroadTrends':
@@ -486,7 +486,7 @@ def setCameraParam(cam, opts):
         val = int(opts[3])
         if subfld in ('AutoGain', 'Gain'):
             fldToSet = 'Camera.ParamEx.[0].' + fld
-            log.info('Set {}.{} to {}'.format(fldToSet, subfld, val))
+            log.info(f'Set {fldToSet}.{subfld} to {val}')
             cam.set_info(fldToSet, {subfld: val})
         else:
             log.info("BroadTrends option must be 'AutoGain' or 'Gain'")
@@ -504,7 +504,7 @@ def setCameraParam(cam, opts):
                 return
             val = "0x%8.8X" % (int(val))
         fldToSet = 'Camera.Param.[0].' + fld
-        log.info('Set {}.{} to {}'.format(fldToSet, subfld, val))
+        log.info(f'Set {fldToSet}.{subfld} to {val}')
         cam.set_info(fldToSet, {subfld: val})
 
     else:
@@ -512,7 +512,7 @@ def setCameraParam(cam, opts):
         val = int(opts[2])
         if fld not in intfields:
             val = "0x%8.8X" % val
-        log.info('Set Camera.Param.[0].{} to {}'.format(fld, val))
+        log.info(f'Set Camera.Param.[0].{fld} to {val}')
         cam.set_info("Camera.Param.[0]", {fld: val})
 
 
@@ -576,7 +576,7 @@ def setColor(cam, opts):
     info[n]["VideoColorParam"]["Gain"] = g
     info[n]["VideoColorParam"]["Acutance"] = a
     # print(json.dumps(info[n], ensure_ascii=False, indent=4, sort_keys=True))
-    log.info('Set color configuration %s %s %s %s %s %s', b, c, s, h, g, a)
+    log.info(f'Set color configuration {b} {c} {s} {h} {g} {a}')
     cam.set_info("AVEnc.VideoColor.[0]", info)
 
 
@@ -611,7 +611,7 @@ def setAutoReboot(cam, opts):
 
     info["AutoRebootDay"] = day
     info["AutoRebootHour"] = hour
-    log.info('Set autoreboot: %s at %s', day, hour*100)
+    log.info(f'Set autoreboot: {day} at {hour*100}')
     cam.set_info("General.AutoMaintain", info)
 
 
@@ -622,7 +622,7 @@ def manageCloudConnection(cam, opts):
 
     info = cam.get_info("NetWork.Nat") 
     if opts[0] == 'get':
-        log.info('Enabled %s', info['NatEnable'])
+        log.info(f'Enabled {info["NatEnable"]}')
         return 
     if opts[0] == 'on':
         info["NatEnable"] = True
@@ -630,7 +630,7 @@ def manageCloudConnection(cam, opts):
         info["NatEnable"] = False
     cam.set_info("NetWork.Nat", info)
     info = cam.get_info("NetWork.Nat")
-    log.info('Enabled %s', info['NatEnable'])
+    log.info(f'Enabled {info["NatEnable"]}')
 
 
 def setParameter(cam, opts):
@@ -652,7 +652,7 @@ def setParameter(cam, opts):
         setVideoFormatParam(cam, opts)
 
     else:
-        log.info('Setting not currently supported for %s', opts)
+        log.info(f'Setting not currently supported for {opts}')
 
 
 def switchMode(cam, mode_name, path='./camera_settings.json'):
@@ -666,14 +666,13 @@ def switchMode(cam, mode_name, path='./camera_settings.json'):
         path (str): Path to the JSON file containing mode definitions.
     """
     if not os.path.isfile(path):
-        raise FileNotFoundError("Camera settings file '{}' not found.".format(path))
+        raise FileNotFoundError(f"Camera settings file '{path}' not found.")
 
     with open(path, 'r') as f:
         modes = json.load(f)
 
     if mode_name not in modes:
-        raise ValueError("Mode '{}' not found in '{}'. Available modes: {}"
-                         .format(mode_name, path, list(modes.keys())))
+        raise ValueError(f"Mode '{mode_name}' not found in '{path}'. Available modes: {list(modes.keys())}")
 
     # Loop over each command array in the specified mode
     for param in modes[mode_name]:
@@ -782,7 +781,7 @@ def dvripCall(cam, cmd, opts, camera_settings_path='./camera_settings.json'):
                 except:
                     reqtime = datetime.datetime.now()
                 cam.set_time(reqtime)
-                log.info('time set to %s', reqtime)
+                log.info(f'time set to {reqtime}')
         else:
             log.info('usage CameraTime get|set')
         return
@@ -815,7 +814,7 @@ def dvripCall(cam, cmd, opts, camera_settings_path='./camera_settings.json'):
     
     # -- If we get here, command is not recognized:
     else:
-        log.error("Unrecognized command '%s' in dvripCall. Options were: %s", cmd, opts)
+        log.error(f"Unrecognized command '{cmd}' in dvripCall. Options were: {opts}")
         log.info('System Info')
         ugi = cam.get_upgrade_info()
         log.info(ugi['Hardware'])
@@ -836,7 +835,7 @@ def cameraControl(camera_ip, cmd, opts='', camera_settings_path='./camera_settin
         try:
             dvripCall(cam, cmd, opts, camera_settings_path)
         except Exception as e:
-            log.error("Error executing command: %s", e)
+            log.error(f"Error executing command: {e}")
             log.error("This command may not be supported.")
     else:
         log.info("Failure. Could not connect.")
@@ -924,7 +923,7 @@ if __name__ == '__main__':
 
 
     if cmd not in cmd_list:
-        log.info('Error: command "%s" not supported', cmd)
+        log.info(f'Error: command "{cmd}" not supported')
         exit(1)
 
     cameraControlV2(config, cmd, opts)

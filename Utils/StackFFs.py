@@ -67,7 +67,7 @@ def stackFFs(dir_path, file_format, deinterlace=False, subavg=False, filter_brig
             # Load the flat
             flat = loadFlat(flat_path, flat_file)
 
-            log.debug('Loaded flat: {}'.format(flat_full_path))
+            log.debug(f'Loaded flat: {flat_full_path}')
 
 
     first_img = True
@@ -124,7 +124,7 @@ def stackFFs(dir_path, file_format, deinterlace=False, subavg=False, filter_brig
                 # Preserve images with very bright detections
                 if (median > 10) and (top_brightness < (2**(8*img.itemsize) - 10)):
                     if print_progress:
-                        log.info('Skipping: {} median: {} top brightness {}'.format(ff_name, median, top_brightness))
+                        log.info(f'Skipping: {ff_name} median: {median} top brightness {top_brightness}')
                     continue
 
 
@@ -142,7 +142,7 @@ def stackFFs(dir_path, file_format, deinterlace=False, subavg=False, filter_brig
                 continue
 
             if print_progress:
-                log.info('Stacking: {}'.format(ff_name))
+                log.info(f'Stacking: {ff_name}')
 
             # Blend images 'if lighter'
             merge_img = blendLighten(merge_img, img)
@@ -167,13 +167,13 @@ def stackFFs(dir_path, file_format, deinterlace=False, subavg=False, filter_brig
     if captured_stack:
         filename_suffix = "_captured_stack."
     else:
-        filename_suffix = "_stack_{:d}_meteors.".format(n_stacked)
+        filename_suffix = f"_stack_{n_stacked:d}_meteors."
 
 
     stack_path = os.path.join(dir_path, night_dir + filename_suffix + file_format)
 
     if print_progress:
-        log.info('Saving stack to: {}'.format(stack_path))
+        log.info(f'Saving stack to: {stack_path}')
 
     # Stretch the levels
     merge_img = adjustLevels(merge_img, np.percentile(merge_img, 0.5), 1.3, np.percentile(merge_img, 99.9))

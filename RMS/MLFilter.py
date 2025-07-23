@@ -156,7 +156,7 @@ def classifyPNGs(file_dir, model_path):
         prob = classify_image(interpreter, image)
         #time2 = time.time()
         #classification_time = np.round(time2-time1, 3)
-        #print("{:.3f}".format(prob) + "\t" + os.path.splitext(os.path.basename(f))[0])
+        #print(f"{prob:.3f}\t{os.path.splitext(os.path.basename(f))[0]}")
         # + "\t" + str(classification_time), " seconds.")
 
         # Save the file name and the predicted classification probability
@@ -461,7 +461,7 @@ def filterFTPdetectinfoML(config, ftpdetectinfo_path, threshold=0.85, keep_pngs=
 
     # Check if tflite is available
     if TFLITE_AVAILABLE:
-        log.info("TF-Lite backend: %s", TFLITE_BACKEND)
+        log.info(f"TF-Lite backend: {TFLITE_BACKEND}")
     else:
         log.warning("interpreter unavailable - ML filtering skipped")
 
@@ -521,7 +521,7 @@ def filterFTPdetectinfoML(config, ftpdetectinfo_path, threshold=0.85, keep_pngs=
             ftp_filtered.append(meteor_entry)
             ff_filtered.append(meteor_entry[0])
 
-            log.info("A local FF file not found, keeping the detection {:s}".format(png_name))
+            log.info(f"A local FF file not found, keeping the detection {png_name}")
 
             continue
 
@@ -554,7 +554,7 @@ def filterFTPdetectinfoML(config, ftpdetectinfo_path, threshold=0.85, keep_pngs=
                 keep_png_dir = artefacts_dir
 
 
-        log.info(png_name + " - " + "Score: {:6.1%} - {:s}".format(pred_score, status_str))
+        log.info(f"{png_name} - Score: {pred_score:6.1%} - {status_str}")
 
 
         # Sort into PNG dir, if they are kept
@@ -564,7 +564,7 @@ def filterFTPdetectinfoML(config, ftpdetectinfo_path, threshold=0.85, keep_pngs=
                 os.path.join(
                     keep_png_dir, 
                     os.path.splitext(os.path.basename(png_name))[0] \
-                        + '_p-{:.3f}'.format(prediction_dict[png_name]) + '.png'
+                        + f'_p-{prediction_dict[png_name]:.3f}.png'
                     )
                 )
     
@@ -586,10 +586,7 @@ def filterFTPdetectinfoML(config, ftpdetectinfo_path, threshold=0.85, keep_pngs=
         calibration="Filtered by RMS on: " + str(datetime.datetime.now()), celestial_coords_given=True)
         
 
-    log.info("FTPdetectinfo filtered, {:d}/{:d} detections classified as real meteors".format(
-                         len(ftp_filtered), len(meteor_list)
-        )
-    )
+    log.info(f"FTPdetectinfo filtered, {len(ftp_filtered):d}/{len(meteor_list):d} detections classified as real meteors")
 
     
     return ff_filtered

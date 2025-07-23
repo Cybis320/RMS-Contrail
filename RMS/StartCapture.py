@@ -214,7 +214,7 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
             log.info("Previous capture directory could not be found! Creating a new one...")
 
         else:
-            log.info("Previous capture directory found: {:s}".format(night_data_dir))
+            log.info(f"Previous capture directory found: {night_data_dir}")
 
 
     # Make a name for the capture data directory
@@ -288,17 +288,17 @@ def runCapture(config, duration=None, video_file=None, nodetect=False, detect_en
     in_night_capture = (daytime_mode is None) or (not daytime_mode.value)
     if (not config.continuous_capture) or in_night_capture:
         mkdirP(night_data_dir)
-        log.info('Data directory: {}'.format(night_data_dir))
+        log.info(f'Data directory: {night_data_dir}')
 
     # Make a directory for the time files if configured
     if config.save_frame_times:
         mkdirP(ft_file_dir)
-        log.info('Saved FT files directory: {}'.format(ft_file_dir))
+        log.info(f'Saved FT files directory: {ft_file_dir}')
 
     # Make a directory for the saved frames
     if saved_frames_dir is not None:
         mkdirP(saved_frames_dir)
-        log.info('Saved frames directory: {}'.format(saved_frames_dir))
+        log.info(f'Saved frames directory: {saved_frames_dir}')
 
     # Make a directory for the saved videos
     if saved_video_dir is not None:

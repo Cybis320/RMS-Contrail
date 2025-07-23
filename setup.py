@@ -33,24 +33,24 @@ kht_module = Extension("kht_module",
 def isPackageInstalled(package_name):
     """Check if a package is installed."""
     try:
-        print("Checking if {:s} is installed...".format(package_name))
-        subprocess.check_call([sys.executable, '-c', 'import {:s}'.format(package_name)])
-        print("{:s} is already installed.".format(package_name))
+        print(f"Checking if {package_name} is installed...")
+        subprocess.check_call([sys.executable, '-c', f'import {package_name}'])
+        print(f"{package_name} is already installed.")
         return True
     except subprocess.CalledProcessError:
-        print("{:s} is not installed.".format(package_name))
+        print(f"{package_name} is not installed.")
         return False
 
 
 def attemptInstall(package):
     """Attempt to install a package using pip."""
     try:
-        print("Attempting to install {:s}...".format(package))
+        print(f"Attempting to install {package}...")
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
-        print("Successfully installed {:s}.".format(package))
+        print(f"Successfully installed {package}.")
         return True
     except subprocess.CalledProcessError:
-        print("Failed to install {:s}.".format(package))
+        print(f"Failed to install {package}.")
         return False
 
 
@@ -129,7 +129,7 @@ platepar_templates = [
 # Print the requirements to be installed
 print("Requirements to be installed:")
 for req in requirements:
-    print(" - {}".format(req))
+    print(f" - {req}")
 
 
 setup (name = "RMS",

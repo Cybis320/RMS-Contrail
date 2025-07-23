@@ -266,7 +266,7 @@ class QueuedPool(object):
 
 
         # Print and log how many previous files have been loaded
-        print_str = "Loaded {:d} backed up results...".format(len(self.bkup_dict))
+        print_str = f"Loaded {len(self.bkup_dict):d} backed up results..."
         self.printAndLog(print_str)
 
 
@@ -347,7 +347,7 @@ class QueuedPool(object):
 
                 read_from_backup = True
 
-                self.printAndLog('Result loaded from backup for input: {:s}'.format(str(args)))
+                self.printAndLog(f'Result loaded from backup for input: {str(args)}')
 
 
             # Process the inputs if they haven't been processed already
@@ -396,13 +396,13 @@ class QueuedPool(object):
         # Get the value once and use it locally
         core_value = self.cores.value()
         if core_value < 1:
-            self.printAndLog('WARNING: Core count was {:d}, using minimum of 1'.format(core_value))
+            self.printAndLog(f'WARNING: Core count was {core_value:d}, using minimum of 1')
             self.cores.set(1)
             num_cores = 1
         else:
             num_cores = core_value
 
-        self.printAndLog('Using {:d} cores'.format(num_cores))
+        self.printAndLog(f'Using {num_cores:d} cores')
 
         # Initialize the pool of workers with the given number of worker cores
         # Comma in the argument list is a must!
@@ -450,7 +450,7 @@ class QueuedPool(object):
 
                 # If the queue has been idle for too long, kill it
                 if (time.time() - output_qsize_last_change) > worker_timeout:
-                    self.printAndLog('One of the workers got stuck longer than {:.1f} seconds, killing multiprocessing...'.format(float(worker_timeout)))
+                    self.printAndLog(f'One of the workers got stuck longer than {float(worker_timeout):.1f} seconds, killing multiprocessing...')
 
                     self.printAndLog('Terminating pool...')
                     self.pool.terminate()

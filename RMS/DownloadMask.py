@@ -81,10 +81,10 @@ def downloadNewMask(config):
         remote_mask_path = config.remote_dir + '/' + config.remote_mask_dir
 
         if not existsRemoteDirectory(sftp, remote_mask_path):
-            log.info("{} does not exist, creating".format(remote_mask_path))
+            log.info(f"{remote_mask_path} does not exist, creating")
             createRemoteDirectory(sftp, remote_mask_path)
         else:
-            log.info("{} exists".format(remote_mask_path))
+            log.info(f"{remote_mask_path} exists")
 
         # Add path separator
         remote_mask_path += "/"
@@ -102,28 +102,28 @@ def downloadNewMask(config):
                         break
                     else:
                         most_recent_flat = ""
-                log.info("Most recent flat {}".format(most_recent_flat))
+                log.info(f"Most recent flat {most_recent_flat}")
 
                 if file_exists(most_recent_flat):
                     # Create AU002B_20231219_flat.bmp
-                    remote_flat_name = "{}_{}_{}".format(captured_dir.split('_')[0], captured_dir.split('_')[1], config.flat_file)
-                    log.info("Uploading to {} as {}".format(remote_mask_path, remote_flat_name))
+                    remote_flat_name = f"{captured_dir.split('_')[0]}_{captured_dir.split('_')[1]}_{config.flat_file}"
+                    log.info(f"Uploading to {remote_mask_path} as {remote_flat_name}")
                     sftp.put(most_recent_flat, remote_mask_path + "/" + remote_flat_name)
                     remote_files = sftp.listdir(path=remote_mask_path)
                     for file_to_test in remote_files:
-                        if "_{}".format(config.flat_file) in file_to_test:
+                        if f"_{config.flat_file}" in file_to_test:
                             # Don't remove latest uploaded file
                             if file_to_test != remote_flat_name:
-                                log.info("Removing old flat file {}".format(file_to_test))
+                                log.info(f"Removing old flat file {file_to_test}")
                                 sftp.remove(remote_mask_path + "/" + file_to_test)
                             else:
-                                log.info("Not removing newly uploaded file {}".format(file_to_test))
+                                log.info(f"Not removing newly uploaded file {file_to_test}")
                         else:
-                            log.info("Not removing {}".format(file_to_test))
+                            log.info(f"Not removing {file_to_test}")
 
 
                 else:
-                    log.info("Did not find {}".format(most_recent_flat))
+                    log.info(f"Did not find {most_recent_flat}")
         except:
             log.warning("Could not upload latest flat")
 
@@ -142,7 +142,7 @@ def downloadNewMask(config):
 
 
         # Download the remote mask
-        log.info("Downloading {} from {} to {}".format(remote_mask, remote_mask_path, os.path.join(config.config_file_path, config.mask_file)))
+        log.info(f"Downloading {remote_mask} from {remote_mask_path} to {os.path.join(config.config_file_path, config.mask_file)}")
         sftp.get(remote_mask, os.path.join(config.config_file_path, config.mask_file))
         log.info('Latest mask downloaded!')
 

@@ -483,8 +483,7 @@ def testDimHypot():
         except Exception as e:
             test_res = repr(e)
         if test_res != res:
-            print("Test failure: t1:{}, t2:{}, did not give {}, returned {}"
-                                                    .format(t1, t2, res, test_res))
+            print(f"Test failure: t1:{t1}, t2:{t2}, did not give {res}, returned {test_res}")
 
 
             return False
@@ -501,8 +500,7 @@ def testAngSeparationDeg():
 
     for a1, a2, res in test_list:
         if round(angularSeparationDeg(a1[0], a1[1], a2[0], a2[1]), 4) != round(res,4):
-            print("Test failure: ra1:{}, dec1:{}, ra2:{}, dec2:{} did not give {}, returned {}"
-                            .format(a1[0], a1[1], a2[0], a2[1], res, angularSeparationDeg(a1[0], a1[1], a2[0], a2[1])))
+            print(f"Test failure: ra1:{a1[0]}, dec1:{a1[1]}, ra2:{a2[0]}, dec2:{a2[1]} did not give {res}, returned {angularSeparationDeg(a1[0], a1[1], a2[0], a2[1])}")
             return False
 
     return True
@@ -611,7 +609,7 @@ def tests():
 
     for func_name, func in function_to_test:
         if func:
-            print("Test of {} successful".format(func_name))
+            print(f"Test of {func_name} successful")
         else:
             print("Test failed")
 

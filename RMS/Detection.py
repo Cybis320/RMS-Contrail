@@ -372,12 +372,12 @@ def checkWhiteRatio(img_thres, ff, max_white_ratio):
     # Compute the radio between the number of threshold passers and all pixels
     white_ratio = np.count_nonzero(img_thres)/float(ff.nrows*ff.ncols)
 
-    logDebug('white ratio: {:.6f}'.format(white_ratio))
+    logDebug(f'white ratio: {white_ratio:.6f}')
 
     if white_ratio > max_white_ratio:
 
-        log.debug(("Too many threshold passers! White ratio is {:.2f}, which is higher than the "\
-            "max_white_ratio threshold: {:.2f}").format(white_ratio, max_white_ratio))
+        log.debug(f"Too many threshold passers! White ratio is {white_ratio:.2f}, which is higher than the "\
+            f"max_white_ratio threshold: {max_white_ratio:.2f}")
 
         return False
 
@@ -461,16 +461,15 @@ def getLines(img_handle, k1, j1, time_slide, time_window_size, max_lines, max_wh
             t1 = time()
             img_handle.loadChunk(first_frame=frame_min, read_nframes=(frame_max - frame_min + 1))
 
-            logDebug('Time to load chunk of {:d} frames: {:.2f} s'.format(frame_max - frame_min + 1, time() - t1))
+            logDebug(f'Time to load chunk of {frame_max - frame_min + 1:d} frames: {time() - t1:.2f} s')
 
             # If making the synthetic FF has failed, skip it
             if not img_handle.ff.successful:
-                logDebug('Skipped frame range due to failed synthetic FF generation: frames {:d} to {:d}'.format(\
-                    frame_min, frame_max))
+                logDebug(f'Skipped frame range due to failed synthetic FF generation: frames {frame_min:d} to {frame_max:d}')
                 continue
 
             # Print the time
-            logDebug("Frame: {:d}, Time: {:s}".format(frame_min, str(img_handle.currentTime(dt_obj=True))))
+            logDebug(f"Frame: {frame_min:d}, Time: {str(img_handle.currentTime(dt_obj=True)):s}")
 
             # Apply the mask, dark, flat
             img_handle = preprocessFF(img_handle, mask, flat_struct, dark)
@@ -1148,7 +1147,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
 
             logDebug('\n--------------------------------')
             logDebug('    rho,  theta, frame_min, frame_max')
-            logDebug("{:7.2f}, {:6.2f}, {:9d}, {:9d}".format(rho, theta, frame_min, frame_max))
+            logDebug(f"{rho:7.2f}, {theta:6.2f}, {frame_min:9d}, {frame_max:9d}")
 
 
             # If FF files are not used as input, reconstruct it
@@ -1158,7 +1157,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
                 t1 = time()
                 img_handle.loadChunk(first_frame=frame_min, read_nframes=(frame_max - frame_min + 1))
 
-                logDebug('Time to load chunk of {:d} frames: {:.2f} s'.format(frame_max - frame_min + 1, time() - t1))
+                logDebug(f'Time to load chunk of {frame_max - frame_min + 1:d} frames: {time() - t1:.2f} s')
 
                 # Apply mask and flat to FF
                 img_handle = preprocessFF(img_handle, mask, flat_struct, dark)
@@ -1188,7 +1187,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
             xs, ys, zs = getThresholdedStripe3DPoints(config, img_handle, frame_min, frame_max, rho, theta, \
                 mask, flat_struct, dark, debug=VERBOSE_DEBUG)
             
-            logDebug('Time for thresholding and stripe extraction: {:.3f}'.format(time() - t1))
+            logDebug(f'Time for thresholding and stripe extraction: {time() - t1:.3f}')
 
             # Limit the number of points to search if too large
             if len(zs) > config.max_points_det:
@@ -1217,7 +1216,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
             # Find a single line in the point cloud
             detected_line = find3DLines(stripe_points, time(), config, fireball_detection=False)
 
-            logDebug('time for GROUPING: {:.3f}'.format(time() - t1))
+            logDebug(f'time for GROUPING: {time() - t1:.3f}')
 
             # Extract the first and only line if any
             if detected_line:
@@ -1233,7 +1232,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
 
                 if not ang_vel_status:
                     logDebug(detected_line)
-                    logDebug('Rejected at initial stage due to the angular velocity: {:.2f} deg/s'.format(ang_vel))
+                    logDebug(f'Rejected at initial stage due to the angular velocity: {ang_vel:.2f} deg/s')
                     continue
 
                 # # Show 3D cloud
@@ -1321,7 +1320,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
             xs, ys, zs = getThresholdedStripe3DPoints(config, img_handle, frame_min, frame_max, rho, theta, \
                 mask, flat_struct, dark, stripe_width_factor=1.5, centroiding=True, \
                 point1=detected_line[0], point2=detected_line[1], debug=False)
-            logDebug('Time for thresholding and stripe extraction: {:.3f}'.format(time() - t1))
+            logDebug(f'Time for thresholding and stripe extraction: {time() - t1:.3f}')
 
 
             # Make an array to feed into the centroiding algorithm
@@ -1346,8 +1345,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
             # Skip if the points cover too small a frame range
             frame_range = abs(np.max(line_points[:,2]) - np.min(line_points[:,2])) + 1
             if frame_range < config.line_minimum_frame_range_det:
-                logDebug('Too small frame range! {:d} < {:d}'.format(frame_range, \
-                    config.line_minimum_frame_range_det))
+                logDebug(f'Too small frame range! {frame_range:d} < {config.line_minimum_frame_range_det:d}')
                 continue
             
             
@@ -1539,8 +1537,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
                         if config.detection_binning_method == 'avg':
                             intensity *= config.detection_binning_factor**2
 
-                    logDebug("centroid: fr {:>12.3f}, x {:>7.2f}, y {:>7.2f}, intens {:d}, runtime: {:.6f} s".format(frame_no, \
-                        x_centroid, y_centroid, intensity, time() - t_centroid))
+                    logDebug(f"centroid: fr {frame_no:>12.3f}, x {x_centroid:>7.2f}, y {y_centroid:>7.2f}, intens {intensity:d}, runtime: {time() - t_centroid:.6f} s")
 
                     # Add computed centroid to the centroid list
                     centroids.append([
@@ -1584,7 +1581,7 @@ def detectMeteors(img_handle, config, flat_struct=None, dark=None, mask=None, as
             # Check the detection if it has the proper angular velocity
             ang_vel, ang_vel_status = checkAngularVelocity(centroids, config)
             if not ang_vel_status:
-                logDebug('Rejected due to the angular velocity: {:.2f} deg/s'.format(ang_vel))
+                logDebug(f'Rejected due to the angular velocity: {ang_vel:.2f} deg/s')
                 continue
 
 
@@ -1713,7 +1710,7 @@ if __name__ == "__main__":
         # Quit if the AST file does not exist
         if not os.path.isfile(ast_path):
             print()
-            print('The AST file could not be loaded: {:s}'.format(ast_path))
+            print(f'The AST file could not be loaded: {ast_path:s}')
             print('Exiting...')
             sys.exit()
 

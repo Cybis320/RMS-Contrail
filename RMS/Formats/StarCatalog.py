@@ -37,7 +37,7 @@ def downloadCatalog(url, dir_path, file_name):
                     break
                 downloaded_size += len(data)
                 f.write(data)
-                print("\rDownloading: {:.2f}%".format(100 * float(downloaded_size) / total_size), end='')
+                print(f"\rDownloading: {100 * float(downloaded_size) / total_size:.2f}%", end='')
                 sys.stdout.flush()
 
         print(" - Done!")  # Move to the next line after download completes
@@ -214,7 +214,7 @@ def loadGMNStarCatalog(file_path,
     """
 
     # Catalog data used for caching
-    cache_name = "_catalog_data_{:s}".format(catalog_file.replace(".", "_"))
+    cache_name = f"_catalog_data_{catalog_file.replace('.', '_')}"
 
     # Step 1: Cache the catalog data to avoid repeated decompression
     if not hasattr(loadGMNStarCatalog, cache_name):
@@ -358,7 +358,7 @@ def loadGMNStarCatalog(file_path,
             if mag_band_ratios[i] > 0:
                 if count > 0:
                     mag_band_string += "+ "
-                mag_band_string += "{:.2f}{} ".format(mag_band_ratios[i], band)
+                mag_band_string += f"{mag_band_ratios[i]:.2f}{band} "
                 count += 1
         mag_band_string = mag_band_string.strip()
 
@@ -567,7 +567,7 @@ def readStarCatalog(dir_path, file_name, years_from_J2000=0, lim_mag=None,
     star_data = star_data[star_data[:,1].argsort()[::-1]]
 
 
-    mag_band_string = "Sky2000 {:.2f}B + {:.2f}V + {:.2f}R + {:.2f}I".format(*mag_band_ratios)
+    mag_band_string = f"Sky2000 {mag_band_ratios[0]:.2f}B + {mag_band_ratios[1]:.2f}V + {mag_band_ratios[2]:.2f}R + {mag_band_ratios[3]:.2f}I"
 
     return star_data, mag_band_string, mag_band_ratios
 

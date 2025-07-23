@@ -317,7 +317,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                     mask = loadMask(mask_path)
 
                 if mask is not None:
-                    log.info("Loaded mask: {:s}".format(mask_path))
+                    log.info(f"Loaded mask: {mask_path}")
 
                 # Generate the KML (only the FOV is shown, without the station) - 100 km
                 kml_file100 = fovKML(night_data_dir, platepar, mask=mask, plot_station=False, \
@@ -407,10 +407,10 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
 
                     try:
                         # Archive directory for this day of ft files
-                        tar_path = os.path.join(year_dir, '{}_{}_FT.tar.bz2'.format(config.stationID, day))
+                        tar_path = os.path.join(year_dir, f'{config.stationID}_{day}_FT.tar.bz2')
                         
                         # Use the tarWithProgress function with removal of source
-                        print("Creating archive for {} FT files...".format(day))
+                        print(f"Creating archive for {day} FT files...")
                         archive_success = tarWithProgress(
                             source_dir=day_dir,
                             tar_path=tar_path,
@@ -419,14 +419,14 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
                         )
                         
                         if archive_success:
-                            print("Successfully created tar archive at: {}".format(tar_path))
+                            print(f"Successfully created tar archive at: {tar_path}")
                             # Add to extra files for upload
                             extra_files.append(tar_path)
                         else:
-                            print("Archive creation failed, keeping original directory: {}".format(day_dir))
+                            print(f"Archive creation failed, keeping original directory: {day_dir}")
                             
                     except Exception as e:
-                        print("Error in archiving process: {}".format(e))
+                        print(f"Error in archiving process: {e}")
         except Exception as e:
             log.debug('Archiving FT files failed with message:\n' + repr(e))
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
@@ -488,8 +488,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
         jitter_quality, dropped_frame_rate, intervals_path = plotFFTimeIntervals(night_data_dir, fps=config.fps)
 
         if jitter_quality is not None and dropped_frame_rate is not None:
-            log.info('Timestamp Intervals Analysis: Jitter Quality: {:.1f}%, Dropped Frame Rate: {:.1f}%'
-                     .format(jitter_quality, dropped_frame_rate))
+            log.info(f'Timestamp Intervals Analysis: Jitter Quality: {jitter_quality:.1f}%, Dropped Frame Rate: {dropped_frame_rate:.1f}%')
             
         else:
             log.info('Timestamp Intervals Analysis: Failed')
@@ -622,7 +621,7 @@ def processNight(night_data_dir, config, detection_results=None, nodetect=False)
             # Check if the CAL file was successfully generated
             if cal_file_name is not None:
 
-                cams_code_formatted = "{:06d}".format(int(config.cams_code))
+                cams_code_formatted = f"{int(config.cams_code):06d}"
 
                 # Load the FTPdetectinfo
                 _, fps, meteor_list = readFTPdetectinfo(night_data_dir, ftpdetectinfo_name, \

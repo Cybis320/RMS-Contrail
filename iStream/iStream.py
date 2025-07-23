@@ -43,16 +43,16 @@ def rmsExternal(captured_night_dir, archived_night_dir, config):
 
     # Run the Istrastream shell script
     script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "iStream.sh")
-    log.info('Calling {}'.format(script_path))
+    log.info(f'Calling {script_path}')
 
     command = [
         script_path,
         config.stationID,
         captured_night_dir,
         archived_night_dir,
-        '{:.6f}'.format(config.latitude),
-        '{:.6f}'.format(config.longitude),
-        '{:.1f}'.format(config.elevation),
+        f'{config.latitude:.6f}',
+        f'{config.longitude:.6f}',
+        f'{config.elevation:.1f}',
         str(config.width),
         str(config.height),
         str(remaining_seconds)
@@ -68,7 +68,7 @@ def rmsExternal(captured_night_dir, archived_night_dir, config):
         log.info(line.rstrip().decode("utf-8"))
 
     exit_code = proc.wait()
-    log.info('Exit status: {}'.format(exit_code))
+    log.info(f'Exit status: {exit_code}')
     log.info('iStream external script finished')
 
     # Release lock file so RMS is authorized to reboot, if needed
