@@ -69,32 +69,32 @@ def quotaReport(capt_dir_quota, config, after=False):
     rep += ("-----------------------------------------------\n")
     rep += ("Space used                              \n")
     rep += "\n"
-    rep += ("                          log files : {:7.02f}GB\n".format(usedSpace(log_dir)))
-    rep += ("                       frames files : {:7.02f}GB\n".format(frames_files_used_space))
-    rep += ("                         time files : {:7.02f}GB\n".format(time_files_used_space))
-    rep += ("                        video files : {:7.02f}GB\n".format(video_files_used_space))
-    rep += ("       total for continuous capture : {:7.02f}GB\n".format(continuous_capture_used_space))
+    rep += f"                          log files : {usedSpace(log_dir):7.02f}GB\n"
+    rep += f"                       frames files : {frames_files_used_space:7.02f}GB\n"
+    rep += f"                         time files : {time_files_used_space:7.02f}GB\n"
+    rep += f"                        video files : {video_files_used_space:7.02f}GB\n"
+    rep += f"       total for continuous capture : {continuous_capture_used_space:7.02f}GB\n"
 
-    rep += ("                          bz2 files : {:7.02f}GB\n".format(sizeBz2Files(config)))
-    rep += ("               archived directories : {:7.02f}GB\n".format(sizeArchivedDirs(config)))
-    rep += ("                 total for archives : {:7.02f}GB\n".format(usedSpace(archived_dir)))
+    rep += f"                          bz2 files : {sizeBz2Files(config):7.02f}GB\n"
+    rep += f"               archived directories : {sizeArchivedDirs(config):7.02f}GB\n"
+    rep += f"                 total for archives : {usedSpace(archived_dir):7.02f}GB\n"
 
-    rep += ("               captured directories : {:7.02f}GB\n".format(usedSpace(captured_dir)))
-    rep += ("                 total for RMS_data : {:7.02f}GB\n".format(usedSpace(config.data_dir)))
+    rep += f"               captured directories : {usedSpace(captured_dir):7.02f}GB\n"
+    rep += f"                 total for RMS_data : {usedSpace(config.data_dir):7.02f}GB\n"
 
     rep += "\n"
     rep += ("Quotas allowed                                  \n")
 
-    rep += ("           total quota for RMS_data : {:7.02f}GB\n".format(config.rms_data_quota))
-    rep += ("                     bz2 file quota : {:7.02f}GB\n".format(config.bz2_files_quota))
-    rep += ("         archived directories quota : {:7.02f}GB\n".format(config.arch_dir_quota))
-    rep += ("                    log files quota : {:7.02f}GB\n".format(config.log_files_quota))
-    rep += ("           continuous capture quota : {:7.02f}GB\n".format(config.continuous_capture_quota))
-    rep += (" quota remaining for captured files : {:7.02f}GB\n".format(capt_dir_quota))
+    rep += f"           total quota for RMS_data : {config.rms_data_quota:7.02f}GB\n"
+    rep += f"                     bz2 file quota : {config.bz2_files_quota:7.02f}GB\n"
+    rep += f"         archived directories quota : {config.arch_dir_quota:7.02f}GB\n"
+    rep += f"                    log files quota : {config.log_files_quota:7.02f}GB\n"
+    rep += f"           continuous capture quota : {config.continuous_capture_quota:7.02f}GB\n"
+    rep += f" quota remaining for captured files : {capt_dir_quota:7.02f}GB\n"
 
     rep += "\n"
     rep += ("Space on drive                          \n")
-    rep += ("           Available space on drive : {:7.02f}GB\n".format(availableSpace(config.data_dir) / (1024 ** 3)))
+    rep += f"           Available space on drive : {availableSpace(config.data_dir) / (1024 ** 3):7.02f}GB\n"
     rep += ("-----------------------------------------------\n")
 
     return rep
@@ -234,16 +234,16 @@ def objectsToDeleteByTime(top_level_dir, directories_list, quota_gb=0):
     if len(directories_list) == 0:
         log.warn("objectsToDelete by time passed an empty list of directories")
     elif len(directories_list) == 1:
-        log.info("Managing directory {}".format(directories_list[0]))
+        log.info(f"Managing directory {directories_list[0]}")
     elif len(directories_list) > 1:
         log.info("Managing directories:")
         for directory in directories_list:
-            log.info("    {}".format(directory))
+            log.info(f"    {directory}")
 
     file_dates_list, file_paths_list, file_sizes_list, file_date_path_size_list  = [], [], [], []
     # iterate through all the files in each of the directories building up three lists of path, sizes and dates
     for directory_path in directories_list:
-        log.info("Working on directory {}".format(directory_path))
+        log.info(f"Working on directory {directory_path}")
         for root, directory_list, file_list in os.walk(os.path.join(top_level_dir, directory_path)):
             for file_name in file_list:
                 # sleep to allow other processes to run
@@ -260,16 +260,16 @@ def objectsToDeleteByTime(top_level_dir, directories_list, quota_gb=0):
         if accumulated_size > quota_gb:
             accumulated_deletion_size += file_date_path_size[2] / (1024 ** 3)
             if not logged_deletion_start_time:
-                log.info("Deleting files before {}".format(UTCFromTimestamp.utcfromtimestamp(file_date_path_size[0]).strftime('%Y%m%d_%H%M%S')))
+                log.info(f"Deleting files before {UTCFromTimestamp.utcfromtimestamp(file_date_path_size[0]).strftime('%Y%m%d_%H%M%S')}")
                 logged_deletion_start_time = True
             objects_to_delete.append(file_date_path_size[1])
         pass
-    log.info("Quota allowance is                {:7.03f}GB".format(quota_gb))
-    log.info("Total size of files found is      {:7.03f}GB".format(accumulated_size))
+    log.info(f"Quota allowance is                {quota_gb:7.03f}GB")
+    log.info(f"Total size of files found is      {accumulated_size:7.03f}GB")
 
     if logged_deletion_start_time:
-        log.info("Total size of files to delete is  {:7.03f}GB".format(accumulated_deletion_size))
-        log.info("Size after management will be     {:7.03f}GB".format(accumulated_size - accumulated_deletion_size))
+        log.info(f"Total size of files to delete is  {accumulated_deletion_size:7.03f}GB")
+        log.info(f"Size after management will be     {accumulated_size - accumulated_deletion_size:7.03f}GB")
     else:
         log.info("Within quota, not required to delete any files.")
         time.sleep(1)
@@ -288,7 +288,7 @@ def objectsToDelete(object_path, stationID, quota_gb=0, bz2=False):
     """
 
     if quota_gb == 0 or quota_gb == None:
-        log.info("Disc quota system disabled for {:s}".format(object_path))
+        log.info(f"Disc quota system disabled for {object_path}")
         return []
 
     # get a list of objects
@@ -311,7 +311,7 @@ def objectsToDelete(object_path, stationID, quota_gb=0, bz2=False):
         obj_size = usedSpace(os.path.join(object_path,obj))
         n += obj_size
         if n > quota_gb:
-            log.info("{}, size {:.1f}GB marked for deletion".format(obj, obj_size))
+            log.info(f"{obj}, size {obj_size:.1f}GB marked for deletion")
             objects_to_delete.append(os.path.join(object_path,obj))
 
     return objects_to_delete
@@ -336,13 +336,12 @@ def rmList(delete_list, dummy_run=True, log_deletions=True):
         if files_to_delete_count < 1:
             log.info("Nothing to delete")
         elif files_to_delete_count == 1:
-            log.info("Deleting {} file".format(files_to_delete_count))
+            log.info(f"Deleting {files_to_delete_count} file")
         elif files_to_delete_count > 1:
-            log.info("Deleting {} files, anticipated time {:.0f} seconds".format(files_to_delete_count, files_to_delete_count / 100))
+            log.info(f"Deleting {files_to_delete_count} files, anticipated time {files_to_delete_count / 100:.0f} seconds")
 
     elif len(delete_list) > 100:
-        log.info("Deleting {} files, anticipated time {:.0f} seconds, files will not be logged individually"
-                            .format(files_to_delete_count, files_to_delete_count / 500))
+        log.info(f"Deleting {files_to_delete_count} files, anticipated time {files_to_delete_count / 500:.0f} seconds, files will not be logged individually")
         log_deletions = False
 
     for full_path in delete_list:
@@ -353,21 +352,21 @@ def rmList(delete_list, dummy_run=True, log_deletions=True):
         try:
             if dummy_run:
                 if log_deletions:
-                    log.info("Config setting inhibited deletion of {}".format(os.path.basename(full_path)))
+                    log.info(f"Config setting inhibited deletion of {os.path.basename(full_path)}")
             else:
                 if os.path.exists(full_path):
                     if os.path.isdir(full_path):
                         shutil.rmtree(full_path)
                         if log_deletions:
-                            log.info("Deleted directory {}".format(os.path.basename(full_path)))
+                            log.info(f"Deleted directory {os.path.basename(full_path)}")
                     if os.path.isfile(full_path):
                         os.remove(full_path)
                         if log_deletions:
-                            log.info("Deleted file {}".format(os.path.basename(full_path)))
+                            log.info(f"Deleted file {os.path.basename(full_path)}")
                 else:
-                    log.warning("Attempted to delete {}, which did not exist".format(full_path))
+                    log.warning(f"Attempted to delete {full_path}, which did not exist")
         except:
-            log.info("Could not delete {}".format(os.path.basename(full_path)))
+            log.info(f"Could not delete {os.path.basename(full_path)}")
 
 
 def sizeArchivedDirs(config):
@@ -814,7 +813,7 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, config, duration
 
     ######
 
-    log.info("Need {:.2f} GB for next night".format(next_night_bytes/1024/1024/1024))
+    log.info(f"Need {next_night_bytes/1024/1024/1024:.2f} GB for next night")
 
 
     # If there's enough free space, don't do anything
@@ -824,7 +823,7 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, config, duration
 
     # Intermittently delete captured and archived directories until there's enough free space
     prev_available_space = availableSpace(data_dir)
-    log.info("Available space before deleting: {:.2f} GB".format(prev_available_space/1024/1024/1024))
+    log.info(f"Available space before deleting: {prev_available_space/1024/1024/1024:.2f} GB")
     nothing_deleted_count = 0
     free_space_status = False
     while True:
@@ -832,8 +831,8 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, config, duration
         # Delete one day of video directory data
         video_dirs_remaining = deleteRawItems(video_dir, in_video_dir=True)
 
-        log.info("Deleted dir(s) in video files directory: {:s}".format(video_dir))
-        log.info("Free space: {:.2f} GB".format(availableSpace(data_dir)/1024/1024/1024))
+        log.info(f"Deleted dir(s) in video files directory: {video_dir}")
+        log.info(f"Free space: {availableSpace(data_dir)/1024/1024/1024:.2f} GB")
 
         # Break if there's enough space
         if availableSpace(data_dir) > next_night_bytes:
@@ -844,8 +843,8 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, config, duration
         # Delete one day of frame directory data
         frame_dirs_remaining = deleteRawItems(frame_dir)
 
-        log.info("Deleted files in frame directory: {:s}".format(frame_dir))
-        log.info("Free space: {:.2f} GB".format(availableSpace(data_dir)/1024/1024/1024))
+        log.info(f"Deleted files in frame directory: {frame_dir}")
+        log.info(f"Free space: {availableSpace(data_dir)/1024/1024/1024:.2f} GB")
 
         # Break if there's enough space
         if availableSpace(data_dir) > next_night_bytes:
@@ -856,8 +855,8 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, config, duration
         # Delete one captured directory
         captured_dirs_remaining = deleteNightFolders(captured_dir, config)
 
-        log.info("Deleted dir in captured directory: {:s}".format(captured_dir))
-        log.info("Free space: {:.2f} GB".format(availableSpace(data_dir)/1024/1024/1024))
+        log.info(f"Deleted dir in captured directory: {captured_dir}")
+        log.info(f"Free space: {availableSpace(data_dir)/1024/1024/1024:.2f} GB")
 
         # Break if there's enough space
         if availableSpace(data_dir) > next_night_bytes:
@@ -868,8 +867,8 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, config, duration
         # Delete one archived directory
         archived_dirs_remaining = deleteNightFolders(archived_dir, config)
 
-        log.info("Deleted dir in archived directory: {:s}".format(archived_dir))
-        log.info("Free space: {:.2f} GB".format(availableSpace(data_dir)/1024/1024/1024))
+        log.info(f"Deleted dir in archived directory: {archived_dir}")
+        log.info(f"Free space: {availableSpace(data_dir)/1024/1024/1024:.2f} GB")
 
         # Break if there's enough space
         if availableSpace(data_dir) > next_night_bytes:
@@ -880,8 +879,8 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, config, duration
         # Delete one day of times directory data
         times_dirs_remaining = deleteRawItems(times_dir)
 
-        log.info("Deleted dir(s) in ft files directory: {:s}".format(times_dir))
-        log.info("Free space: {:.2f} GB".format(availableSpace(data_dir)/1024/1024/1024))
+        log.info(f"Deleted dir(s) in ft files directory: {times_dir}")
+        log.info(f"Free space: {availableSpace(data_dir)/1024/1024/1024:.2f} GB")
 
         # Break if there's enough space
         if availableSpace(data_dir) > next_night_bytes:
@@ -1008,7 +1007,7 @@ def deleteOldDirs(data_dir, config):
                 log.error("Failed to delete folder from ArchivedFiles. Exiting loop.")
                 break
         final_count = len(archdir_list)
-    log.info('Purged {} older folders from ArchivedFiles'.format(orig_count - final_count))
+    log.info(f'Purged {orig_count - final_count} older folders from ArchivedFiles')
 
 
     # Deleting old captured dirs
@@ -1025,7 +1024,7 @@ def deleteOldDirs(data_dir, config):
                 log.error("Failed to delete folder from CapturedFiles. Exiting loop.")
                 break
         final_count = len(captdir_list)
-    log.info('Purged {} older folders from CapturedFiles'.format(orig_count - final_count))
+    log.info(f'Purged {orig_count - final_count} older folders from CapturedFiles')
 
 
     # Deleting old frame dir files
@@ -1042,7 +1041,7 @@ def deleteOldDirs(data_dir, config):
                 log.error("Failed to delete folder from FrameFiles. Exiting loop.")
                 break
         final_count = len(framedir_list)
-    log.info('Purged old files from {} days in FrameFiles'.format(orig_count - final_count))
+    log.info(f'Purged old files from {orig_count - final_count} days in FrameFiles')
 
 
     # Deleting old video dirs
@@ -1059,7 +1058,7 @@ def deleteOldDirs(data_dir, config):
                 log.error("Failed to delete folder from VideoFiles. Exiting loop.")
                 break
         final_count = len(videodir_list)
-    log.info('Purged {} days of old folders from VideoFiles'.format(orig_count - final_count))
+    log.info(f'Purged {orig_count - final_count} days of old folders from VideoFiles')
 
 
     # Deleting old video timestamp (ft file) archives.
@@ -1076,7 +1075,7 @@ def deleteOldDirs(data_dir, config):
                 log.error("Failed to delete folder from TimeFiles. Exiting loop.")
                 break
         final_count = len(timesdir_list)
-    log.info('Purged {} days of old folders from TimeFiles'.format(orig_count - final_count))
+    log.info(f'Purged {orig_count - final_count} days of old folders from TimeFiles')
 
 
     # Deleting old bz2 files
@@ -1090,10 +1089,10 @@ def deleteOldDirs(data_dir, config):
                 os.remove(os.path.join(archived_dir, bz2_list[0]))
                 bz2_list.pop(0)
             except OSError as e:
-                log.error("Failed to delete file {}: {}. Exiting loop.".format(bz2_list[0], e))
+                log.error(f"Failed to delete file {bz2_list[0]}: {e}. Exiting loop.")
                 break
         final_count = len(bz2_list)
-    log.info('Purged {} older bz2 files from ArchivedFiles'.format(orig_count - final_count))
+    log.info(f'Purged {orig_count - final_count} older bz2 files from ArchivedFiles')
     return
 
 
@@ -1131,9 +1130,9 @@ def deleteOldLogfiles(data_dir, config, days_to_keep=None):
             if file_mtime < date_to_purge_to and days_to_keep > 0:
                 try:
                     os.remove(log_file_path)
-                    log.info("deleted {}".format(fl))
+                    log.info(f"deleted {fl}")
                 except Exception as e:
-                    log.warning('unable to delete {}: '.format(log_file_path) + repr(e))
+                    log.warning(f'unable to delete {log_file_path}: {repr(e)}')
                 
 
 if __name__ == '__main__':
@@ -1144,9 +1143,9 @@ if __name__ == '__main__':
     cml_args = arg_parser.parse_args()
 
     print("Disc use routine checks - these should all produce similar results")
-    print("Used space no recursion   {:.5f}GB".format(usedSpaceNoRecursion("~/source/RMS")))
-    print("Used space with recursion {:.5f}GB".format(usedSpaceRecursive("~/source/RMS")))
-    print("Used space from OS        {:.5f}GB".format(usedSpaceFromOS("~/source/RMS")))
+    print(f"Used space no recursion   {usedSpaceNoRecursion('~/source/RMS'):.5f}GB")
+    print(f"Used space with recursion {usedSpaceRecursive('~/source/RMS'):.5f}GB")
+    print(f"Used space from OS        {usedSpaceFromOS('~/source/RMS'):.5f}GB")
 
     cfg_path = os.path.abspath('.') # default to using config from current folder
     cfg_file = '.config'
@@ -1162,7 +1161,7 @@ if __name__ == '__main__':
     log = getLogger("logger")
 
     if not os.path.isdir(config.data_dir):
-        log.info('Data Dir not found {}'.format(config.data_dir))
+        log.info(f'Data Dir not found {config.data_dir}')
     else:
-        log.info('deleting obs from {}'.format(config.data_dir))
+        log.info(f'deleting obs from {config.data_dir}')
         deleteOldObservations(config.data_dir, config.captured_dir, config.archived_dir, config)

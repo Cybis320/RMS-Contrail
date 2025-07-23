@@ -857,14 +857,14 @@ class BufferedCapture(Process):
                 
                 # Force synchronization after state change
                 if not pipeline.sync_children_states():
-                    log.warning("Sync failed after {}".format(state.value_nick))
+                    log.warning(f"Sync failed after {state.value_nick}")
                 
-                log.debug("Successfully transitioned to {} state".format(state.value_nick))
+                log.debug(f"Successfully transitioned to {state.value_nick} state")
                     
             return True, start_time
             
         except Exception as e:
-            log.error("State change error: {}".format(str(e)))
+            log.error(f"State change error: {str(e)}")
             import traceback
             log.debug(traceback.format_exc())
             return False, None
@@ -921,10 +921,10 @@ class BufferedCapture(Process):
 
             if msg.type == Gst.MessageType.ERROR:
                 err, dbg = msg.parse_error()
-                log.error("GST ERROR from %s: %s", msg.src.get_name(), err)
+                log.error(f"GST ERROR from {msg.src.get_name()}: {err}")
             elif msg.type == Gst.MessageType.WARNING:
                 warn, dbg = msg.parse_warning()
-                log.warning("GST WARN  from %s: %s", msg.src.get_name(), warn)
+                log.warning(f"GST WARN  from {msg.src.get_name()}: {warn}")
 
 
     def createGstreamDevice(self, video_format, gst_decoder='decodebin', 
@@ -965,19 +965,17 @@ class BufferedCapture(Process):
 
         # Define the source up to the point where we want to branch off
         source_to_tee = (
-            "rtspsrc name=src buffer-mode=1 {:s} "
-            "location=\"{:s}\" ! "
+            f"rtspsrc name=src buffer-mode=1 {protocol_str} "
+            f"location=\"{device_url}\" ! "
             "rtph264depay ! h264parse ! tee name=t"
-            ).format(protocol_str, device_url)
 
         # Branch for processing
         processing_branch = (
-            "t. ! queue ! {:s} ! "
+            f"t. ! queue ! {gst_decoder} ! "
             "queue leaky=downstream max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
-            "videoconvert ! video/x-raw,format={:s} ! "
+            f"videoconvert ! video/x-raw,format={video_format} ! "
             "queue max-size-buffers=100 max-size-bytes=0 max-size-time=0 ! "
             "appsink max-buffers=100 drop=true sync=0 name=appsink"
-            ).format(gst_decoder, video_format)
         
          # Branch for storage - if video_file_dir is not None, save the raw stream to a file
         if video_file_dir is not None:
@@ -990,25 +988,24 @@ class BufferedCapture(Process):
             storage_branch = (
                 "t. ! queue2 max-size-buffers=150 max-size-bytes=2097152 max-size-time=5000000000 ! "
                 "h264parse ! "
-                "splitmuxsink name=splitmuxsink0 async-finalize=true max-size-time={:d} muxer-factory=matroskamux"
-                ).format(int(segment_duration_sec*1e9))
+                f"splitmuxsink name=splitmuxsink0 async-finalize=true max-size-time={int(segment_duration_sec*1e9)} muxer-factory=matroskamux"
 
         # Otherwise, skip saving the raw stream to disk
         else:
             storage_branch = ""
 
          # Combine all parts of the pipeline
-        pipeline_str = "{:s} {:s} {:s}".format(source_to_tee, processing_branch, storage_branch)
+        pipeline_str = f"{source_to_tee} {processing_branch} {storage_branch}"
 
         # Obfuscate the password in the pipeline string before logging
         obfuscated_pipeline_str = obfuscatePassword(pipeline_str)
 
-        log.info("GStreamer pipeline string: {:s}".format(obfuscated_pipeline_str))
+        log.info(f"GStreamer pipeline string: {obfuscated_pipeline_str}")
 
         # Set the pipeline to PLAYING state with retries
         for attempt in range(max_retries):
             try:
-                log.info("Attempt {}: transitioning Pipeline to PLAYING state.".format(attempt + 1))
+                log.info(f"Attempt {attempt + 1}: transitioning Pipeline to PLAYING state.")
                 
                 # Make sure any previous pipeline is cleaned up
                 if hasattr(self, 'pipeline') and self.pipeline:
@@ -1046,7 +1043,7 @@ class BufferedCapture(Process):
                 start_time_str = (UTCFromTimestamp.utcfromtimestamp(self.start_timestamp)
                                     .strftime('%Y-%m-%d %H:%M:%S.%f'))
 
-                log.info("Start time is {:s}".format(start_time_str))
+                log.info(f"Start time is {start_time_str}")
 
                 # Get appsink for frame retrieval
                 appsink = self.pipeline.get_by_name("appsink")
@@ -1057,17 +1054,17 @@ class BufferedCapture(Process):
                 return appsink
             
             except Exception as e:
-                log.error("Attempt {} failed: {}".format(attempt + 1, str(e)))
+                log.error(f"Attempt {attempt + 1} failed: {str(e)}")
                 # Clean up any partial pipeline that was created
                 if hasattr(self, 'pipeline') and self.pipeline:
                     try:
                         self.pipeline.set_state(Gst.State.NULL)
                         self.pipeline = None
                     except Exception as cleanup_e:
-                        log.error("Error cleaning up failed pipeline: {}".format(cleanup_e))
+                        log.error(f"Error cleaning up failed pipeline: {cleanup_e}")
                         
                 if attempt < max_retries - 1:
-                    log.info("Waiting {} seconds before next attempt...".format(retry_interval))
+                    log.info(f"Waiting {retry_interval} seconds before next attempt...")
                     time.sleep(retry_interval)
                     continue
                 else:
@@ -1119,7 +1116,7 @@ class BufferedCapture(Process):
                         RtspProbeResult.UNKNOWN_ERROR: 
                             "Unknown connection error - Please check logs for details"
                     }
-                    log.error("Camera connection failed: {}".format(error_messages[probe_result]))
+                    log.error(f"Camera connection failed: {error_messages[probe_result]}")
                     return False
                 else:
                     # After camera connection is established, if necessary inititliaze camera settings
@@ -1134,7 +1131,7 @@ class BufferedCapture(Process):
                     root_dir  = self.config.rms_root_dir
 
                     # e.g.  "XX0001.camera_init.done"
-                    flag_file = os.path.join(root_dir, "{}.camera_init.done".format(self.config.stationID))
+                    flag_file = os.path.join(root_dir, f"{self.config.stationID}.camera_init.done")
 
                     if self.config.initialize_camera and not os.path.exists(flag_file):
                         log.info("Running camera init sequence ...")
@@ -1144,26 +1141,26 @@ class BufferedCapture(Process):
                             mode_path = self.config.camera_settings_path
 
                             if not os.path.exists(mode_path):
-                                raise FileNotFoundError("Mode file {} not found.".format(mode_path))
+                                raise FileNotFoundError(f"Mode file {mode_path} not found.")
 
                             with open(mode_path, 'r') as f:
                                 modes = json.load(f)
 
                             if mode_name not in modes:
-                                raise KeyError("Mode '{}' not defined in {}.".format(mode_name, mode_path))
+                                raise KeyError(f"Mode '{mode_name}' not defined in {mode_path}.")
 
                             try:
                                 cc.cameraControlV2(self.config, "SwitchMode", mode_name)
 
                                 # create empty sentinel file
                                 open(flag_file, "a").close()
-                                log.info("Init complete - flag written to %s", flag_file)
+                                log.info(f"Init complete - flag written to {flag_file}")
 
                             except Exception as e:
-                                raise RuntimeError("Failed to switch camera mode: {}".format(e))
+                                raise RuntimeError(f"Failed to switch camera mode: {e}")
 
                         except Exception as e:
-                            log.warning("Camera switch to %s mode failed: %s. Will retry later.", mode_name, e)
+                            log.warning(f"Camera switch to {mode_name} mode failed: {e}. Will retry later.")
 
                     # -------------------------------------------
                     # Day/night switching
@@ -1179,7 +1176,7 @@ class BufferedCapture(Process):
                 time.sleep(5)
                 success, probe_result = self.probeRtspService()
                 if not success:
-                    log.error("Camera connection failed after switching modes: {}".format(probe_result))
+                    log.error(f"Camera connection failed after switching modes: {probe_result}")
                     return False
 
             # Init the video device
@@ -1272,8 +1269,7 @@ class BufferedCapture(Process):
                     
                     # Check if frame is grayscale and set flag
                     self.convert_to_gray = self.isGrayscale(frame)
-                    log.info("Video format: {}, {}P, color: {}".format(self.config.gst_colorspace, height, 
-                                                                       not self.convert_to_gray))
+                    log.info(f"Video format: {self.config.gst_colorspace}, {height}P, color: {not self.convert_to_gray}")
 
                     # Set the video device type
                     self.video_device_type = "gst"
@@ -1287,7 +1283,7 @@ class BufferedCapture(Process):
                     return True
 
                 except Exception as e:
-                    log.info("Error initializing GStreamer, switching to alternative. Error: {}".format(e))
+                    log.info(f"Error initializing GStreamer, switching to alternative. Error: {e}")
                     self.media_backend_override = True
                     self.releaseResources()
 
@@ -1307,7 +1303,7 @@ class BufferedCapture(Process):
                 
                 except Exception as e:
                     log.info("Could not initialize OpenCV with v4l2. Initialize "
-                             "OpenCV Device without v4l2 instead. Error: {}".format(e))
+                             f"OpenCV Device without v4l2 instead. Error: {e}")
                     self.media_backend_override = True
                     self.releaseResources()
 
@@ -1319,7 +1315,7 @@ class BufferedCapture(Process):
                 return True
 
             else:
-                error_msg  = "Invalid media backend: {}\n".format(self.config.media_backend)
+                error_msg  = f"Invalid media backend: {self.config.media_backend}\n"
                 error_msg += "Or GStreamer is not available but is set as the media_backend."
                 raise ValueError(error_msg)
 
@@ -1391,7 +1387,7 @@ class BufferedCapture(Process):
                     except ProcessLookupError:
                         log.info("RawFrameSaver already terminated")
                     except Exception as e:
-                        log.error("Error during graceful RawFrameSaver shutdown: {}".format(e))
+                        log.error(f"Error during graceful RawFrameSaver shutdown: {e}")
                         self.raw_frame_saver.terminate()
                         self.raw_frame_saver.join()
             finally:
@@ -1425,7 +1421,7 @@ class BufferedCapture(Process):
                 buffer_size = self.num_raw_frames * frame_shape[0] * frame_shape[1]
                 array_shape = (self.num_raw_frames, frame_shape[0], frame_shape[1])
 
-            log.debug("Creating shared arrays with shape: {}".format(array_shape))
+            log.debug(f"Creating shared arrays with shape: {array_shape}")
 
             # Initialize shared memory arrays
             self.shared_raw_array_base = Array(ctypes.c_uint8, buffer_size)
@@ -1443,7 +1439,7 @@ class BufferedCapture(Process):
             return True
 
         except Exception as e:
-            log.error("Failed to initialize raw frame arrays: {}".format(e))
+            log.error(f"Failed to initialize raw frame arrays: {e}")
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
             return False
 
@@ -1468,10 +1464,10 @@ class BufferedCapture(Process):
                     # Comment out if higher than logging level 3 is needed
                     Gst.debug_add_log_function(gstDebugLogger, None)
 
-                    log.info("GStreamer logging initialized at level: {}".format(debug_env))
+                    log.info(f"GStreamer logging initialized at level: {debug_env}")
 
                 except Exception as e:
-                    log.error("Failed to initialize GStreamer logging: {}".format(e))
+                    log.error(f"Failed to initialize GStreamer logging: {e}")
 
             # Initialize process-specific variables
             self.media_backend_override = False
@@ -1547,7 +1543,7 @@ class BufferedCapture(Process):
             log.info("Capture process received interrupt signal. Shutting down gracefully...")
             self.exit.set()
         except Exception as e:
-            log.error("Error in capture process: {}".format(e))
+            log.error(f"Error in capture process: {e}")
             log.debug(repr(traceback.format_exception(*sys.exc_info())))
             self.exit.set()
         finally:
@@ -1616,7 +1612,7 @@ class BufferedCapture(Process):
                         wait_for_compression = True
 
                 if wait_for_compression:
-                    log.debug("Waiting for the {:d}. compression thread to finish...".format(int(not buffer_one) + 1))
+                    log.debug(f"Waiting for the {int(not buffer_one) + 1}. compression thread to finish...")
                     time.sleep(0.1)
                     continue
 
@@ -1687,7 +1683,7 @@ class BufferedCapture(Process):
                     switchCameraMode(self.config, self.daytime_mode, self.camera_mode_switch_trigger)
 
 
-            log.info('Grabbing a new block of {:d} frames...'.format(block_frames))
+            log.info(f'Grabbing a new block of {block_frames} frames...')
             for i in range(block_frames):
 
                 # Read the frame (keep track how long it took to grab it), and check for color if saving raw frame
@@ -1847,8 +1843,7 @@ class BufferedCapture(Process):
                     self.dropped_frames.value += n_dropped
 
                     if self.config.report_dropped_frames:
-                        log.info("{}/{} frames dropped or late! Time for frame: {:.3f}, convert: {:.3f}, assignment: {:.3f}".format(
-                            str(n_dropped), str(self.dropped_frames.value), t_frame, t_convert, t_assignment))
+                        log.info(f"{str(n_dropped)}/{str(self.dropped_frames.value)} frames dropped or late! Time for frame: {t_frame:.3f}, convert: {t_convert:.3f}, assignment: {t_assignment:.3f}")
 
 
                 # If cv2:
@@ -1883,13 +1878,11 @@ class BufferedCapture(Process):
                             run_start_ts = last_frame_timestamp
                             run_late_frames = 0
 
-                        log.info("Block interval: mean %.3f, max %.3f (normalized). Dropped frames: %d",
-                                 mean_interval_norm, max_frame_interval_normalized, run_late_frames)
+                        log.info(f"Block interval: mean {mean_interval_norm:.3f}, max {max_frame_interval_normalized:.3f} (normalized). Dropped frames: {run_late_frames}")
                     
                     # For GStreamer, show elapsed time since frame capture to assess sink fill level
                     else:
-                        log.info("Block's max frame age: {:.3f} seconds. Run's dropped frames: {}"
-                                 .format(max_frame_age_seconds, self.dropped_frames.value))
+                        log.info(f"Block's max frame age: {max_frame_age_seconds:.3f} seconds. Run's dropped frames: {self.dropped_frames.value}")
 
                 last_frame_timestamp = frame_timestamp
                 
@@ -1977,14 +1970,13 @@ class BufferedCapture(Process):
                 else:
                     self.start_time2.value = first_frame_timestamp
 
-                log.debug('New block of raw frames available for compression with starting time: {:s}'
-                         .format(str(first_frame_timestamp)))
+                log.debug(f'New block of raw frames available for compression with starting time: {str(first_frame_timestamp)}')
 
             
             # Switch the frame block buffer flags
             buffer_one = not buffer_one
             if self.config.report_dropped_frames:
-                log.info('Estimated FPS: {:.3f}'.format(block_frames/(time.time() - t_block)))
+                log.info(f'Estimated FPS: {block_frames/(time.time() - t_block):.3f}')
         
 
             # Save current timestamp buffer to ft file
@@ -1997,12 +1989,12 @@ class BufferedCapture(Process):
                 del self.timestamp_buffer[:]
 
                 base_time = UTCFromTimestamp.utcfromtimestamp(first_frame_timestamp)
-                ft_filename = base_time.strftime("FT_{}_%Y%m%d_%H%M%S.bin".format(self.config.stationID))
+                ft_filename = base_time.strftime(f"FT_{self.config.stationID}_%Y%m%d_%H%M%S.bin")
                 ft_subpath = os.path.join(self.config.data_dir, self.config.times_dir, base_time.strftime("%Y/%Y%m%d-%j/%Y%m%d-%j_%H"))
 
                 mkdirP(ft_subpath)
                 FTfile.write(ft, ft_subpath, ft_filename)
-                log.debug("Created FT file {} for block starting at {}".format(os.path.join(ft_subpath, ft_filename), first_frame_timestamp))
+                log.debug(f"Created FT file {os.path.join(ft_subpath, ft_filename)} for block starting at {first_frame_timestamp}")
 
                 # For Testing: 
                 # Print first and last 10 timestamps, array length, average time difference and time difference from last block
@@ -2060,8 +2052,8 @@ if __name__ == "__main__":
     log = getLogger("logger")
 
     # Print the kind of media backend
-    print("Station code: {}".format(config.stationID))
-    print('Media backend: {}'.format(config.media_backend))
+    print(f"Station code: {config.stationID}")
+    print(f'Media backend: {config.media_backend}')
 
 
     # Init dummy shared memory
@@ -2074,7 +2066,7 @@ if __name__ == "__main__":
     # If a video is given, use it as the video source
     if cml_args.video_file:
 
-        print("Using video file: {}".format(cml_args.video_file))
+        print(f"Using video file: {cml_args.video_file}")
 
         bc = BufferedCapture(sharedArray, startTime, sharedArray, startTime, config, 
                              video_file=cml_args.video_file)
@@ -2086,7 +2078,7 @@ if __name__ == "__main__":
         for i in range(256):
             ret, frame = bc.device.read()
 
-            print('Frame read: {}'.format(i))
+            print(f'Frame read: {i}')
             if not ret:
                 print("End of video file!")
                 break

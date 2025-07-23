@@ -182,7 +182,7 @@ class Compressor(multiprocessing.Process):
             # Save the file to disk
             saveImage(os.path.join(self.config.data_dir, live_name), maxpixel)
         except:
-            log.error("Could not save {:s} to disk!".format(live_name))
+            log.error(f"Could not save {live_name} to disk!")
     
 
 
@@ -231,7 +231,7 @@ class Compressor(multiprocessing.Process):
             except ProcessLookupError:
                 log.info("Compression process already terminated")
             except Exception as e:
-                log.error("Error during graceful compression shutdown: {}".format(e))
+                log.error(f"Error during graceful compression shutdown: {e}")
                 log.info("Falling back to terminate()")
                 self.terminate()
             
@@ -311,7 +311,7 @@ class Compressor(multiprocessing.Process):
                 continue
 
             
-            log.debug("Compressing frame block with start time at: {:s}".format(str(startTime)))
+            log.debug(f"Compressing frame block with start time at: {str(startTime)}")
 
             #log.debug("memory copy: " + str(time.time() - t) + "s")
             t = time.time()
@@ -332,14 +332,14 @@ class Compressor(multiprocessing.Process):
             # Cut out the compressed frames to the proper size
             compressed = compressed[:, :self.config.height, :self.config.width]
             
-            log.info("Compression time: {:.3f} s".format(time.time() - t))
+            log.info(f"Compression time: {time.time() - t:.3f} s")
             t = time.time()
             
             # Save the compressed image
             filename_millis, filename_micros = self.saveFF(compressed, startTime, n*256)
             n += 1
             
-            log.info("Saving time: {:.3f} s".format(time.time() - t))
+            log.info(f"Saving time: {time.time() - t:.3f} s")
 
 
             # Save a live.jpg file to the data directory
@@ -369,7 +369,7 @@ class Compressor(multiprocessing.Process):
 
                 # Add the file to the detector queue
                 self.detector.addJob([self.data_dir, filename, self.config])
-                log.debug('Added file for detection: {:s}'.format(filename))
+                log.debug(f'Added file for detection: {filename}')
 
 
 

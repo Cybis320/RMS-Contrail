@@ -207,7 +207,7 @@ def archiveDetections(captured_path, archived_path, ff_detected, config, extra_f
 
         if captured_stack_path is not None:
 
-            log.info("Captured stack saved to: {:s}".format(captured_stack_path))
+            log.info(f"Captured stack saved to: {captured_stack_path}")
 
             # Extract the name of the stack image
             stack_file = os.path.basename(captured_stack_path)
@@ -223,7 +223,7 @@ def archiveDetections(captured_path, archived_path, ff_detected, config, extra_f
         log.error("".join(traceback.format_exception(*sys.exc_info())))
 
 
-    log.info('Generating a stack of {:d} detections...'.format(len(ff_detected)))
+    log.info(f'Generating a stack of {len(ff_detected)} detections...')
 
     try:
 
@@ -233,7 +233,7 @@ def archiveDetections(captured_path, archived_path, ff_detected, config, extra_f
 
         if detected_stack_path is not None:
 
-            log.info("Detected stack saved to: {:s}".format(detected_stack_path))
+            log.info(f"Detected stack saved to: {detected_stack_path}")
 
             # Extract the name of the stack image
             stack_file = os.path.basename(detected_stack_path)
@@ -292,8 +292,7 @@ def archiveFrameTimelapse(frames_root,
 
         mp4_path, json_path = pair
         if not (os.path.isfile(mp4_path) and os.path.isfile(json_path)):
-            log.warning("Skipping archive: missing file(s) %s  %s",
-                        mp4_path, json_path)
+            log.warning(f"Skipping archive: missing file(s) {mp4_path}  {json_path}")
             continue
 
         # Build archive name: strip suffix, keep in same root, plain .tar
@@ -301,10 +300,7 @@ def archiveFrameTimelapse(frames_root,
         archive_path = os.path.join(frames_root, base_name)
         tmp_archive = archive_path + ".tmp"
 
-        log.info("Archiving %s and %s to %s",
-                 os.path.basename(mp4_path),
-                 os.path.basename(json_path),
-                 os.path.basename(archive_path))
+        log.info(f"Archiving {os.path.basename(mp4_path)} and {os.path.basename(json_path)} to {os.path.basename(archive_path)}")
 
         try:
             success = tarWithProgress(
@@ -320,14 +316,14 @@ def archiveFrameTimelapse(frames_root,
                     os.remove(archive_path)
                 os.rename(tmp_archive, archive_path)
                 archive_paths.append(archive_path)
-                log.info("Archive created: %s", archive_path)
+                log.info(f"Archive created: {archive_path}")
             else:
-                log.warning("Archive verification failed: %s", archive_path)
+                log.warning(f"Archive verification failed: {archive_path}")
                 if os.path.exists(tmp_archive):
                     os.remove(tmp_archive)
 
         except Exception as exc:
-            log.error("Archiving error for %s: %s", mp4_path, exc)
+            log.error(f"Archiving error for {mp4_path}: {exc}")
             if os.path.exists(tmp_archive):
                 os.remove(tmp_archive)
 

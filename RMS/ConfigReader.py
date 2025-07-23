@@ -137,9 +137,9 @@ def findBinaryPath(config, dir_path, binary_name, binary_extension):
             # the binary directory may or may not contain a dot in the version
             # e.g lib.linux-x86_64-3.7 vs lib.linux-x86_64-cpython-311
             if '.' in binary_dir_version:
-                py_version = "{:d}.{:d}".format(sys.version_info.major, sys.version_info.minor)
+                py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
             else:
-                py_version = "{:d}{:d}".format(sys.version_info.major, sys.version_info.minor)
+                py_version = f"{sys.version_info.major}{sys.version_info.minor}"
 
             # If the directory ends with the correct python version, take that binary
             if binary_dir_version == py_version:
@@ -207,7 +207,7 @@ def loadConfigFromDirectory(cml_args_config, dir_path):
             elif len(config_files) > 1:
                 print('There are several config files in the given directory, choose one and provide the full path to it:')
                 for cfile in config_files:
-                    print('    {:s}'.format(os.path.join(dir_path, cfile)))
+                    print(f'    {os.path.join(dir_path, cfile)}')
 
         else:
             # Load the config file from the full path
@@ -215,10 +215,7 @@ def loadConfigFromDirectory(cml_args_config, dir_path):
 
 
         if config_file is None:
-            raise FileNotFoundError("A config file could not be found in directory: {:s}, {:s}".format(
-                dir_path, cml_args_config
-                )
-            )
+            raise FileNotFoundError(f"A config file could not be found in directory: {dir_path}, {cml_args_config}")
 
         print('Loading config file:', config_file)
 
@@ -822,7 +819,7 @@ def parse(path, strict=True):
         parseDFNStation(config, parser)
 
     else:
-        raise RuntimeError('Unknown config file name: {}'.format(os.path.basename(path)))
+        raise RuntimeError(f'Unknown config file name: {os.path.basename(path)}')
 
 
     # Disable upload if the default station name is used

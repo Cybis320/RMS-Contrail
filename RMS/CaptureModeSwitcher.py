@@ -32,25 +32,25 @@ def switchCameraMode(config, daytime_mode, camera_mode_switch_trigger):
 
     try:
         if not os.path.exists(mode_path):
-            raise FileNotFoundError("Mode file {} not found.".format(mode_path))
+            raise FileNotFoundError(f"Mode file {mode_path} not found.")
 
         with open(mode_path, 'r') as f:
             modes = json.load(f)
 
         if mode_name not in modes:
-            raise KeyError("Mode '{}' not defined in {}.".format(mode_name, mode_path))
+            raise KeyError(f"Mode '{mode_name}' not defined in {mode_path}.")
 
         try:
             cc.cameraControlV2(config, "SwitchMode", mode_name)
         except Exception as e:
-            raise RuntimeError("Failed to switch camera mode: {}".format(e))
+            raise RuntimeError(f"Failed to switch camera mode: {e}")
 
         # After successful camera mode switching, don't keep trying
         camera_mode_switch_trigger.value = False
-        log.info("Successfully switched camera mode to %s", mode_name)
+        log.info(f"Successfully switched camera mode to {mode_name}")
 
     except Exception as e:
-        log.warning("Camera switch to %s mode failed: %s. Will retry later.", mode_name, e)
+        log.warning(f"Camera switch to {mode_name} mode failed: {e}. Will retry later.")
 
         # After failure, retry on next opportunity
         camera_mode_switch_trigger.value = True
@@ -94,7 +94,7 @@ def captureModeSwitcher(config, daytime_mode, camera_mode_switch_trigger):
                 next_set = o.next_setting(s).datetime()
 
                 if next_set < next_rise:
-                    log.info("Next event is a sunset ({}), switching to daytime mode".format(next_set))
+                    log.info(f"Next event is a sunset ({next_set}), switching to daytime mode")
 
                     if config.switch_camera_modes:
                         # Delay before switching camera modes to prevent multiple cameras 
@@ -111,7 +111,7 @@ def captureModeSwitcher(config, daytime_mode, camera_mode_switch_trigger):
                     time_to_wait = max(0, (next_set - now).total_seconds())
 
                 else:
-                    log.info("Next event is a sunrise ({}), switching to nighttime mode".format(next_rise))
+                    log.info(f"Next event is a sunrise ({next_rise}), switching to nighttime mode")
 
                     if config.switch_camera_modes:
                         # Delay before switching camera modes to prevent multiple cameras 

@@ -279,7 +279,7 @@ class GeoPoints(object):
             # azim, alt = raDec2AltAz(np.radians(ra), np.radians(dec), jd, np.radians(platepar.lat), \
             #     np.radians(platepar.lon))
 
-            # print("{:>25s}, {:8.3f}, {:7.3f}".format(name, np.degrees(azim), np.degrees(alt)))
+            # print(f"{name:>25s}, {np.degrees(azim):8.3f}, {np.degrees(alt):7.3f}")
 
 
             # Precess RA/Dec to J2000
@@ -1409,9 +1409,9 @@ class PlateTool(QtWidgets.QMainWindow):
 
         # Write image X, Y coordinates and image intensity
         if 0 <= x <= self.img.data.shape[0] - 1 and 0 <= y <= self.img.data.shape[1] - 1:
-            status_str = "x={:7.2f}  y={:7.2f}  Intens={:5d}".format(x, y, self.img.data[int(x), int(y)])
+            status_str = f"x={x:7.2f}  y={y:7.2f}  Intens={self.img.data[int(x), int(y)]:5d}"
         else:
-            status_str = "x={:7.2f}  y={:7.2f}  Intens=--".format(x, y)
+            status_str = f"x={x:7.2f}  y={y:7.2f}  Intens=--"
 
         # Add coordinate info if platepar is present
         if self.platepar is not None:
@@ -1434,13 +1434,13 @@ class PlateTool(QtWidgets.QMainWindow):
 
             # If ground points are measured, change the text for alt/az
             if self.meas_ground_points:
-                status_str += ",  Azim={:6.2f} Alt={:6.2f} (GROUND)".format(azim, alt)
+                status_str += f",  Azim={azim:6.2f} Alt={alt:6.2f} (GROUND)"
             else:
-                status_str += ",  Azim={:6.2f} Alt={:6.2f} (date)".format(azim, alt)
+                status_str += f",  Azim={azim:6.2f} Alt={alt:6.2f} (date)"
 
 
             # Add RA/Dec info
-            status_str += ", RA={:6.2f} Dec={:+6.2f} (J2000)".format(ra[0], dec[0])
+            status_str += f", RA={ra[0]:6.2f} Dec={dec[0]:+6.2f} (J2000)"
 
             # Show mode for debugging purposes
 
@@ -1454,10 +1454,9 @@ class PlateTool(QtWidgets.QMainWindow):
                                                                 len(self.catalog_x_filtered)])
 
                 if self.max_pixels_between_matched_stars != 0:
-                    status_str += ", max gap {:.0f}px".format(self.max_pixels_between_matched_stars)
+                    status_str += f", max gap {self.max_pixels_between_matched_stars:.0f}px"
 
-                status_str += " good:{} bad:{} progress {:.0f}%".format(
-                    len(self.paired_stars), len(self.unsuitable_stars), percentage_complete)
+                status_str += f" good:{len(self.paired_stars)} bad:{len(self.unsuitable_stars)} progress {percentage_complete:.0f}%"
 
         return status_str
 
@@ -1482,53 +1481,51 @@ class PlateTool(QtWidgets.QMainWindow):
             ra_centre, dec_centre = self.computeCentreRADec()
 
             # Show text on image with platepar parameters
-            text_str = "Station: {:s} \n".format(self.platepar.station_code)
+            text_str = f"Station: {self.platepar.station_code:s} \n"
             text_str += self.img_handle.name() + '\n\n'
             text_str += self.img_type_flag + '\n'
-            text_str += u'Ref Az   = {:.3f}\N{DEGREE SIGN}\n'.format(self.platepar.az_centre)
-            text_str += u'Ref Alt  = {:.3f}\N{DEGREE SIGN}\n'.format(self.platepar.alt_centre)
-            text_str += u'Rot horiz = {:.3f}\N{DEGREE SIGN}\n'.format(rotationWrtHorizon(self.platepar))
-            text_str += u'Rot eq    = {:.3f}\N{DEGREE SIGN}\n'.format(rotationWrtStandard(self.platepar))
-            # text_str += 'Ref RA  = {:.3f}\n'.format(self.platepar.RA_d)
-            # text_str += 'Ref Dec = {:.3f}\n'.format(self.platepar.dec_d)
-            text_str += "Pix scale = {:.3f}'/px\n".format(60/self.platepar.F_scale)
-            text_str += 'Lim mag   = {:.1f}\n'.format(self.cat_lim_mag)
-            text_str += 'Increment = {:.2f}\n'.format(self.key_increment)
-            text_str += 'Img Gamma = {:.2f}\n'.format(self.img.gamma)
-            text_str += 'Camera Gamma = {:.2f}\n'.format(self.config.gamma)
-            text_str += "Refraction corr = {:s}\n".format(str(self.platepar.refraction))
-            text_str += "Distortion type = {:s}\n".format(
-                self.platepar.distortion_type)
+            text_str += f'Ref Az   = {self.platepar.az_centre:.3f}\N{DEGREE SIGN}\n'
+            text_str += f'Ref Alt  = {self.platepar.alt_centre:.3f}\N{DEGREE SIGN}\n'
+            text_str += f'Rot horiz = {rotationWrtHorizon(self.platepar):.3f}\N{DEGREE SIGN}\n'
+            text_str += f'Rot eq    = {rotationWrtStandard(self.platepar):.3f}\N{DEGREE SIGN}\n'
+            # text_str += f'Ref RA  = {self.platepar.RA_d:.3f}\n'
+            # text_str += f'Ref Dec = {self.platepar.dec_d:.3f}\n'
+            text_str += f"Pix scale = {60/self.platepar.F_scale:.3f}'/px\n"
+            text_str += f'Lim mag   = {self.cat_lim_mag:.1f}\n'
+            text_str += f'Increment = {self.key_increment:.2f}\n'
+            text_str += f'Img Gamma = {self.img.gamma:.2f}\n'
+            text_str += f'Camera Gamma = {self.config.gamma:.2f}\n'
+            text_str += f"Refraction corr = {str(self.platepar.refraction):s}\n"
+            text_str += f"Distortion type = {self.platepar.distortion_type:s}\n"
 
             # Add aspect info if the radial distortion is used
             if not self.platepar.distortion_type.startswith("poly"):
-                text_str += "Equal aspect    = {:s}\n".format(str(self.platepar.equal_aspect))
+                text_str += f"Equal aspect    = {str(self.platepar.equal_aspect):s}\n"
 
-            text_str += "Extinction Scale = {:.2f}\n".format(self.platepar.extinction_scale)
+            text_str += f"Extinction Scale = {self.platepar.extinction_scale:.2f}\n"
             text_str += '\n'
             sign, hh, mm, ss = decimalDegreesToSexHours(ra_centre)
             if sign < 0:
                 sign_str = '-'
             else:
                 sign_str = ' '
-            text_str += 'RA centre  = {:s}{:02d}h {:02d}m {:05.2f}s\n'.format(sign_str, hh, mm, ss)
-            text_str += u'Dec centre = {:.3f}\N{DEGREE SIGN}\n'.format(dec_centre)
-            text_str += 'FOV = {:.2f}x{:.2f}\N{DEGREE SIGN}'.format(*computeFOVSize(self.platepar))
+            text_str += f'RA centre  = {sign_str:s}{hh:02d}h {mm:02d}m {ss:05.2f}s\n'
+            text_str += f'Dec centre = {dec_centre:.3f}\N{DEGREE SIGN}\n'
+            text_str += f'FOV = {computeFOVSize(self.platepar)[0]:.2f}x{computeFOVSize(self.platepar)[1]:.2f}\N{DEGREE SIGN}'
 
         # Manual reduction
         else:
-            text_str = "Station: {:s} \n".format(self.platepar.station_code)
+            text_str = f"Station: {self.platepar.station_code:s} \n"
             text_str += self.img_handle.name() + '\n\n'
             text_str += self.img_type_flag + '\n'
-            text_str += "Time  = {:s}\n".format(
-                self.img_handle.currentFrameTime(dt_obj=True).strftime("%Y/%m/%d %H:%M:%S.%f")[:-3])
-            text_str += 'Frame = {:d}\n'.format(self.img.getFrame())
+            text_str += f"Time  = {self.img_handle.currentFrameTime(dt_obj=True).strftime('%Y/%m/%d %H:%M:%S.%f')[:-3]:s}\n"
+            text_str += f'Frame = {self.img.getFrame():d}\n'
             if self.img_handle.input_type == "ff":
                 if self.use_fr_files:
-                    text_str += 'Line = {:d}\n'.format(self.img_handle.current_line)
-            text_str += 'Image gamma = {:.2f}\n'.format(self.img.gamma)
-            text_str += 'Camera gamma = {:.2f}\n'.format(self.config.gamma)
-            text_str += 'Refraction = {:s}'.format(str(self.platepar.refraction))
+                    text_str += f'Line = {self.img_handle.current_line:d}\n'
+            text_str += f'Image gamma = {self.img.gamma:.2f}\n'
+            text_str += f'Camera gamma = {self.config.gamma:.2f}\n'
+            text_str += f'Refraction = {str(self.platepar.refraction):s}'
 
         self.label1.setText(text_str)
 
@@ -2119,9 +2116,9 @@ class PlateTool(QtWidgets.QMainWindow):
                                                             self.paired_stars.snr()
                                                             ):
 
-                photom_resid_txt = "{:.2f}".format(fit_diff)
+                photom_resid_txt = f"{fit_diff:.2f}"
 
-                snr_txt = "S/N\n{:.1f}".format(snr)
+                snr_txt = f"S/N\n{snr:.1f}"
 
                 # Determine the size of the residual text, larger the residual, larger the text
                 photom_resid_size = int(8 + np.abs(fit_diff)/(np.max(np.abs(self.photom_fit_resids))/5.0))
@@ -2152,7 +2149,7 @@ class PlateTool(QtWidgets.QMainWindow):
                     self.residual_text.addTextItem(text_resid)
 
                     # Add the star magnitude above the star
-                    text_mag = TextItem("{:+6.2f}".format(star_mag), anchor=(0.5, 1.5))
+                    text_mag = TextItem(f"{star_mag:+6.2f}", anchor=(0.5, 1.5))
                     text_mag.setPos(star_x, star_y)
                     text_mag.setFont(QtGui.QFont('Arial', 10))
                     text_mag.setColor(QtGui.QColor(0, 255, 0))
@@ -2243,11 +2240,9 @@ class PlateTool(QtWidgets.QMainWindow):
             y_max_w = y_max + 3
 
             # Plot fit info
-            fit_info = "{:+.1f}*LSP + {:.2f} $\\pm$ {:.2f} mag".format(self.platepar.mag_0,
-                                                                        self.platepar.mag_lev,
-                                                                        self.photom_fit_stddev) \
-                        + "\nVignetting coeff = {:.5f} rad/px".format(self.platepar.vignetting_coeff) \
-                        + "\nGamma = {:.2f}".format(self.platepar.gamma)
+            fit_info = f"{self.platepar.mag_0:+.1f}*LSP + {self.platepar.mag_lev:.2f} $\\pm$ {self.photom_fit_stddev:.2f} mag" \
+                        + f"\nVignetting coeff = {self.platepar.vignetting_coeff:.5f} rad/px" \
+                        + f"\nGamma = {self.platepar.gamma:.2f}"
 
             print()
             print('Photometric fit:')
@@ -2264,7 +2259,7 @@ class PlateTool(QtWidgets.QMainWindow):
 
             ax_p.legend()
 
-            ax_p.set_ylabel("Catalog magnitude ({:s})".format(self.mag_band_string))
+            ax_p.set_ylabel(f"Catalog magnitude ({self.mag_band_string:s})")
             ax_p.set_xlabel("Uncalibrated magnitude")
 
             # Set wider axis limits
@@ -2372,7 +2367,7 @@ class PlateTool(QtWidgets.QMainWindow):
         # Indicate that the platepar has been reset
         self.first_platepar_fit = True
 
-        print("Distortion model changed to: {:s}".format(dist_type))
+        print(f"Distortion model changed to: {dist_type:s}")
 
 
     def resetDistortion(self):
@@ -3802,7 +3797,7 @@ class PlateTool(QtWidgets.QMainWindow):
                     
                     if unsuitable:
 
-                        print("Unsuitable star at coordinates: ({}, {})".format(self.current_autopan_x, self.current_autopan_y))
+                        print(f"Unsuitable star at coordinates: ({self.current_autopan_x}, {self.current_autopan_y})")
 
                         self.unsuitable_stars.addPair(self.current_autopan_x, self.current_autopan_y,
                                                         0, 0, None)
@@ -3905,12 +3900,12 @@ class PlateTool(QtWidgets.QMainWindow):
 
             elif event.key() == QtCore.Qt.Key_Comma:
                 if hasattr(self.img.img_handle, 'current_line'):
-                    print('Current line: {}'.format(self.img.img_handle.current_line))
+                    print(f'Current line: {self.img.img_handle.current_line}')
                     self.img.prevLine()
 
             elif event.key() == QtCore.Qt.Key_Period:
                 if hasattr(self.img.img_handle, 'current_line'):
-                    print('Current line: {}'.format(self.img.img_handle.current_line))
+                    print(f'Current line: {self.img.img_handle.current_line}')
                     self.img.nextLine()
 
     def keyReleaseEvent(self, event):
@@ -4350,15 +4345,15 @@ class PlateTool(QtWidgets.QMainWindow):
         print()
         print('Astrometry.net solution:')
         print('------------------------')
-        print(' RA    = {:.2f} deg'.format(self.platepar.RA_d))
-        print(' Dec   = {:.2f} deg'.format(self.platepar.dec_d))
-        print(' Azim  = {:.2f} deg'.format(self.platepar.az_centre))
-        print(' Alt   = {:.2f} deg'.format(self.platepar.alt_centre))
-        print(' Rot horiz   = {:.2f} deg'.format(self.platepar.rotation_from_horiz))
-        print(' Rot eq      = {:.2f} deg'.format(rot_standard))
-        print(' Pos angle   = {:.2f} deg'.format(self.platepar.pos_angle_ref))
-        print(' Scale = {:.3f} arcmin/px'.format(60/self.platepar.F_scale))
-        print(' FOV = {:.2f} x {:.2f} deg'.format(fov_w, fov_h))
+        print(f' RA    = {self.platepar.RA_d:.2f} deg')
+        print(f' Dec   = {self.platepar.dec_d:.2f} deg')
+        print(f' Azim  = {self.platepar.az_centre:.2f} deg')
+        print(f' Alt   = {self.platepar.alt_centre:.2f} deg')
+        print(f' Rot horiz   = {self.platepar.rotation_from_horiz:.2f} deg')
+        print(f' Rot eq      = {rot_standard:.2f} deg')
+        print(f' Pos angle   = {self.platepar.pos_angle_ref:.2f} deg')
+        print(f' Scale = {60/self.platepar.F_scale:.3f} arcmin/px')
+        print(f' FOV = {fov_w:.2f} x {fov_h:.2f} deg')
 
 
         # If a list of detected stars is provided by the astrometry.net, use it to run FFT alignment
@@ -4384,13 +4379,13 @@ class PlateTool(QtWidgets.QMainWindow):
             print()
             print('FFT aligned:')
             print('------------------------')
-            print(' RA    = {:.2f} deg'.format(self.platepar.RA_d))
-            print(' Dec   = {:.2f} deg'.format(self.platepar.dec_d))
-            print(' Azim  = {:.2f} deg'.format(self.platepar.az_centre))
-            print(' Alt   = {:.2f} deg'.format(self.platepar.alt_centre))
-            print(' Rot horiz   = {:.2f} deg'.format(self.platepar.rotation_from_horiz))
-            print(' Pos angle   = {:.2f} deg'.format(self.platepar.pos_angle_ref))
-            print(' Scale = {:.3f} arcmin/px'.format(60/self.platepar.F_scale))
+            print(f' RA    = {self.platepar.RA_d:.2f} deg')
+            print(f' Dec   = {self.platepar.dec_d:.2f} deg')
+            print(f' Azim  = {self.platepar.az_centre:.2f} deg')
+            print(f' Alt   = {self.platepar.alt_centre:.2f} deg')
+            print(f' Rot horiz   = {self.platepar.rotation_from_horiz:.2f} deg')
+            print(f' Pos angle   = {self.platepar.pos_angle_ref:.2f} deg')
+            print(f' Scale = {60/self.platepar.F_scale:.3f} arcmin/px')
 
 
     def getFOVcentre(self):
@@ -4619,7 +4614,7 @@ class PlateTool(QtWidgets.QMainWindow):
                 return
 
             print('Platepar loaded:', platepar_file)
-            print("FOV: {:.2f} x {:.2f} deg".format(*computeFOVSize(platepar)))
+            print(f"FOV: {computeFOVSize(platepar)[0]:.2f} x {computeFOVSize(platepar)[1]:.2f} deg")
 
             # Set geo location and gamma from config, if they were updated
 
@@ -4683,22 +4678,22 @@ class PlateTool(QtWidgets.QMainWindow):
         else:
 
             # Construct a fake FF file name
-            ff_name_ftp = "FF_{:s}_".format(self.station_name) \
+            ff_name_ftp = f"FF_{self.station_name:s}_" \
                           + self.img_handle.beginning_datetime.strftime("%Y%m%d_%H%M%S_") \
-                          + "{:03d}".format(int(round(self.img_handle.beginning_datetime.microsecond/1000))) \
+                          + f"{int(round(self.img_handle.beginning_datetime.microsecond/1000)):03d}" \
                           + "_0000000.fits"
 
         # Remove the file extension of the image file
         ff_name_ftp = ff_name_ftp.replace('.bin', '').replace('.fits', '')
 
         # Construct the file name
-        frame_file_name = ff_name_ftp + "_frame_{:03d}".format(self.img.getFrame()) + '.png'
+        frame_file_name = ff_name_ftp + f"_frame_{self.img.getFrame():03d}" + '.png'
         frame_file_path = os.path.join(dir_path, frame_file_name)
 
         # Save the frame to disk
         Image.saveImage(frame_file_path, self.img.getFrame())
 
-        print('Frame {:.1f} saved to: {:s}'.format(self.img.getFrame(), frame_file_path))
+        print(f'Frame {self.img.getFrame():.1f} saved to: {frame_file_path:s}')
 
     def makeNewPlatepar(self):
         """ Make a new platepar from the loaded one, but set the parameters from the config file. """
@@ -4900,7 +4895,7 @@ class PlateTool(QtWidgets.QMainWindow):
             saturated: [bool] Whether the pick is saturated.
 
         """
-        print('Added centroid at ({:.2f}, {:.2f}) on frame {:d}'.format(x_centroid, y_centroid, frame))
+        print(f'Added centroid at ({x_centroid:.2f}, {y_centroid:.2f}) on frame {frame:d}')
 
         pick = self.getCurrentPick()
         if pick:
@@ -4933,9 +4928,7 @@ class PlateTool(QtWidgets.QMainWindow):
         """
         pick = self.getCurrentPick()
         if pick and pick['x_centroid']:
-            print('Removed centroid at ({:.2f}, {:.2f}) on frame {:d}'.format(pick['x_centroid'],
-                                                                              pick['y_centroid'],
-                                                                              self.img.getFrame()))
+            print(f'Removed centroid at ({pick["x_centroid"]:.2f}, {pick["y_centroid"]:.2f}) on frame {self.img.getFrame():d}')
 
             self.pick_list[self.img.getFrame()]['x_centroid'] = None
             self.pick_list[self.img.getFrame()]['y_centroid'] = None
@@ -5033,7 +5026,7 @@ class PlateTool(QtWidgets.QMainWindow):
         # Apply the mask to only include the pixels within the star aperture radius
         saturated_count = np.sum(img_crop_orig[aperture_mask == 1] > saturation_threshold)
 
-        # print("Saturation threshold: {:.2f}, count: {:d}".format(saturation_threshold, saturated_count))
+        # print(f"Saturation threshold: {saturation_threshold:.2f}, count: {saturated_count:d}")
 
         # If 2 or more pixels are saturated, mark the pick as saturated
         min_saturated_px_count = 2
@@ -5191,8 +5184,7 @@ class PlateTool(QtWidgets.QMainWindow):
 
         # Debug print
         if prev_x_cent is not None:
-            print('Centroid at ({:7.2f}, {:7.2f}), FWHM {:5.2f}, intensity {:9d}, SNR {:6.2f}, saturated: {}'.format(
-                x_centroid, y_centroid, fwhm, int(source_intens), snr, saturated))
+            print(f'Centroid at ({x_centroid:7.2f}, {y_centroid:7.2f}), FWHM {fwhm:5.2f}, intensity {int(source_intens):9d}, SNR {snr:6.2f}, saturated: {saturated}')
 
         return x_centroid, y_centroid, fwhm, source_intens, snr, saturated
 
@@ -5405,7 +5397,7 @@ class PlateTool(QtWidgets.QMainWindow):
         if len(self.paired_stars) < min_stars:
 
             qmessagebox(title='Number of stars', 
-                        message="At least {:d} paired stars are needed to do the fit!".format(min_stars), 
+                        message=f"At least {min_stars:d} paired stars are needed to do the fit!", 
                         message_type="warning")
 
             return self.platepar
@@ -5470,7 +5462,7 @@ class PlateTool(QtWidgets.QMainWindow):
         #     ra_ref, dec_ref = np.degrees(ra_ref), np.degrees(dec_ref)
 
 
-        #     print("{:>12.6f}, {:>+13.6f}, {:>12.6f}, {:>+13.6f}, {:>12.6f}, {:>+13.6f}, {:>12.6f}, {:>+13.6f}".format(ra, dec, ra_date, dec_date, ra_ref, dec_ref, azim, elev))
+        #     print(f"{ra:>12.6f}, {dec:>+13.6f}, {ra_date:>12.6f}, {dec_date:>+13.6f}, {ra_ref:>12.6f}, {dec_ref:>+13.6f}, {azim:>12.6f}, {elev:>+13.6f}")
 
         # ### ###
 
@@ -5478,8 +5470,8 @@ class PlateTool(QtWidgets.QMainWindow):
 
         print()
         print("Image time =", self.img_handle.currentTime(dt_obj=True), "UTC")
-        print("Image JD = {:.8f}".format(jd))
-        print("Image LST = {:.8f}".format(JD2LST(jd, self.platepar.lon)[0]))
+        print(f"Image JD = {jd:.8f}")
+        print(f"Image LST = {JD2LST(jd, self.platepar.lon)[0]:.8f}")
 
         residuals = []
 
@@ -5521,11 +5513,7 @@ class PlateTool(QtWidgets.QMainWindow):
 
             # Print out the residuals
             print(
-                '{:3d}, {:11.6f}, {:11.6f}, {:>12.6f}, {:>+13.6f}, {:8.2f}, {:7.2f}, {:>12.6f}, {:>+13.6f}, {:8.2f}, {:7.2f}, {:+9.1f}, {:5.2f}, {:+6.2f}, {:8.2f}, {:+7.2f}, {:6.1f}, {:9s}'.format(
-                    star_no + 1, img_x, img_y, ra, dec, cat_x, cat_y, \
-                    ra_img, dec_img, 60*angular_distance, distance, np.degrees(angle),
-                    fwhm, mag, lsp, mag_err, snr, str(saturated)
-                    )
+                f'{star_no + 1:3d}, {img_x:11.6f}, {img_y:11.6f}, {ra:>12.6f}, {dec:>+13.6f}, {cat_x:8.2f}, {cat_y:7.2f}, {ra_img:>12.6f}, {dec_img:>+13.6f}, {60*angular_distance:8.2f}, {distance:7.2f}, {np.degrees(angle):+9.1f}, {fwhm:5.2f}, {mag:+6.2f}, {lsp:8.2f}, {mag_err:+7.2f}, {snr:6.1f}, {str(saturated):9s}'
                 )
 
 
@@ -5546,15 +5534,14 @@ class PlateTool(QtWidgets.QMainWindow):
             angular_error_label = 'arcsec'
 
 
-        print('RMSD: {:.2f} px, {:.2f} {:s}'.format(rmsd_img, rmsd_angular, angular_error_label))
+        print(f'RMSD: {rmsd_img:.2f} px, {rmsd_angular:.2f} {angular_error_label:s}')
 
         # Update fit residuals in the station tab when geopoints are used
         if self.geo_points_obj is not None:
-            self.tab.geolocation.residuals_label.setText("Residuals:\n{:.2f} px, {:.2f} {:s}".format(rmsd_img,\
-                rmsd_angular, angular_error_label))
+            self.tab.geolocation.residuals_label.setText(f"Residuals:\n{rmsd_img:.2f} px, {rmsd_angular:.2f} {angular_error_label:s}")
 
         # Print the field of view size
-        #print("FOV: {:.2f} x {:.2f} deg".format(*computeFOVSize(self.platepar))) 
+        #print(f"FOV: {computeFOVSize(self.platepar)[0]:.2f} x {computeFOVSize(self.platepar)[1]:.2f} deg") 
 
         ####################
 
@@ -5927,8 +5914,7 @@ class PlateTool(QtWidgets.QMainWindow):
             pick['snr'] = snr
 
             # Debug print
-            print("SNR update: intensity sum = {:8d}, source px count = {:5d}, background lvl = {:8.2f}, background stddev = {:6.2f}, SNR = {:.2f}".format(
-                intensity_sum, source_px_count, background_lvl, background_stddev, snr))
+            print(f"SNR update: intensity sum = {intensity_sum:8d}, source px count = {source_px_count:5d}, background lvl = {background_lvl:8.2f}, background stddev = {background_stddev:6.2f}, SNR = {snr:.2f}")
 
             ### Determine if there is any saturation in the measured photometric area
 
@@ -6046,9 +6032,9 @@ class PlateTool(QtWidgets.QMainWindow):
                 mag_str = 'GAIA G band'
 
             else:
-                mag_str = "{:.2f}B + {:.2f}V + {:.2f}R + {:.2f}I".format(*self.config.star_catalog_band_ratios)
+                mag_str = f"{self.config.star_catalog_band_ratios[0]:.2f}B + {self.config.star_catalog_band_ratios[1]:.2f}V + {self.config.star_catalog_band_ratios[2]:.2f}R + {self.config.star_catalog_band_ratios[3]:.2f}I"
 
-            ax_p.set_ylabel("Apparent magnitude ({:s})".format(mag_str))
+            ax_p.set_ylabel(f"Apparent magnitude ({mag_str:s})")
 
         else:
 
@@ -6321,9 +6307,9 @@ class PlateTool(QtWidgets.QMainWindow):
         if self.img_handle.input_type == 'ff':
             ff_name = self.img_handle.current_ff_file
         else:
-            ff_name = "FF_{:s}_".format(self.platepar.station_code) \
+            ff_name = f"FF_{self.platepar.station_code:s}_" \
                           + self.img_handle.beginning_datetime.strftime("%Y%m%d_%H%M%S_") \
-                          + "{:03d}".format(int(self.img_handle.beginning_datetime.microsecond//1000)) \
+                          + f"{int(self.img_handle.beginning_datetime.microsecond//1000):03d}" \
                           + "_0000000.fits"
 
         # Get the number of stars in the list
@@ -6382,11 +6368,11 @@ class PlateTool(QtWidgets.QMainWindow):
             value = meta_dict[key]
 
             if isinstance(value, str):
-                value_str = "'{:s}'".format(value)
+                value_str = f"'{value:s}'"
             else:
                 value_str = str(value)
 
-            out_str += "# - {" + "{:s}: {:s}".format(key, value_str) + "}\n"
+            out_str += "# - {" + f"{key:s}: {value_str:s}" + "}\n"
 
 
         out_str += "# schema: astropy-2.0\n"
@@ -6477,14 +6463,14 @@ class PlateTool(QtWidgets.QMainWindow):
             # Add an entry to the ECSV file
             entry = [
                 frame_time.strftime(isodate_format_entry),
-                "{:10.6f}".format(ra), "{:+10.6f}".format(dec),
-                "{:10.6f}".format(azim), "{:+10.6f}".format(alt),
-                "{:9.3f}".format(pick['x_centroid']), "{:9.3f}".format(pick['y_centroid']), 
-                "{:10d}".format(int(pick['intensity_sum'])),
-                "{:10d}".format(int(pick['background_intensity'])),
-                "{:5s}".format(str(pick['saturated'])),
-                "{:+7.2f}".format(mag), "{:+6.2f}".format(-mag_err_total), "{:+6.2f}".format(mag_err_total),
-                "{:10.2f}".format(snr)
+                f"{ra:10.6f}", f"{dec:+10.6f}",
+                f"{azim:10.6f}", f"{alt:+10.6f}",
+                f"{pick['x_centroid']:9.3f}", f"{pick['y_centroid']:9.3f}", 
+                f"{int(pick['intensity_sum']):10d}",
+                f"{int(pick['background_intensity']):10d}",
+                f"{str(pick['saturated']):5s}",
+                f"{mag:+7.2f}", f"{-mag_err_total:+6.2f}", f"{mag_err_total:+6.2f}",
+                f"{snr:10.2f}"
                 ]
 
             out_str += ",".join(entry) + "\n"
@@ -6529,7 +6515,7 @@ class PlateTool(QtWidgets.QMainWindow):
 
     def printFrameRate(self):
         try:
-            print('FPS: {}'.format(np.average(self.frames)))
+            print(f'FPS: {np.average(self.frames)}')
             self.frames[self.i] = 1/(time.time() - self.time)
             self.i = (self.i + 1)%self.n
         except ZeroDivisionError:
@@ -6827,11 +6813,11 @@ if __name__ == '__main__':
         super(PlateTool, plate_tool).__init__()
 
         if cml_args.mask is not None:
-            print("Given a path to a mask at {}".format(cml_args.mask))
+            print(f"Given a path to a mask at {cml_args.mask}")
             mask = getMaskFile(os.path.expanduser(cml_args.mask), config)
 
         elif os.path.exists(os.path.join(config.rms_root_dir, config.mask_file)):
-            print("No mask specified loading mask from {}".format(os.path.join(config.rms_root_dir, config.mask_file)))
+            print(f"No mask specified loading mask from {os.path.join(config.rms_root_dir, config.mask_file)}")
             mask = getMaskFile(config.rms_root_dir, config)
 
         elif os.path.exists("mask.bmp"):
@@ -6842,8 +6828,7 @@ if __name__ == '__main__':
 
         # If the dimensions of the mask do not match the config file, ignore the mask
         if (mask is not None) and (not mask.checkResolution(config.width, config.height)):
-            print("Mask resolution ({:d}, {:d}) does not match the image resolution ({:d}, {:d}). Ignoring the mask.".format(
-                mask.width, mask.height, config.width, config.height))
+            print(f"Mask resolution ({mask.width:d}, {mask.height:d}) does not match the image resolution ({config.width:d}, {config.height:d}). Ignoring the mask.")
             mask = None
 
         plate_tool.loadState(dir_path, state_name, beginning_time=beginning_time, mask=mask)
@@ -6862,12 +6847,12 @@ if __name__ == '__main__':
 
 
         if cml_args.mask is not None:
-            print("Given a path to a mask at {}".format(cml_args.mask))
+            print(f"Given a path to a mask at {cml_args.mask}")
             mask = getMaskFile(os.path.expanduser(cml_args.mask), config)
 
         elif os.path.exists(os.path.join(config.rms_root_dir, config.mask_file)):
 
-            print("No mask specified loading mask from {}".format(os.path.join(config.rms_root_dir, config.mask_file)))
+            print(f"No mask specified loading mask from {os.path.join(config.rms_root_dir, config.mask_file)}")
             mask = getMaskFile(config.rms_root_dir, config)
 
         elif os.path.exists("mask.bmp"):
@@ -6878,8 +6863,7 @@ if __name__ == '__main__':
 
         # If the dimensions of the mask do not match the config file, ignore the mask
         if (mask is not None) and (not mask.checkResolution(config.width, config.height)):
-            print("Mask resolution ({:d}, {:d}) does not match the image resolution ({:d}, {:d}). Ignoring the mask.".format(
-                mask.width, mask.height, config.width, config.height))
+            print(f"Mask resolution ({mask.width:d}, {mask.height:d}) does not match the image resolution ({config.width:d}, {config.height:d}). Ignoring the mask.")
             mask = None
 
         # Init SkyFit
